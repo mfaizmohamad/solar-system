@@ -1,0 +1,1657 @@
+/**
+ * Un corps céleste (planète, satellite, Soleil) et toutes ses couches visuelles.
+ *
+ * Chaque corps est un graphe de Groups imbriqués :
+ *   group      → translation (position orbitale, posée par OrbitalMechanics)
+ *     _tiltGroup  → orientation de l'axe de rotation (obliquité + azimut réels, fixe dans l'espace)
+ *       _meshGroup  → rotation propre (jour/nuit) ; porte les couches :
+ *         surface · clouds · atmosphere · lights (shader jour/nuit) · ring
+ *
+ * Gère aussi le LOD des textures (résolution selon la distance caméra) et le passage
+ * Éducatif ↔ Explo (taille de base vs vraie taille physique via radiusKm).
+ */
+import * as THREE from 'three';
+import {
+  buildLayers,
+  createSurfaceLayerMaterial,
+} from '@/components/celestial/celestialLayers';
+import { applyTexture } from '@/components/celestial/celestialTextures';
+import { KM_PER_AU, SQRT_K } from '@/core/ScaleService';
+import { fitScale, meshVolume, volumeEquivalentRadius } from '@/core/modelFit';
+import { drapeEquirectangular } from '@/core/modelUv';
+import { markGlowOccluder } from '@/components/systems/glowSelection';
+import {
+  GEOMETRY_SEGMENTS_HI,
+  createSphereGeometry,
+  createColoredOverlayMaterial,
+  getCloudShadowUniforms,
+  getEclipseShadowUniforms,
+  getMoonlightUniforms,
+  getOverlaySunUniform,
+  getPrecipUniforms,
+  getRealCloudsUniforms,
+  getRingShadowUniforms,
+  getLayerTwilightWrap,
+  getThermalUniforms,
+  LAYER_TERMINATOR_WRAP,
+  type EclipseShadowUniforms,
+  type PrecipUniforms,
+  type ThermalUniforms,
+  setMaterialLightAttenuation,
+  type CloudShadowUniforms,
+  type MoonlightUniforms,
+  type RingShadowUniforms,
+} from '@/config/layerConfig';
+import {
+  BOOT_QUALITY_PROFILE,
+  PRECIP_SETTINGS,
+  REALTIME_CLOUDS_SETTINGS,
+} from '@/config/engine';
+import { approachFloorRadiusFactor } from '@/core/surfaceApproach';
+import { modelPath, ringTexturePath } from '@/config/catalog';
+import {
+  geographicToLocalDirection,
+  localDirectionToGeographic,
+} from '@/core/frames';
+import {
+  chooseModelQuality,
+  lightestModelQuality,
+  type ModelQuality,
+} from '@/core/modelLod';
+import type { CameraDistance, CelestialBodyConfig } from '@/types';
+import * as NightLightsShader from '@/shaders/NightLightsShader';
+import Logger from '@/utils/Logger';
+import type { AnimationSystem } from '@/components/systems/AnimationSystem';
+import { TEXTURE_QUALITY_PIXELS } from '@/components/systems/TextureSystem';
+import type { TextureSystem } from '@/components/systems/TextureSystem';
+import type { MeteoRenderDiagnostics } from '@/core/meteoDiagnostics';
+import { whenIdle } from '@/utils/idleCallback';
+
+const CLOUDS_ROTATION_FACTOR = 0.1;
+// Opacité de l'ombre portée des nuages sur la surface (0 = aucune, 1 = noir).
+const CLOUD_SHADOW_STRENGTH = 0.35;
+// Distance (en rayons apparents) sous laquelle on densifie la surface pour le
+// displacement. Au-delà, le relief géométrique est invisible → géométrie standard.
+const HI_RES_TESSELLATION_ENTER = 12;
+const HI_RES_TESSELLATION_EXIT = 14;
+// Intensité maximale du clair de Lune (pleine Lune, point face à la Lune). Faible :
+// la nuit reste sombre, la Lune ne fait que déposer une lueur subtile sur les mers/sol.
+const MOONLIGHT_MAX_STRENGTH = 0.12;
+
+// Durée du fondu enchaîné entre deux frames de pluie IMERG (transition douce, sans
+// clignotement au changement de demi-heure). Piloté par le temps réel (delta).
+const PRECIP_FADE_SECONDS = 0.6;
+// Vecteurs de travail (calcul de phase lunaire) — évite d'allouer chaque frame.
+const _tmpMoonVecA = new THREE.Vector3();
+const _tmpMoonVecB = new THREE.Vector3();
+const _tmpWorldQuaternion = new THREE.Quaternion();
+
+// Orientation initiale (fallback) de l'axe : simple obliquité penchée vers -Z. Remplacée
+// dès le premier sync par setAxisDirection(), qui oriente l'axe le long du vrai pôle nord
+// IAU (obliquité + azimut réels). Ce fallback ne sert qu'entre la création et ce sync.
+const TILT_AXIS = new THREE.Vector3(1, 0, 0); // on penche autour de +X → l'axe Y bascule vers ∓Z
+// Axe de spin local du _meshGroup (= +Y) qu'on aligne sur la direction réelle du pôle.
+const LOCAL_UP = new THREE.Vector3(0, 1, 0);
+
+export default class CelestialObject {
+  readonly group: THREE.Group;
+  // _tiltGroup : porte l'obliquité (fixe dans l'espace car group ne fait que translater).
+  // _meshGroup : enfant de _tiltGroup, tourne sur l'axe penché (rotation diurne).
+  /**
+   * Matériaux POSÉS SUR la surface par un moteur extérieur (carreaux d'imagerie streamée).
+   * Ils ne sont pas des couches du corps — leur cycle de vie appartient au moteur — mais ils
+   * doivent recevoir la même irradiance et la même occultation à chaque frame.
+   */
+  private readonly _overlayMaterials = new Set<THREE.Material>();
+  /** Finesse de l'imagerie streamée qui recouvre la surface, en px sur 360° (0 = aucune). */
+  private _streamedImageryWidthPx = 0;
+  private readonly _tiltGroup: THREE.Group;
+  private readonly _meshGroup: THREE.Group;
+  private readonly layers: Map<string, THREE.Mesh>;
+
+  private readonly rotationSpeed: number;
+
+  // Facteur d'échelle visuel : 1 en Éducatif, vraie taille physique en Explo.
+  private _scaleFactor = 1;
+
+  private lastLODNormalizedDistance = Infinity;
+  // Dernier palier de qualité surface effectivement chargé (ultra/high/…). Le LOD ne
+  // relance un chargement que lorsque ce palier CHANGE, pas à chaque petit déplacement
+  // caméra : évite le « thrash » d'oscillation entre deux résolutions autour d'un seuil.
+  private _lastLODQuality: string | null = null;
+  private _lodPending = false;
+  private _disposed = false;
+  private readonly _lodWorldPos = new THREE.Vector3();
+  private readonly _hasTextures: boolean;
+  // Géométrie surface haute densité active (pour le displacement au gros plan) :
+  // évite de reconstruire la sphère à chaque frame, seulement sur transition.
+  private _hiResSurfaceActive = false;
+  // Les deux géométries de surface (standard + hi-res) sont construites une seule fois,
+  // à la première demande, puis conservées et simplement RÉ-ASSIGNÉES sur transition —
+  // au lieu d'être reconstruites + dispose() à chaque franchissement de seuil (alloc +
+  // upload GPU = freeze ponctuel à l'approche). Disposées ensemble dans dispose().
+  private _surfaceGeoStd: THREE.BufferGeometry | null = null;
+  private _surfaceGeoHi: THREE.BufferGeometry | null = null;
+  // Dernière texture appliquée par clé — évite de re-uploader au GPU une résolution
+  // identique (getLODTexture renvoie le même objet depuis le cache).
+  private readonly _appliedTextures = new Map<string, THREE.Texture>();
+  // Uniforms d'ombre nuageuse du matériau surface (si présent) : la cloud map y
+  // est partagée pour projeter l'ombre des nuages, et l'offset suit leur dérive.
+  private _cloudShadow?: CloudShadowUniforms;
+  // Uniforms d'ombre portée de la planète sur son anneau (Saturne).
+  private _ringShadow?: RingShadowUniforms;
+  // Modèle de forme d'un corps irrégulier. Propriété EXPLICITE : ces maillages ne passent pas
+  // par `layers` (qui suppose une couche = un mesh nommé, itérée par les textures et le morph
+  // d'échelle), donc rien ne les libérerait sans cette référence. Disposés dans dispose().
+  private _modelRoot: THREE.Group | null = null;
+  private _modelMeshes: THREE.Mesh[] = [];
+  /** Vrai quand les maillages du modèle portent le matériau PARTAGÉ de la sphère (drapé). */
+  private _modelDraped = false;
+  /** Niveau du modèle affiché, et celui en cours de chargement (un seul à la fois). */
+  private _modelQuality: ModelQuality | null = null;
+  private _modelLoading: ModelQuality | null = null;
+  private readonly _ringWorldPos = new THREE.Vector3();
+  // Uniforms de clair de Lune du matériau surface (Terre) : la face nuit reçoit
+  // une lueur diffuse selon la position réelle de la Lune (réflecteur).
+  private _moonlight?: MoonlightUniforms;
+  // Uniforms « clair de Lune » du matériau NUAGES : on n'exploite que sa position Soleil
+  // (uMoonSunPos) pour le fondu jour/nuit des nuages (disparition côté nuit). Le glow lunaire
+  // reste inerte (strength jamais alimentée pour les nuages).
+  private _cloudsMoonlight?: MoonlightUniforms;
+  // Uniforms d'ombre d'éclipse PAR FRAGMENT du matériau surface (Terre uniquement, cf.
+  // config/layerConfig.ts option eclipseShadow) : bande d'ombre réelle Soleil/Lune au gros
+  // plan, alimentée chaque frame par setEclipseShadowSource (appelé depuis AnimationSystem).
+  private _eclipseShadow?: EclipseShadowUniforms;
+  // Uniforms de la couche pluie (Terre) : position du Soleil pour l'éclairage jour/nuit.
+  private _precip?: PrecipUniforms;
+  private _precipMat?: THREE.MeshBasicMaterial;
+  // Couche température de surface (Terre, MODIS LST) : mesh + uniforms + activité (toggle).
+
+  private _thermalMat?: THREE.MeshBasicMaterial;
+  private _thermal?: ThermalUniforms;
+  // Matériaux d'overlay de DONNÉE PRÉ-COLORÉE (famille B modèle : température/pluie sur grille),
+  // un par couche cible (`thermal`, `precip`). Le mesh cible bascule sur ce matériau dédié quand la
+  // donnée modèle est active (le matériau GIBS/IMERG d'origine est MÉMORISÉ, pas disposé, pour
+  // pouvoir revenir au satellite/GIBS). Couches modèle et satellite/GIBS sont exclusives sur un
+  // même mesh, mais réversibles.
+  private readonly _dataOverlayMats = new Map<
+    string,
+    THREE.MeshBasicMaterial
+  >();
+  private readonly _originalLayerMats = new Map<string, THREE.Material>();
+  // Fondu enchaîné pluie : durée écoulée (s) de la transition en cours (< 0 = inactive).
+  private _precipFadeElapsed = -1;
+  private _precipFadeTarget: THREE.Texture | null = null;
+  private readonly _selfWorldPos = new THREE.Vector3();
+  // Nuages géoréférencés réels (GIBS) : quand actif, on suspend la dérive continue
+  // de la couche nuages (qui simule des nuages fictifs) — une vraie image satellite
+  // doit rester alignée sur sa longitude. La Terre continue de tourner (_meshGroup).
+  private _realCloudDrift = true;
+  // Vrai dès que la phase de rotation du corps est imposée depuis la date plutôt qu'intégrée
+  // frame par frame (cf. setSurfaceRotation) — la Terre, seul corps ayant une longitude
+  // subsolaire vraie à respecter.
+  private _surfaceRotationDriven = false;
+  // Vrai dès qu'une couverture nuageuse réelle (GIBS) est appliquée : le LOD de
+  // textures ne doit alors PLUS toucher la couche `clouds` (sinon il réécrit la
+  // cloud map statique par-dessus l'image satellite à chaque changement de distance
+  // caméra — c'était la cause de « nuages statiques / absents »).
+  private _realCloudsActive = false;
+  // Carte statique complète, conservée comme secours uniquement pour les pixels polaires sans donnée NASA.
+  private _staticCloudTexture: THREE.Texture | null = null;
+
+  constructor(
+    private readonly textureSystem: TextureSystem,
+    private readonly config: CelestialBodyConfig,
+    readonly name: string,
+    private readonly animationSystem: AnimationSystem
+  ) {
+    this.group = new THREE.Group();
+    this.group.name = name;
+
+    this._tiltGroup = new THREE.Group();
+    this._tiltGroup.name = `${name}_tilt`;
+    // Obliquité : on penche l'axe de spin de -tilt autour de +X (axe Y → vers -Z).
+    this._tiltGroup.rotateOnAxis(TILT_AXIS, -(config.realData?.axialTilt ?? 0));
+    this.group.add(this._tiltGroup);
+
+    this._meshGroup = new THREE.Group();
+    this._meshGroup.name = `${name}_mesh`;
+    this._tiltGroup.add(this._meshGroup);
+
+    this.rotationSpeed = config.rotationSpeed ?? 0;
+    this._hasTextures = Object.keys(config.textures ?? {}).length > 0;
+
+    this.layers = buildLayers(config, name);
+    this.layers.forEach((mesh) => this._meshGroup.add(mesh));
+    const surface = this.layers.get('surface');
+    if (surface && !Array.isArray(surface.material)) {
+      this._cloudShadow = getCloudShadowUniforms(surface.material);
+      this._moonlight = getMoonlightUniforms(surface.material);
+      this._eclipseShadow = getEclipseShadowUniforms(surface.material);
+    }
+    const clouds = this.layers.get('clouds');
+    if (clouds && !Array.isArray(clouds.material)) {
+      this._cloudsMoonlight = getMoonlightUniforms(clouds.material);
+    }
+    const precip = this.layers.get('precip');
+    if (precip && !Array.isArray(precip.material)) {
+      this._precipMat = precip.material as THREE.MeshBasicMaterial;
+      this._precip = getPrecipUniforms(precip.material);
+    }
+    const thermal = this.layers.get('thermal');
+    if (thermal && !Array.isArray(thermal.material)) {
+      this._thermalMat = thermal.material as THREE.MeshBasicMaterial;
+      this._thermal = getThermalUniforms(thermal.material);
+    }
+    const ring = this.layers.get('ring');
+    if (ring && !Array.isArray(ring.material))
+      this._ringShadow = getRingShadowUniforms(ring.material);
+    if (this.layers.has('ring')) void this._loadRingTexture();
+    // On commence par le niveau le plus léger : un astéroïde qu'on ne visite pas ne coûte que
+    // ~70 Kio. Le LOD (updateLODTextures) monte ensuite le niveau quand la caméra approche.
+    const firstModel = this.config.model
+      ? lightestModelQuality(this.config.model.resolutions)
+      : null;
+    if (firstModel) void this._loadShapeModel(firstModel);
+
+    // Les corps sans loadPriority (astéroïdes/comètes du catalogue, hors couche instrument
+    // 2D) ne sont pas sur le chemin critique du boot : repousser leur texture après la
+    // rafale d'initialisation évite qu'ils se disputent la bande passante/le thread principal
+    // avec les corps réellement affichés d'entrée (Soleil, planètes, Lune). Mesuré via
+    // Lighthouse : ces textures apparaissaient dans la même fenêtre que le Total Blocking
+    // Time du boot sans bénéfice visuel immédiat, la caméra ne les regardant jamais au
+    // premier rendu (vue d'ensemble, corps minuscules ou hors-champ).
+    if (this.config.loadPriority === undefined) {
+      whenIdle(() => void this._loadAllTextures());
+    } else {
+      void this._loadAllTextures();
+    }
+    this._registerForUpdates();
+
+    Logger.info(`[CelestialObject] Created "${name}"`);
+  }
+
+  /** Distance de visite caméra par mode (source : catalogue). */
+  get cameraDistance(): CameraDistance | undefined {
+    return this.config.cameraDistance;
+  }
+
+  // ============================================================================
+  // TEXTURE LOADING
+  // ============================================================================
+
+  private _applyLoadedTexture(
+    textureKey: string,
+    texture: THREE.Texture
+  ): void {
+    // Une observation GIBS active remplace la carte statique : ne la réinstalle pas
+    // lorsqu’un chargement LOD commencé avant l’observation se termine plus tard.
+    if (textureKey === 'clouds' && this._realCloudsActive) {
+      this.textureSystem.releaseCachedTexture(texture);
+      return;
+    }
+
+    const previous = this._appliedTextures.get(textureKey);
+    if (previous === texture) return;
+    if (textureKey === 'clouds') this._staticCloudTexture = texture;
+    applyTexture(this.layers, textureKey, texture);
+    if (textureKey === 'clouds') this._refreshRealCloudStaticFallback();
+    this._refreshRealCloudOceanMask();
+    this._bindCloudShadow(textureKey, texture);
+    this._appliedTextures.set(textureKey, texture);
+
+    // Le nouveau palier est maintenant attaché au mesh : l’ancienne variante peut
+    // être libérée, ce qui évite de conserver simultanément 1K + 2K + 4K du même layer.
+    if (previous && previous !== texture)
+      this.textureSystem.releaseCachedTexture(previous);
+  }
+
+  private async _loadAllTextures(): Promise<void> {
+    for (const textureKey of Object.keys(this.config.textures ?? {})) {
+      try {
+        const texture = await this.textureSystem.getLODTexture(
+          this.name,
+          textureKey,
+          100
+        );
+        this._applyLoadedTexture(textureKey, texture);
+      } catch {
+        Logger.warn(
+          `[CelestialObject] Failed to load ${textureKey} for ${this.name}`
+        );
+      }
+    }
+  }
+
+  /**
+   * Partage la cloud map avec le matériau surface pour projeter l'ombre des
+   * nuages, et active l'effet (strength > 0). Sans clouds, la branche reste inerte.
+   */
+  private _bindCloudShadow(textureKey: string, texture: THREE.Texture): void {
+    if (textureKey !== 'clouds' || !this._cloudShadow) return;
+    this._cloudShadow.map.value = texture;
+    this._cloudShadow.strength.value = CLOUD_SHADOW_STRENGTH;
+  }
+
+  /** Refresh the ocean mask after the satellite image and body textures load in parallel. */
+  private _refreshRealCloudStaticFallback(): void {
+    const clouds = this.layers.get('clouds');
+    if (!clouds || Array.isArray(clouds.material)) return;
+    const uniforms = getRealCloudsUniforms(clouds.material);
+    if (!uniforms) return;
+    uniforms.staticMap.value = this._staticCloudTexture;
+    uniforms.hasStaticMap.value = this._staticCloudTexture ? 1 : 0;
+  }
+  private _refreshRealCloudOceanMask(): void {
+    const clouds = this.layers.get('clouds');
+    if (!clouds || Array.isArray(clouds.material)) return;
+    const uniforms = getRealCloudsUniforms(clouds.material);
+    if (!uniforms || uniforms.enabled.value <= 0.5) return;
+
+    const surface = this.layers.get('surface');
+    const surfaceMat =
+      surface && !Array.isArray(surface.material)
+        ? (surface.material as THREE.MeshStandardMaterial)
+        : undefined;
+    const oceanMask = surfaceMat?.roughnessMap ?? null;
+    uniforms.oceanMask.value = oceanMask;
+    uniforms.hasOceanMask.value = oceanMask ? 1 : 0;
+  }
+
+  /**
+   * Applique une couverture nuageuse RÉELLE (image satellite GIBS) à la couche
+   * nuages : la texture sert de `map` et son alpha est dérivé par extraction shader
+   * (nuages = blanc lumineux désaturé). Aligne l'image (rotation nuages remise à 0),
+   * suspend la dérive fictive, et branche l'ombre portée. `opacity`/seuils optionnels
+   * surchargent les valeurs par défaut du matériau. Sans couche nuages → no-op.
+   */
+  setRealCloudsTexture(
+    texture: THREE.Texture,
+    options: {
+      opacity?: number;
+      lumLow?: number;
+      lumHigh?: number;
+      satMax?: number;
+      lumLowLand?: number;
+      /** Désactive les cartes MODIS/modèle/statique pour le diagnostic True Color brut. */
+      supplementalMaps?: boolean;
+      /**
+       * Comblement SYNTHÉTIQUE des trous de couverture satellite (carte nuages statique
+       * versionnée + modèle Open-Meteo 4°). false par défaut : on n'affiche QUE la donnée
+       * satellite réelle du jour (True Color + masques MODIS Cloud Fraction Day/Night, eux
+       * aussi observés). Là où le satellite n'a pas vu (nuit polaire, trou de fauchée), on
+       * laisse un vide honnête plutôt qu'une invention étirée aux pôles. Réactivable par la
+       * couche « Nuages (modèle) », explicitement étiquetée comme non observée.
+       */
+      syntheticFill?: boolean;
+    } = {}
+  ): void {
+    const clouds = this.layers.get('clouds');
+    if (!clouds || Array.isArray(clouds.material)) return;
+    // À partir d'ici, le LOD de textures ne doit plus écraser la couche nuages.
+    this._realCloudsActive = true;
+    // La carte statique n’est plus utilisée dès qu’une observation GIBS est appliquée.
+    // On la retire du cache GPU : elle ne sert qu’au fallback hors ligne avant résolution.
+    const staticCloudTexture = this._staticCloudTexture;
+    this._staticCloudTexture = null;
+    this._refreshRealCloudStaticFallback();
+    this._appliedTextures.delete('clouds');
+    if (staticCloudTexture && staticCloudTexture !== texture)
+      this.textureSystem.releaseCachedTexture(staticCloudTexture);
+    const mat = clouds.material as THREE.MeshStandardMaterial;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    mat.map = texture;
+    // L'alpha vient de l'extraction shader (diffuseColor.a), pas d'une alphaMap :
+    // on retire toute alphaMap héritée de la couche statique.
+    mat.alphaMap = null;
+    if (options.opacity !== undefined) mat.opacity = options.opacity;
+    mat.needsUpdate = true;
+
+    const uniforms = getRealCloudsUniforms(mat);
+    if (uniforms) {
+      uniforms.enabled.value = 1;
+      if (options.lumLow !== undefined) uniforms.lumLow.value = options.lumLow;
+      if (options.lumHigh !== undefined)
+        uniforms.lumHigh.value = options.lumHigh;
+      if (options.satMax !== undefined) uniforms.satMax.value = options.satMax;
+      if (options.lumLowLand !== undefined)
+        uniforms.lumLowLand.value = options.lumLowLand;
+      if (options.supplementalMaps === false) {
+        uniforms.hasDayMap.value = 0;
+        uniforms.hasNightMap.value = 0;
+        uniforms.hasModelMap.value = 0;
+        uniforms.staticStrength.value = 0;
+      }
+      // Par défaut (syntheticFill non true), on coupe le comblement INVENTÉ (modèle Open-Meteo
+      // + carte statique) tout en gardant les masques MODIS Day/Night, qui sont de la vraie
+      // observation satellite. Résultat : aucun voile étiré aux pôles, seulement du réel.
+      if (options.syntheticFill !== true) {
+        uniforms.hasModelMap.value = 0;
+        uniforms.staticStrength.value = 0;
+      }
+      // Carte océan = canal g de la spec map (roughnessMap) de la surface : lève
+      // l'ambiguïté sable-clair/nuage (voir REAL_CLOUDS_GLSL). Peut être absente si la
+      // spec map n'est pas encore chargée → extraction « terre stricte » partout jusque-là.
+      const surface = this.layers.get('surface');
+      const surfaceMat =
+        surface && !Array.isArray(surface.material)
+          ? (surface.material as THREE.MeshStandardMaterial)
+          : undefined;
+      const oceanMask = surfaceMat?.roughnessMap ?? null;
+      uniforms.oceanMask.value = oceanMask;
+      uniforms.hasOceanMask.value = oceanMask ? 1 : 0;
+      if (options.supplementalMaps !== false)
+        uniforms.hasNightMap.value = uniforms.nightMap.value ? 1 : 0;
+    }
+
+    // Image géoréférencée : on la fige à sa longitude (fin de la dérive fictive) et
+    // on aligne l'ombre portée sur l'orientation courante de la couche.
+    clouds.rotation.y = 0;
+    this._realCloudDrift = false;
+    this._bindCloudShadow('clouds', texture);
+    if (this._cloudShadow) this._cloudShadow.offset.value = 0;
+  }
+
+  /**
+   * Applique une couverture nuageuse MODÉLISÉE (grille Open-Meteo `cloud_cover`, famille B) à la
+   * couche nuages. Contrairement à {@link setRealCloudsTexture} (image satellite dont l'alpha est
+   * EXTRAIT par shader), ici la donnée EST déjà la couverture : la texture (niveaux de gris) sert
+   * d'`alphaMap` (three lit son canal vert) et la couleur blanche vient du matériau. L'extraction
+   * shader est donc DÉSACTIVÉE (`uRealClouds = 0`). Avantage produit : couverture globale sans
+   * trou (pas de fauchée satellite) + passé/futur. Sans couche nuages → no-op.
+   */
+  /**
+   * Attache la carte MODIS Cloud Fraction Night au shader True Color. Elle est échantillonnée
+   * uniquement lorsque le pixel optique est noir (nuit polaire / absence de soleil).
+   */
+  /**
+   * Attache la carte MODIS Cloud Fraction Day au shader nuages. La palette scientifique
+   * est dÃ©codÃ©e dans le shader ; l'alpha PNG indique les zones couvertes par le produit.
+   */
+  setRealCloudsDayTexture(texture: THREE.Texture): void {
+    const clouds = this.layers.get('clouds');
+    if (!clouds || Array.isArray(clouds.material)) return;
+    const uniforms = getRealCloudsUniforms(clouds.material);
+    if (!uniforms) return;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+    texture.colorSpace = THREE.NoColorSpace;
+    uniforms.dayMap.value = texture;
+    const image = texture.image as
+      { width?: number; height?: number } | undefined;
+    const width = Math.max(image?.width ?? 1, 1);
+    const height = Math.max(image?.height ?? 1, 1);
+    uniforms.dayTexelSize.value.set(1 / width, 1 / height);
+    uniforms.hasDayMap.value = 1;
+  }
+
+  /**
+   * Attache la couverture nuageuse modélisée comme secours des produits satellite.
+   * Elle n'écrase jamais la texture True Color ni les masques MODIS : le shader ne
+   * l'utilise que lorsque ces sources n'ont pas de couverture valide au pixel.
+   */
+  setRealCloudsModelFallbackTexture(texture: THREE.Texture): void {
+    const clouds = this.layers.get('clouds');
+    if (!clouds || Array.isArray(clouds.material)) return;
+    const uniforms = getRealCloudsUniforms(clouds.material);
+    if (!uniforms) return;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.magFilter = THREE.LinearFilter;
+    texture.minFilter = THREE.LinearFilter;
+    texture.colorSpace = THREE.NoColorSpace;
+    uniforms.modelMap.value = texture;
+    uniforms.hasModelMap.value = 1;
+  }
+  setRealCloudsNightFallbackTexture(texture: THREE.Texture): void {
+    const clouds = this.layers.get('clouds');
+    if (!clouds || Array.isArray(clouds.material)) return;
+    const uniforms = getRealCloudsUniforms(clouds.material);
+    if (!uniforms) return;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+    texture.colorSpace = THREE.NoColorSpace;
+    uniforms.nightMap.value = texture;
+    const image = texture.image as
+      { width?: number; height?: number } | undefined;
+    const width = Math.max(image?.width ?? 1, 1);
+    const height = Math.max(image?.height ?? 1, 1);
+    uniforms.nightTexelSize.value.set(1 / width, 1 / height);
+    uniforms.hasNightMap.value = 1;
+  }
+  /**
+   * Attache un objet 3D au groupe qui porte la rotation diurne (comme la surface/les
+   * nuages) : il tourne donc avec le corps. Utilisé par la couche de particules de vent.
+   */
+  attachSpinningChild(object: THREE.Object3D): void {
+    this._meshGroup.add(object);
+  }
+
+  /**
+   * Met la sphère de SURFACE à une fraction de son rayon, ou la rétablit (facteur 1).
+   *
+   * Employé par le moteur de surface quand il pose du relief mesuré (lot 9, phase 9D) : les
+   * altitudes d'un modèle d'élévation sont rapportées à un rayon de référence, et une bonne
+   * moitié d'un corps est SOUS ce rayon — les mers lunaires descendent à 2 ou 3 km en dessous.
+   * Laissée à sa taille, la sphère livrée masquerait tous les fonds, c'est-à-dire précisément
+   * ce que le relief apporte.
+   *
+   * Elle est donc descendue au minimum MESURÉ du jeu de hauteurs : elle reste une borne
+   * inférieure de la surface réelle et ne montre rien que la donnée ne porte pas. Seule la
+   * couche `surface` bouge ; nuages, atmosphère et anneaux gardent leur rayon, qui n'a rien à
+   * voir avec le relief.
+   */
+  setSurfaceShellScale(factor: number): void {
+    const surface = this.layers.get('surface');
+    if (!surface || !(factor > 0)) return;
+    surface.scale.setScalar(factor);
+  }
+
+  /**
+   * Matériau d'une couche POSÉE SUR la surface (carreau d'imagerie streamée, lot 9 phase 9C),
+   * construit avec exactement les paramètres de la surface de ce corps.
+   *
+   * Il est enregistré pour recevoir, comme les couches du corps, l'irradiance et l'occultation
+   * de chaque frame : sans cela un carreau resterait à pleine lumière pendant que la sphère
+   * qu'il recouvre s'assombrit, et la différence se verrait d'abord à l'éclipse.
+   */
+  createSurfaceOverlayMaterial(): THREE.Material {
+    const material = createSurfaceLayerMaterial(this.config, this.name);
+    this._overlayMaterials.add(material);
+    return material;
+  }
+
+  /** Oublie un matériau de recouvrement (l'appelant reste responsable de son `dispose`). */
+  releaseSurfaceOverlayMaterial(material: THREE.Material): void {
+    this._overlayMaterials.delete(material);
+  }
+
+  /**
+   * RÉCIPROQUE de `surfacePointToWorld` : la latitude et la longitude du point de surface que
+   * vise un point du monde (typiquement la caméra), sur la sphère telle qu'elle est TOURNÉE à
+   * l'instant de la scène.
+   *
+   * Passe par `_meshGroup.worldToLocal`, donc par la chaîne exacte qui oriente la surface. Un
+   * second chemin — reconstruire la phase depuis l'axe et la date — redonnerait une longitude
+   * indépendante de celle qui est RENDUE, et les carreaux se poseraient à côté des continents.
+   */
+  worldPointToGeographic(worldPoint: THREE.Vector3): {
+    latitudeDeg: number;
+    longitudeDeg: number;
+  } {
+    const local = this._meshGroup.worldToLocal(worldPoint.clone());
+    return localDirectionToGeographic(local);
+  }
+
+  /** Rayon local des couches (espace du _meshGroup), avant scaleFactor de scène. */
+  get layerRadius(): number {
+    return this.config.radius;
+  }
+
+  /**
+   * Position MONDE d'un point géographique de la surface (degrés, altitude 0).
+   *
+   * Passe par `_meshGroup.localToWorld`, donc par la chaîne EXACTE qui oriente la surface :
+   * translation du `group`, quaternion du `_tiltGroup` (vrai pôle IAU) puis rotation propre du
+   * `_meshGroup` — celle que `setSurfaceRotation` recale sur la date à chaque frame. Un
+   * marqueur posé ici tombe donc sur la même longitude que les continents de la texture et
+   * que le point subsolaire, dans les deux modes d'échelle et pendant le morph.
+   *
+   * Recalculer ce produit ailleurs, à partir du rayon et de l'axe, redonnerait une phase
+   * indépendante de celle qui est RENDUE : c'est précisément la faute que
+   * `e2e/subsolar.spec.ts` décrit pour le terminateur.
+   */
+  surfacePointToWorld(
+    latitudeDeg: number,
+    longitudeDeg: number,
+    out = new THREE.Vector3()
+  ): THREE.Vector3 {
+    geographicToLocalDirection(latitudeDeg, longitudeDeg, out).multiplyScalar(
+      this.config.radius
+    );
+    return this._meshGroup.localToWorld(out);
+  }
+
+  private static _configurePrecipTex(texture: THREE.Texture): void {
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.colorSpace = THREE.SRGBColorSpace;
+  }
+
+  /**
+   * Affiche une frame de PRÉCIPITATION (carte IMERG) sur la couche `precip`, avec FONDU
+   * ENCHAÎNÉ depuis la frame précédente (pas de clignotement au changement de demi-heure).
+   * La première frame est posée directement ; les suivantes fondent en douceur via
+   * `_tickPrecipFade` (uniforms map/mapB + mix). `opacity` optionnelle surcharge le défaut.
+   * Sans couche precip → no-op.
+   */
+  setPrecipTexture(
+    texture: THREE.Texture,
+    options: { opacity?: number } = {}
+  ): void {
+    const mat = this._precipMat;
+    const uniforms = this._precip;
+    if (!mat || !uniforms) return;
+    CelestialObject._configurePrecipTex(texture);
+    if (options.opacity !== undefined) uniforms.opacity.value = options.opacity;
+    uniforms.enabled.value = 1;
+
+    // Première frame (aucune map encore) : pose directe, pas de fondu.
+    if (!mat.map) {
+      mat.map = texture;
+      uniforms.mix.value = 0;
+      mat.needsUpdate = true;
+      return;
+    }
+    // Même texture déjà en cours d'affichage : rien à faire.
+    if (mat.map === texture || this._precipFadeTarget === texture) return;
+
+    // Un fondu est déjà en cours : on le finalise (la cible devient la frame courante)
+    // avant d'enchaîner sur la nouvelle → pas de map figée si les frames arrivent vite.
+    if (this._precipFadeTarget) {
+      mat.map = this._precipFadeTarget;
+      this._precipFadeTarget = null;
+    }
+
+    // Démarre un fondu map → texture (via mapB).
+    uniforms.mapB.value = texture;
+    uniforms.mix.value = 0;
+    this._precipFadeTarget = texture;
+    this._precipFadeElapsed = 0;
+    mat.needsUpdate = true;
+  }
+
+  /**
+   * Applique une carte de TEMPÉRATURE de surface (MODIS LST) sur la couche `thermal`.
+   * La texture est colorée (arc-en-ciel) : affichée telle quelle, le fond blanc (pas de
+   * donnée) devenant transparent via le shader. Sans couche thermal → no-op.
+   */
+  setThermalTexture(
+    texture: THREE.Texture,
+    options: { opacity?: number } = {}
+  ): void {
+    const mat = this._thermalMat;
+    const uniforms = this._thermal;
+    if (!mat || !uniforms) return;
+    CelestialObject._configurePrecipTex(texture); // même config d'image GIBS équirectangulaire
+    if (options.opacity !== undefined) uniforms.opacity.value = options.opacity;
+    uniforms.enabled.value = 1;
+    mat.map = texture;
+    // C'est ICI que la couche devient visible, jamais avant : le matériau naît à opacity 0
+    // (cf. createThermalMaterial) parce que sans map il rendrait un voile BLANC opaque sur
+    // toute la planète, et observedTextureLayer affiche le mesh dès le clic, avant la fin
+    // de la requête. Reporter l'opacité au moment de l'assignation de la map rend
+    // « pas de donnée ⇒ rien à l'écran » structurel.
+    //
+    // Effet de bord corrigé au passage : cette opacité était jusqu'ici morte. Elle n'était
+    // stockée que dans userData, qu'aucun shader ne lit (ce matériau n'a pas de
+    // onBeforeCompile), donc THERMAL_SETTINGS.opacity était silencieusement ignoré au
+    // profit du 0.72 codé en dur dans le constructeur.
+    mat.opacity = uniforms.opacity.value;
+    mat.needsUpdate = true;
+  }
+
+  /**
+   * Affiche une texture de DONNÉE PRÉ-COLORÉE (famille B modèle : température/pluie sur grille
+   * Open-Meteo, déjà colorée par palette + alpha propre) sur la couche `layerKey` (`thermal` ou
+   * `precip`). La première fois, bascule le mesh cible sur un matériau d'overlay dédié qui respecte
+   * l'alpha de la texture (le matériau GIBS/IMERG d'origine — recalcul d'alpha / remap de teinte —
+   * corromprait nos couleurs) ; ensuite met seulement à jour la `map`. Couche inconnue → no-op.
+   */
+  setDataOverlay(
+    layerKey: string,
+    texture: THREE.Texture,
+    options: { opacity?: number } = {}
+  ): void {
+    const mesh = this.layers.get(layerKey);
+    if (!mesh || Array.isArray(mesh.material)) return;
+
+    let mat = this._dataOverlayMats.get(layerKey);
+    if (!mat) {
+      // La largeur du crépuscule vient de la COUCHE, pas de la source de la donnée : une
+      // couche modèle et sa jumelle satellite représentent la même chose physique sur le
+      // même mesh, elles doivent traverser la nuit ensemble (cf. LAYER_TERMINATOR_WRAP).
+      // Absente = couche d'instrument, rendue telle quelle.
+      mat = createColoredOverlayMaterial(
+        options.opacity ?? 0.85,
+        LAYER_TERMINATOR_WRAP[layerKey]
+      );
+      this._dataOverlayMats.set(layerKey, mat);
+    }
+    // Bascule le mesh sur le matériau d'overlay pré-coloré, en MÉMORISANT l'original (GIBS/IMERG)
+    // une seule fois pour pouvoir y revenir (retour au satellite/GIBS).
+    if (mesh.material !== mat) {
+      if (!this._originalLayerMats.has(layerKey)) {
+        this._originalLayerMats.set(layerKey, mesh.material as THREE.Material);
+      }
+      mesh.material = mat;
+    }
+    // Notre RGBA est déjà en couleurs d'affichage (palette) — pas de conversion sRGB.
+    texture.colorSpace = THREE.NoColorSpace;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    if (options.opacity !== undefined) mat.opacity = options.opacity;
+    mat.map = texture;
+    mat.needsUpdate = true;
+  }
+
+  /**
+   * Rétablit le matériau d'origine (GIBS/IMERG) de la couche `layerKey` après un overlay de donnée
+   * modèle, pour que la couche satellite/GIBS reprenne le mesh. No-op si aucun overlay n'a été posé.
+   */
+  restoreLayerMaterial(layerKey: string): void {
+    const mesh = this.layers.get(layerKey);
+    const original = this._originalLayerMats.get(layerKey);
+    if (mesh && original && !Array.isArray(mesh.material)) {
+      mesh.material = original;
+    }
+  }
+
+  /**
+   * Expose uniquement les invariants de rendu nécessaires au diagnostic météo. Le panneau normal
+   * n'appelle jamais cette méthode ; elle sert à relier une donnée reçue au mesh réellement rendu.
+   */
+  getLayerDiagnostics(key: string): MeteoRenderDiagnostics {
+    const mesh = this.layers.get(key);
+    if (!mesh) return { exists: false, visible: false };
+
+    const material = Array.isArray(mesh.material) ? undefined : mesh.material;
+    const position = mesh.geometry.getAttribute('position');
+    if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
+    const radius = mesh.geometry.boundingSphere?.radius ?? 0;
+    const record = material as
+      | (THREE.Material & {
+          map?: THREE.Texture | null;
+          opacity?: number;
+        })
+      | undefined;
+    const texture = record?.map ?? undefined;
+    const image = texture?.image as
+      { width?: number; height?: number } | undefined;
+
+    return {
+      exists: true,
+      visible: mesh.visible,
+      geometry: {
+        type: mesh.geometry.type,
+        radius,
+        vertexCount: position?.count ?? 0,
+        uvCount: mesh.geometry.getAttribute('uv')?.count ?? 0,
+      },
+      materialType: material?.type,
+      materialName: material?.name || undefined,
+      opacity: record?.opacity,
+      // La largeur du crépuscule RÉELLEMENT appliquée : c'est elle qui divergeait en silence
+      // entre une couche satellite et sa jumelle modèle posées sur le même mesh.
+      twilightWrap: material ? getLayerTwilightWrap(material) : undefined,
+      map: texture
+        ? {
+            width: image?.width ?? 0,
+            height: image?.height ?? 0,
+            wrapS:
+              texture.wrapS === THREE.RepeatWrapping
+                ? 'RepeatWrapping'
+                : String(texture.wrapS),
+            wrapT:
+              texture.wrapT === THREE.ClampToEdgeWrapping
+                ? 'ClampToEdgeWrapping'
+                : String(texture.wrapT),
+            minFilter:
+              texture.minFilter === THREE.LinearFilter
+                ? 'LinearFilter'
+                : String(texture.minFilter),
+            magFilter:
+              texture.magFilter === THREE.LinearFilter
+                ? 'LinearFilter'
+                : String(texture.magFilter),
+            generateMipmaps: texture.generateMipmaps,
+            colorSpace: texture.colorSpace,
+          }
+        : undefined,
+    };
+  }
+  setLayerVisible(key: string, visible: boolean): void {
+    const mesh = this.layers.get(key);
+    if (mesh) mesh.visible = visible;
+  }
+
+  /**
+   * Affiche/masque le corps entier (tous ses calques). Bascule `_tiltGroup`, pas `group` :
+   * les satellites sont ajoutés comme enfants de `group` (cf. SceneSystem.setupCelestialBodies),
+   * masquer `group` masquerait leurs orbites et leurs propres corps avec.
+   */
+  setVisible(visible: boolean): void {
+    this._tiltGroup.visible = visible;
+  }
+
+  /**
+   * DIAGNOSTIC (?debug-earth) : active/désactive une map du matériau surface (`normalMap`,
+   * `displacementMap`, `bumpMap`) sans la détruire, pour isoler visuellement la source d'un
+   * artefact de relief. La texture retirée est mémorisée et restaurée au ré-activation.
+   * Hors debug, jamais appelé. Renvoie l'état effectif (true = map active).
+   */
+  private readonly _debugStashedMaps = new Map<string, THREE.Texture | null>();
+  debugToggleSurfaceMap(
+    key: 'normalMap' | 'displacementMap' | 'bumpMap'
+  ): 'on' | 'off' | 'absent' {
+    const surface = this.layers.get('surface');
+    if (!surface || Array.isArray(surface.material)) return 'absent';
+    const mat = surface.material as THREE.MeshStandardMaterial;
+
+    // Map active → on la retire (mémorisée pour restauration).
+    if (mat[key]) {
+      this._debugStashedMaps.set(key, mat[key]);
+      mat[key] = null;
+      mat.needsUpdate = true;
+      return 'off';
+    }
+    // Rien à restaurer ET rien n'a jamais été retiré → ce corps n'a pas cette map.
+    const stashed = this._debugStashedMaps.get(key);
+    if (stashed == null && !this._debugStashedMaps.has(key)) return 'absent';
+    mat[key] = stashed ?? null;
+    mat.needsUpdate = true;
+    return stashed ? 'on' : 'absent';
+  }
+
+  /**
+   * Applique un FACTEUR d'atténuation (0..1) à l'opacité de base d'une couche `clouds` ou
+   * `precip`, sans changer sa visibilité. Sert au panneau météo à estomper les nuages/pluie
+   * quand l'overlay température est actif (pour que la donnée thermique reste lisible), puis
+   * à les restaurer. La valeur de base vient de la config (via set*Texture) ; on multiplie.
+   */
+  setLayerOpacityScale(key: string, scale: number): void {
+    const s = Math.max(0, Math.min(1, scale));
+    if (key === 'clouds') {
+      const mesh = this.layers.get('clouds');
+      if (mesh && !Array.isArray(mesh.material))
+        (mesh.material as THREE.Material).opacity =
+          REALTIME_CLOUDS_SETTINGS.opacity * s;
+    } else if (key === 'precip' && this._precip) {
+      this._precip.opacity.value = PRECIP_SETTINGS.opacity * s;
+    }
+  }
+
+  /** Avance le fondu enchaîné pluie ; à la fin, promeut mapB en map et réarme. */
+  private _tickPrecipFade(delta: number): void {
+    if (this._precipFadeElapsed < 0 || !this._precipMat || !this._precip)
+      return;
+    // `delta` ici est en secondes de SIMULATION (mise à l'échelle par la vitesse) : en
+    // accéléré il serait énorme → le fondu se ferait instantanément. On le borne à un pas
+    // temps-réel plausible (rawDelta est plafonné à 0.1 s) pour un fondu toujours fluide.
+    // |delta| : un fondu est une DURÉE, pas un déplacement dans le temps — il doit se
+    // dérouler pareil quand la timebar fait reculer la simulation (delta négatif), sinon
+    // il reste figé à mix = 0 tout le temps de la marche arrière.
+    this._precipFadeElapsed += Math.min(Math.abs(delta), 0.1);
+    const t = Math.min(this._precipFadeElapsed / PRECIP_FADE_SECONDS, 1);
+    this._precip.mix.value = t;
+    if (t >= 1) {
+      // Fin : la cible devient la frame courante (map), on réinitialise le fondu.
+      if (this._precipFadeTarget) this._precipMat.map = this._precipFadeTarget;
+      this._precip.mix.value = 0;
+      this._precip.mapB.value = null;
+      this._precipFadeTarget = null;
+      this._precipFadeElapsed = -1;
+      this._precipMat.needsUpdate = true;
+    }
+  }
+
+  private async _loadRingTexture(normalizedDistance = 250): Promise<void> {
+    const ring = this.config.ring;
+    if (!ring) return;
+    try {
+      const texture = await this.textureSystem.getRingLODTexture(
+        ring.textures ?? ringTexturePath(this.name),
+        ring.textureResolutions,
+        normalizedDistance
+      );
+      if (this._appliedTextures.get('ring') === texture) return;
+      const ringMesh = this.layers.get('ring');
+      if (!ringMesh) return;
+      texture.wrapS = THREE.ClampToEdgeWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      const material = ringMesh.material as THREE.MeshStandardMaterial;
+      material.map = texture;
+      material.alphaMap = texture;
+      // Émissif piloté par l'albédo de l'anneau : un disque plat MeshStandard
+      // éclairé par la PointLight du Soleil reçoit la lumière en incidence rasante
+      // (≈ 0 diffus) → anneau quasi invisible. Les particules de glace réelles
+      // diffusent pourtant vivement. On ré-illumine donc l'anneau par sa propre
+      // texture en émissif ; l'ombre portée de la planète (shader) assombrit aussi
+      // ce terme pour garder l'arc occulté crédible.
+      material.emissive = new THREE.Color(0xffffff);
+      material.emissiveMap = texture;
+      material.emissiveIntensity = 0.6;
+      material.needsUpdate = true;
+      this._appliedTextures.set('ring', texture);
+    } catch {
+      Logger.warn(`[CelestialObject] Ring texture failed for ${this.name}`);
+    }
+  }
+
+  // ============================================================================
+  // UPDATE — called every frame via AnimationSystem
+  // ============================================================================
+
+  private _registerForUpdates(): void {
+    this.animationSystem.addUpdatable(this);
+  }
+
+  /**
+   * Mise à jour visuelle uniquement (rotation propre, nuages, shader jour/nuit).
+   * La position orbitale, elle, est gérée par OrbitalMechanics.
+   * Ignorée quand le corps est hors-champ (visible=false).
+   */
+  update(
+    delta: number,
+    sunWorldPosition: THREE.Vector3 | null,
+    visible: boolean,
+    _cameraPosition?: THREE.Vector3,
+    moonWorldPosition?: THREE.Vector3 | null
+  ): void {
+    // AVANT le test de visibilité, délibérément. La rotation propre est une INTÉGRALE : sauter
+    // une frame ne la retarde pas d'une frame, il la décale DÉFINITIVEMENT — rien ne la
+    // rattrape ensuite. La placer après le `return` hors-champ faisait donc perdre la phase de
+    // tout le temps passé hors du frustum, de façon cumulative et invisible : on s'éloigne d'un
+    // corps, on y revient, sa face éclairée n'est plus la bonne. Mesuré sur la Terre au
+    // démarrage (?debug-solar) : 0,68° puis 2,35° d'erreur de longitude selon la durée, soit
+    // exactement le temps simulé écoulé sans intégration — 50× le seuil de e2e/subsolar.spec.ts.
+    // Le reste de cette méthode (uniformes de shader) n'a, lui, aucun effet cumulatif : il reste
+    // légitimement derrière le test de visibilité.
+    this._advanceSpin(delta);
+    if (!visible) return;
+
+    const lights = this.layers.get('lights');
+    if (lights?.material instanceof THREE.ShaderMaterial && sunWorldPosition) {
+      const uniforms = lights.material
+        .uniforms as unknown as NightLightsShader.NightLightsUniforms;
+      uniforms.sunPosition.value?.copy(sunWorldPosition);
+    }
+
+    // Couche pluie : direction du Soleil (éclairage jour/nuit) + fondu enchaîné.
+    if (this._precip && sunWorldPosition)
+      this._precip.sunPosition.value.copy(sunWorldPosition);
+
+    // Overlays de donnée MODÈLE posés sur une couche d'apparence physique : ils portent le
+    // même terminateur que la couche qu'ils remplacent, donc la même position du Soleil.
+    if (sunWorldPosition && this._dataOverlayMats.size > 0) {
+      for (const overlay of this._dataOverlayMats.values()) {
+        getOverlaySunUniform(overlay)?.value.copy(sunWorldPosition);
+      }
+    }
+    this._tickPrecipFade(delta);
+
+    // Le halo Fresnel a besoin de la position du Soleil pour n'illuminer que le
+    // côté jour du limbe.
+    const atmosphere = this.layers.get('atmosphere');
+    if (
+      atmosphere?.material instanceof THREE.ShaderMaterial &&
+      sunWorldPosition
+    ) {
+      const uniforms = atmosphere.material.uniforms as unknown as {
+        sunPosition: THREE.IUniform<THREE.Vector3 | null>;
+      };
+      uniforms.sunPosition.value?.copy(sunWorldPosition);
+    }
+
+    // Ombre portée de la planète sur son anneau : centre + rayon (échelle
+    // courante) + direction du Soleil, en coordonnées monde.
+    if (this._ringShadow && sunWorldPosition) {
+      this.group.getWorldPosition(this._ringWorldPos);
+      this._ringShadow.planetCenter.value.copy(this._ringWorldPos);
+      this._ringShadow.planetRadius.value =
+        this.config.radius * this._scaleFactor;
+      this._ringShadow.sunDirection.value
+        .subVectors(sunWorldPosition, this._ringWorldPos)
+        .normalize();
+    }
+
+    // Position monde du Soleil : alimente uMoonSunPos, dont dépendent TROIS masques — le
+    // masque nuit du clair de Lune, le fondu jour/nuit des nuages et la coupe de normal map
+    // au terminateur. Le shader en dérive sa direction par fragment (cf. fragmentSunDir).
+    //
+    // Écrit HORS de la condition sur la Lune, délibérément : deux de ces trois masques n'ont
+    // rien à voir avec elle, et les faire dépendre de la disponibilité d'une position lunaire
+    // les laissait sur l'ancienne valeur par défaut dès que celle-ci manquait — terminateur
+    // faux, relief visible sur toute la face nuit. C'était la cause du « relief partout la
+    // nuit ». La valeur par défaut est désormais (0,0,0), c'est-à-dire la position RÉELLE du
+    // Soleil dans cette scène : même non écrite, elle est juste. Ceinture et bretelles.
+    if (this._moonlight && sunWorldPosition) {
+      this._moonlight.sunPosition.value.copy(sunWorldPosition);
+      this._cloudsMoonlight?.sunPosition.value.copy(sunWorldPosition);
+    }
+
+    // Clair de Lune sur la face nuit (Terre) : position de la Lune + intensité
+    // selon la phase = fraction éclairée de la Lune vue depuis la Terre ≈
+    // (1 + cos(angle Soleil-Lune-Terre)) / 2 : ~1 à la pleine Lune, ~0 à la nouvelle.
+    if (this._moonlight && sunWorldPosition && moonWorldPosition) {
+      this.group.getWorldPosition(this._selfWorldPos);
+      this._moonlight.position.value.copy(moonWorldPosition);
+
+      const toSun = _tmpMoonVecA
+        .subVectors(sunWorldPosition, moonWorldPosition)
+        .normalize();
+      const toEarth = _tmpMoonVecB
+        .subVectors(this._selfWorldPos, moonWorldPosition)
+        .normalize();
+      const phase = (1 + toSun.dot(toEarth)) * 0.5;
+      this._moonlight.strength.value = phase * MOONLIGHT_MAX_STRENGTH;
+    }
+  }
+
+  /**
+   * Fait avancer la rotation propre d'une frame. Séparé de `update` parce qu'il doit tourner
+   * même hors-champ (cf. l'appel).
+   *
+   * Un corps dont la phase est PILOTÉE par la date (`setSurfaceRotation`, la Terre) n'intègre
+   * pas : sa rotation lui est réassignée en absolu à chaque frame, et l'incrément viendrait
+   * s'ajouter par-dessus. Inoffensif au temps réel (~0,004°/frame), catastrophique à 1 an/s où
+   * une frame vaut ~6 jours simulés.
+   *
+   * La dérive PROPRE des nuages, elle, reste incrémentale dans les deux cas : elle est
+   * relative au `_meshGroup`, donc indépendante de la façon dont la phase du sol est obtenue.
+   */
+  private _advanceSpin(delta: number): void {
+    if (!this._surfaceRotationDriven)
+      this._meshGroup.rotation.y += this.rotationSpeed * delta;
+
+    const clouds = this.layers.get('clouds');
+    if (clouds && this._realCloudDrift) {
+      clouds.rotation.y += this.rotationSpeed * delta * CLOUDS_ROTATION_FACTOR;
+      // Suit la dérive des nuages pour aligner l'ombre portée sur la surface :
+      // une rotation Y = décalage de longitude = décalage d'UV.x (÷ 2π).
+      if (this._cloudShadow)
+        this._cloudShadow.offset.value = clouds.rotation.y / (Math.PI * 2);
+    }
+  }
+
+  /**
+   * Impose l'angle de rotation axiale de la surface (Y), calculé depuis la date par
+   * `OrbitalMechanics` pour que le point subsolaire tombe sur sa vraie longitude géographique.
+   *
+   * Appeler cette méthode déclare le corps « à phase pilotée » : il cesse définitivement
+   * d'intégrer sa rotation lui-même (cf. `_advanceSpin`). C'est ce qui fait de la phase une
+   * grandeur DÉRIVÉE de la date plutôt qu'un cumul — donc insensible aux frames sautées, au
+   * culling, à la pause, à un onglet mis en arrière-plan ou à une reprise après éclipse de
+   * rendu. Le cumul, lui, ne se rattrapait jamais.
+   */
+  setSurfaceRotation(radians: number): void {
+    this._surfaceRotationDriven = true;
+    this._meshGroup.rotation.y = radians;
+  }
+
+  /**
+   * Applique l'irradiance solaire et l'occultation analytique aux couches PBR.
+   * La couche `lights` (lumières de ville) en est exclue : c'est un phénomène de
+   * la face nuit, alimenté par les villes — une éclipse (ombre sur la face jour)
+   * ne doit pas l'éteindre. Son shader gère lui-même sa visibilité jour/nuit.
+   */
+  setLightAttenuation(attenuation: number): void {
+    const bounded = THREE.MathUtils.clamp(attenuation, 0, 6);
+    this.layers.forEach((mesh, layerName) => {
+      if (layerName === 'lights') return;
+      const materials = Array.isArray(mesh.material)
+        ? mesh.material
+        : [mesh.material];
+      materials.forEach((material) =>
+        setMaterialLightAttenuation(material, bounded)
+      );
+    });
+    this._overlayMaterials.forEach((material) =>
+      setMaterialLightAttenuation(material, bounded)
+    );
+  }
+
+  /**
+   * Alimente l'ombrage d'éclipse par fragment (Terre uniquement — no-op silencieux sur les
+   * autres corps, `_eclipseShadow` y est `undefined`). `occluderPosition: null` ou
+   * `occluderRadius <= 0` désactive proprement le calcul pour cette frame (pas de Lune dans
+   * la scène) : le shader renvoie alors un facteur neutre (1.0), voir `eclipseShadowAt`.
+   */
+  /**
+   * Vrai si ce corps peut RÉFRACTER la lumière dans son ombre, c'est-à-dire s'il a une
+   * atmosphère : c'est ce qui rend cuivrée l'ombre de la Terre sur la Lune, et ce qui laisse
+   * neutre celle de la Lune sur la Terre. Lu sur les couches construites depuis le catalogue,
+   * jamais sur un nom de corps.
+   */
+  get refractsLight(): boolean {
+    return this.layers.has('atmosphere');
+  }
+
+  /**
+   * Teinte de l'ombre portée sur ce corps, calculée côté CPU. Sert au mode Éducatif : ses
+   * positions comprimées interdisent le calcul par fragment, alors qu'une éclipse de Lune y
+   * est justement l'un des deux phénomènes qu'on vient y voir. `null` = pas d'ombre colorée.
+   */
+  setUmbraTint(tint: readonly [number, number, number] | null): void {
+    if (!this._eclipseShadow) return;
+    const target = this._eclipseShadow.umbraTint.value;
+    if (tint) target.setRGB(tint[0], tint[1], tint[2]);
+    else target.setRGB(1, 1, 1);
+  }
+
+  setEclipseShadowSource(
+    sunPosition: THREE.Vector3,
+    sunRadius: number,
+    occluderPosition: THREE.Vector3 | null,
+    occluderRadius: number,
+    occluderRefracts = false
+  ): void {
+    if (!this._eclipseShadow) return;
+    this._eclipseShadow.sunPosition.value.copy(sunPosition);
+    this._eclipseShadow.sunRadius.value = sunRadius;
+    this._eclipseShadow.occluderRefracts.value = occluderRefracts ? 1 : 0;
+    if (occluderPosition && occluderRadius > 0) {
+      this._eclipseShadow.occluderPosition.value.copy(occluderPosition);
+      this._eclipseShadow.occluderRadius.value = occluderRadius;
+    } else {
+      this._eclipseShadow.occluderRadius.value = 0;
+    }
+  }
+
+  /**
+   * Oriente l'axe de rotation du corps le long de `sceneNorth` (vecteur unité dans le
+   * repère scène = direction du pôle de spin réel, cf. EphemerisService.getNorthPoleDirection).
+   * On aligne le +Y local du _tiltGroup (= axe de spin du _meshGroup) sur ce vecteur, ce qui
+   * fixe obliquité ET azimut. Le _tiltGroup n'étant porté que par la translation du group,
+   * l'axe reste fixe dans l'espace le long de l'orbite → saisons correctes.
+   *
+   * Pour les corps rétrogrades (obliquité > 90°), l'appelant passe l'opposé du pôle nord IAU
+   * (= moment cinétique de spin), de sorte que la rotation +rotationSpeed (anti-horaire vue
+   * du +Y) reproduise bien le sens rétrograde réel.
+   */
+  setAxisDirection(sceneNorth: THREE.Vector3): void {
+    this._tiltGroup.quaternion.setFromUnitVectors(LOCAL_UP, sceneNorth);
+  }
+
+  /**
+   * Quaternion monde du `_tiltGroup` : le repère dans lequel `_meshGroup` effectue sa rotation
+   * propre. C'est CE repère (aligné sur le vrai pôle IAU, obliquité + azimut) qui est
+   * équatorial ; le repère de la scène, lui, est écliptique. Toute grandeur équatoriale
+   * (longitude subsolaire = RA − GAST) doit donc être composée ici, pas dans la scène.
+   */
+  getTiltQuaternion(out = new THREE.Quaternion()): THREE.Quaternion {
+    return this._tiltGroup.getWorldQuaternion(out);
+  }
+
+  /** Retourne l'axe nord de rotation courant dans le rep�re monde. */
+  getAxisDirection(out = new THREE.Vector3()): THREE.Vector3 {
+    this._tiltGroup.getWorldQuaternion(_tmpWorldQuaternion);
+    return out.copy(LOCAL_UP).applyQuaternion(_tmpWorldQuaternion).normalize();
+  }
+
+  /**
+   * Facteur d'échelle visuel en mode Explo : vraie taille physique via radiusKm.
+   *   (radiusKm / KM_PER_AU × SQRT_K) / config.radius
+   * 1 si le corps n'a pas de rayon physique connu (garde la taille de base).
+   */
+  private _exploScaleFactor(): number {
+    const radiusKm = this.config.realData?.radiusKm;
+    if (!radiusKm) return 1;
+    return ((radiusKm / KM_PER_AU) * SQRT_K) / this.config.radius;
+  }
+
+  /** Applique un facteur d'échelle donné aux couches et met à jour le rayon de cadrage. */
+  private _applyScaleFactor(factor: number): void {
+    this._scaleFactor = factor;
+    this._meshGroup.scale.setScalar(factor);
+    this.group.userData['radius'] = this.config.radius * factor;
+    this._meshGroup.visible = true;
+  }
+
+  /**
+   * Rayon de cadrage FINAL pour un mode donné, calculé directement (indépendant de
+   * `userData['radius']`, qui peut être en cours de morph — cf. `setScaleMorph`). Sert à
+   * `CameraSystem.setTarget` pour poser les bornes de zoom sur la taille CIBLE plutôt que sur
+   * une valeur transitoire : sans ça, sélectionner un corps pendant que le morph Éduc→Explo
+   * est encore en cours (ex. un permalien `?mode=explo&body=...`, où le mode ET le corps sont
+   * appliqués dans la même passe synchrone) verrouillait des bornes de zoom calculées sur la
+   * taille éducative encore affichée à cet instant, bien plus grosse que la taille physique
+   * réelle — jusqu'à ~240× trop permissif sur le zoom arrière une fois le morph terminé.
+   */
+  /**
+   * Rayon à ne pas franchir : celui du modèle de forme le plus saillant, pas le rayon moyen.
+   * Un corps irrégulier dépasse largement sa sphère équivalente (Éros : 2,1 fois), donc s'en
+   * approcher « à 1,15 rayon » plaçait la caméra à l'intérieur du maillage. Sans modèle, la
+   * sphère EST le corps et les deux rayons coïncident.
+   */
+  getClearanceRadius(mode: 'educ' | 'explo'): number {
+    return this.getFrameRadius(mode) * (this.config.model?.extentRatio ?? 1);
+  }
+
+  /**
+   * Jusqu'où la caméra peut descendre, en multiples du rayon, d'après la FINESSE de l'image
+   * que ce corps affiche — et non d'après une constante unique pour tout le catalogue.
+   *
+   * Le corps est le seul à savoir ce qu'il montre. La règle et ses chiffres vivent dans
+   * `core/surfaceApproach.ts` ; la largeur en pixels d'un palier vient de la table de
+   * `TextureSystem`, jamais d'une copie. Un corps sans texture de surface (modèle de forme,
+   * couleur pleine) ne répond RIEN, et c'est l'appelant qui garde son plancher par défaut :
+   * sa finesse n'est pas celle d'une image, et ce n'est pas au corps de le savoir.
+   *
+   * On demande la qualité RÉELLEMENT SERVIE au plus près (distance 0), pas la meilleure que
+   * le catalogue déclare : le profil mobile plafonne à 2k et un GPU peut refuser le 8k. La
+   * déclaration aurait laissé un téléphone agrandir quatre fois au-delà de son image
+   * (mesuré le 2026-09-20 : 33,8 pixels par texel à 390 px de large avant cette correction).
+   */
+  /**
+   * Finesse de la texture LIVRÉE de ce corps, en pixels sur 360° de longitude, telle qu'elle
+   * est réellement SERVIE au plus près (le profil mobile plafonne à 2k). 0 s'il n'affiche pas
+   * de surface texturée.
+   *
+   * Le moteur d'imagerie streamée s'en sert pour ne JAMAIS recouvrir la surface d'un niveau
+   * plus grossier qu'elle : mesuré le 2026-09-21 à 1 541 km d'altitude, le niveau choisi
+   * valait 2,67 km/px contre 1,33 pour la texture 8k, et la vue était donc DÉGRADÉE par des
+   * carreaux censés l'améliorer.
+   */
+  shippedSurfaceWidthPx(): number {
+    const served = this.textureSystem.resolveSurfaceQuality(this.name, 0);
+    return (served ? TEXTURE_QUALITY_PIXELS[served] : 0) ?? 0;
+  }
+
+  getApproachFloorFactor(): number | undefined {
+    const textureWidth = this.shippedSurfaceWidthPx();
+    // L'imagerie streamée, quand elle peint, EST la finesse servie : au niveau 8 la mosaïque
+    // lunaire vaut 131 072 px sur 360°, soit seize fois une texture 8k, et le plancher tombe
+    // de 128 à environ 8 km par la même formule, sans la changer (lot 9, phase 9C).
+    const widthPx = Math.max(textureWidth, this._streamedImageryWidthPx);
+    return widthPx > 0 ? approachFloorRadiusFactor(widthPx) : undefined;
+  }
+
+  /**
+   * Déclare la finesse de l'imagerie STREAMÉE qui recouvre effectivement la surface, en pixels
+   * sur 360° de longitude. 0 remet le corps sur sa seule texture livrée.
+   *
+   * Renvoie `true` quand la valeur a changé : l'appelant sait alors qu'il doit demander à
+   * `CameraSystem` de recalculer ses bornes d'approche, qui ne sont posées qu'à la sélection.
+   */
+  setStreamedImageryWidth(widthPx: number): boolean {
+    const next = Number.isFinite(widthPx) ? Math.max(0, widthPx) : 0;
+    if (next === this._streamedImageryWidthPx) return false;
+    this._streamedImageryWidthPx = next;
+    return true;
+  }
+
+  getFrameRadius(mode: 'educ' | 'explo'): number {
+    return mode === 'explo'
+      ? this.config.radius * this._exploScaleFactor()
+      : this.config.radius;
+  }
+
+  /**
+   * Bascule le mode d'échelle.
+   * En Explo : chaque corps est réduit/agrandi à sa vraie taille physique via radiusKm.
+   * En Éducatif : retour à la taille de base (scaleFactor = 1).
+   */
+  setScaleMode(mode: 'educ' | 'explo'): void {
+    this._applyScaleFactor(mode === 'explo' ? this._exploScaleFactor() : 1);
+  }
+
+  /**
+   * Morphe la taille entre Éducatif (`p = 0`, taille de base) et Explo (`p = 1`, vraie
+   * taille physique). Sert à la transition animée Éduc↔Explo ; interpolation linéaire du
+   * facteur, cohérente avec le morphing des positions dans `OrbitalMechanics`.
+   */
+  setScaleMorph(p: number): void {
+    const explo = this._exploScaleFactor();
+    this._applyScaleFactor(1 + (explo - 1) * p);
+  }
+
+  /**
+   * Ajuste le LOD selon la distance exprimée en rayons apparents. Cette métrique reste
+   * cohérente entre tailles pédagogiques et rayons physiques, contrairement aux unités scène.
+   * `_lodPending` empêche d'empiler plusieurs chargements concurrents.
+   */
+  async updateLODTextures(
+    camera: THREE.Camera,
+    maxNormalizedDistance = 250,
+    threshold = 2
+  ): Promise<void> {
+    // Le modèle de forme a son propre LOD, indépendant des textures : les corps modélisés n'en
+    // ont pas, et le garde ci-dessous les aurait privés de tout changement de niveau.
+    if (this.config.model && camera && this.group) this._updateModelLOD(camera);
+    if (!this._hasTextures || !camera || !this.group) return;
+
+    this.group.getWorldPosition(this._lodWorldPos);
+    const distance = camera.position.distanceTo(this._lodWorldPos);
+    const worldRadius = Math.max(
+      (this.group.userData['radius'] as number | undefined) ??
+        this.config.radius * this._scaleFactor,
+      1e-9
+    );
+    const normalizedDistance = Math.min(
+      distance / worldRadius,
+      maxNormalizedDistance
+    );
+    // La géométrie de relief dépend uniquement de la distance courante et doit pouvoir
+    // repasser immédiatement en résolution standard, même si un chargement de texture est
+    // encore en vol.
+    this._updateSurfaceTessellation(normalizedDistance);
+
+    // Un chargement (async) est déjà en vol : ne pas en empiler un second. Le tick LOD
+    // suivant réévaluera une fois celui-ci terminé. Sans ce garde, un corps dont la texture
+    // met du temps à décoder (grosse 4k, ex. le Soleil) accumulait des requêtes concurrentes
+    // à chaque tick — le garde était décrit en commentaire mais jamais réellement posé.
+    if (this._lodPending) return;
+
+    // On ne recharge que si le PALIER de qualité change réellement. Comparer la distance
+    // brute (± threshold) relançait un chargement au moindre déplacement autour d'un seuil
+    // de palier → oscillation entre deux résolutions (« thrash » LOD) et re-décodes inutiles.
+    const nextQuality = this.textureSystem.resolveSurfaceQuality(
+      this.name,
+      normalizedDistance
+    );
+    // Garde-fou distance : sous le seuil ET même palier → rien à faire.
+    if (
+      nextQuality === this._lastLODQuality &&
+      Math.abs(normalizedDistance - this.lastLODNormalizedDistance) < threshold
+    ) {
+      return;
+    }
+
+    this._lodPending = true;
+    this.lastLODNormalizedDistance = normalizedDistance;
+    this._lastLODQuality = nextQuality;
+
+    try {
+      for (const textureKey of Object.keys(this.config.textures ?? {})) {
+        // Nuages réels actifs : le LOD ne remplace pas la couche `clouds` (l'image
+        // satellite GIBS prime sur la texture statique versionnée).
+        if (textureKey === 'clouds' && this._realCloudsActive) continue;
+        const texture = await this.textureSystem.getLODTexture(
+          this.name,
+          textureKey,
+          normalizedDistance
+        );
+        // Le helper ré-vérifie l'état après l'await : une observation peut avoir
+        // remplacé les nuages pendant le chargement LOD.
+        this._applyLoadedTexture(textureKey, texture);
+      }
+      if (this.config.ring) await this._loadRingTexture(normalizedDistance);
+    } catch {
+      // Dégradation silencieuse : la dernière texture valide reste appliquée.
+    } finally {
+      this._lodPending = false;
+    }
+  }
+
+  /**
+   * Densifie la géométrie de surface au gros plan pour rendre le displacement
+   * (relief géométrique) visible, et revient à la géométrie standard au loin.
+   * N'agit que si le corps déclare une carte `displacement` — sinon rien à faire,
+   * l'effet reste totalement inerte (aucun coût). Ne reconstruit la sphère que sur
+   * transition de seuil (pas à chaque frame).
+   */
+  private _updateSurfaceTessellation(normalizedDistance: number): void {
+    if (!this.config.textures?.displacement) return;
+    const surface = this.layers.get('surface');
+    if (!surface) return;
+
+    const shouldBeHiRes = this._hiResSurfaceActive
+      ? normalizedDistance <= HI_RES_TESSELLATION_EXIT
+      : normalizedDistance <= HI_RES_TESSELLATION_ENTER;
+    if (shouldBeHiRes === this._hiResSurfaceActive) return;
+
+    // Première demande : on mémorise la géométrie standard (déjà en place) et on construit
+    // la hi-res une seule fois. Les swaps suivants ne font que ré-assigner la référence.
+    if (!this._surfaceGeoStd) this._surfaceGeoStd = surface.geometry;
+    if (shouldBeHiRes && !this._surfaceGeoHi) {
+      this._surfaceGeoHi = createSphereGeometry(
+        this.config.radius,
+        'surface',
+        GEOMETRY_SEGMENTS_HI
+      );
+    }
+    const next = shouldBeHiRes ? this._surfaceGeoHi : this._surfaceGeoStd;
+    if (next && surface.geometry !== next) surface.geometry = next;
+    this._hiResSurfaceActive = shouldBeHiRes;
+  }
+
+  // ============================================================================
+  // MODÈLE DE FORME (corps irréguliers)
+  // ============================================================================
+
+  /**
+   * Charge le maillage déclaré par `config.model` et masque la sphère.
+   *
+   * La sphère n'est jamais supprimée, seulement rendue invisible : tout échec — réseau, 404,
+   * glTF illisible — laisse le corps affiché en sphère plutôt qu'en trou noir. Le repli est
+   * donc l'état par défaut, pas une branche qu'on aurait pu oublier d'écrire.
+   *
+   * Le maillage est REDIMENSIONNÉ sur le rayon du catalogue à partir de sa propre sphère
+   * englobante : le fichier peut être en kilomètres, en mètres ou en unités arbitraires, la
+   * scène n'a pas à le savoir. C'est aussi ce qui garantit qu'un modèle mal exporté ne fasse
+   * pas soudain mille fois la taille de sa planète.
+   */
+  /** Monte ou descend le niveau du modèle selon la distance, sans empiler les chargements. */
+  private _updateModelLOD(camera: THREE.Camera): void {
+    const model = this.config.model;
+    if (!model || this._modelLoading) return;
+    this.group.getWorldPosition(this._lodWorldPos);
+    const radius = Math.max(
+      (this.group.userData['radius'] as number | undefined) ??
+        this.config.radius * this._scaleFactor,
+      1e-12
+    );
+    const next = chooseModelQuality(
+      model.resolutions,
+      camera.position.distanceTo(this._lodWorldPos) / radius,
+      BOOT_QUALITY_PROFILE.maxModelQuality
+    );
+    if (next && next !== this._modelQuality) void this._loadShapeModel(next);
+  }
+
+  private async _loadShapeModel(quality: ModelQuality): Promise<void> {
+    const model = this.config.model;
+    if (!model || this._modelLoading) return;
+    this._modelLoading = quality;
+    try {
+      const { GLTFLoader } =
+        await import('three/examples/jsm/loaders/GLTFLoader.js');
+      const gltf = await new GLTFLoader().loadAsync(
+        modelPath(this.name, quality)
+      );
+      if (this._disposed) return;
+
+      const meshes: THREE.Mesh[] = [];
+      gltf.scene.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh) meshes.push(child as THREE.Mesh);
+      });
+      if (meshes.length === 0)
+        throw new Error('glTF sans maillage — on garde la sphère');
+
+      // Recentre sur le CENTRE DE MASSE (c'est lui que l'éphéméride positionne, pas le centre
+      // de la boîte) et met à l'échelle par le rayon ÉQUIVALENT-VOLUME, quelle que soit l'unité
+      // du fichier : c'est le « rayon moyen » du catalogue. Ajuster le sommet le plus lointain
+      // affichait Bennu 15 % trop petit et aurait affiché Éros deux fois trop petit. Le calcul
+      // vit dans `core/modelFit.ts`, où il est testé : il a déjà été faux deux fois.
+      const world: number[] = [];
+      const indices: number[] = [];
+      const vertex = new THREE.Vector3();
+      for (const mesh of meshes) {
+        const attribute = mesh.geometry.getAttribute('position');
+        if (!attribute) continue;
+        mesh.updateWorldMatrix(true, false);
+        const base = world.length / 3;
+        for (let i = 0; i < attribute.count; i++) {
+          vertex.fromBufferAttribute(attribute as THREE.BufferAttribute, i);
+          mesh.localToWorld(vertex);
+          world.push(vertex.x, vertex.y, vertex.z);
+        }
+        const index = mesh.geometry.index;
+        if (index)
+          for (let i = 0; i < index.count; i++)
+            indices.push(base + index.getX(i));
+        else for (let i = 0; i < attribute.count; i++) indices.push(base + i);
+      }
+      const { volume, centroid } = meshVolume(world, indices);
+      const scale = fitScale(
+        volumeEquivalentRadius(volume),
+        this.config.radius
+      );
+      if (scale === null)
+        throw new Error('modèle de volume inexploitable — on garde la sphère');
+      gltf.scene.position.set(-centroid[0], -centroid[1], -centroid[2]);
+      const root = new THREE.Group();
+      root.name = `${this.name}_model`;
+      root.add(gltf.scene);
+      root.scale.setScalar(scale);
+
+      // Un corps qui a une vraie texture la garde sur sa vraie forme (cf. `core/modelUv.ts`) :
+      // même matériau que la sphère, donc mêmes niveaux de texture, ombres et éclipses.
+      const draped = this._drapeSurface(meshes);
+
+      // Un modèle de forme masque un halo comme la sphère qu'il remplace.
+      for (const mesh of meshes) markGlowOccluder(mesh);
+      // Changement de niveau : le nouveau n'est accroché qu'une fois prêt, l'ancien libéré
+      // aussitôt après — jamais d'image sans corps, jamais deux maillages superposés.
+      this._disposeShapeModel();
+      this._modelRoot = root;
+      this._modelMeshes = meshes;
+      this._modelDraped = draped;
+      this._modelQuality = quality;
+      this._meshGroup.add(root);
+      const surface = this.layers.get('surface');
+      if (surface) surface.visible = false;
+      Logger.info(
+        `[CelestialObject] Shape model ${quality} loaded for "${this.name}" (${meshes.length} mesh(es))`
+      );
+    } catch (error) {
+      // Volontairement non fatal : la sphère (ou le niveau précédent) reste affichée.
+      Logger.warn(
+        `[CelestialObject] Shape model ${quality} failed for "${this.name}", keeping what is shown: ${String(error)}`
+      );
+    } finally {
+      this._modelLoading = null;
+    }
+  }
+
+  /**
+   * Donne aux maillages du modèle les coordonnées de la carte équirectangulaire du corps et le
+   * matériau de sa sphère. `false` sans texture de surface déclarée : le modèle garde alors la
+   * couleur cuite dans ses sommets (Bennu, Éros…), la seule mesure de sa surface qui existe.
+   */
+  private _drapeSurface(meshes: THREE.Mesh[]): boolean {
+    const surface = this.layers.get('surface');
+    if (!this.config.textures?.surface || !surface) return false;
+    const material = surface.material;
+    for (const mesh of meshes) {
+      const source = mesh.geometry;
+      const position = source.getAttribute('position');
+      if (!position) continue;
+      const indices = source.index
+        ? Array.from(source.index.array)
+        : Array.from({ length: position.count }, (_, i) => i);
+      // Normales LISSES calculées sur le maillage indexé, avant de le déplier : déplié, chaque
+      // triangle aurait les siennes et le corps paraîtrait taillé en facettes.
+      if (!source.getAttribute('normal')) source.computeVertexNormals();
+      const normal = source.getAttribute('normal');
+      const draped = drapeEquirectangular(
+        position.array as ArrayLike<number>,
+        indices
+      );
+      const normals = new Float32Array(indices.length * 3);
+      indices.forEach((vertex, k) => {
+        normals[k * 3] = normal.getX(vertex);
+        normals[k * 3 + 1] = normal.getY(vertex);
+        normals[k * 3 + 2] = normal.getZ(vertex);
+      });
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute(
+        'position',
+        new THREE.BufferAttribute(draped.positions, 3)
+      );
+      geometry.setAttribute('uv', new THREE.BufferAttribute(draped.uv, 2));
+      geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+      source.dispose();
+      const own = Array.isArray(mesh.material)
+        ? mesh.material
+        : [mesh.material];
+      for (const m of own) m?.dispose();
+      mesh.geometry = geometry;
+      mesh.material = material;
+    }
+    // Les triangles de la couture lisent u > 1 : la carte doit se répéter horizontalement.
+    const map = (material as THREE.MeshStandardMaterial).map;
+    if (map && map.wrapS !== THREE.RepeatWrapping) {
+      map.wrapS = THREE.RepeatWrapping;
+      map.needsUpdate = true;
+    }
+    return true;
+  }
+
+  /** Libère le maillage du modèle affiché (hors de `layers` : libéré ici et nulle part ailleurs). */
+  private _disposeShapeModel(): void {
+    for (const mesh of this._modelMeshes) {
+      mesh.geometry?.dispose();
+      // Drapé, le maillage porte le matériau de la sphère : il appartient à `layers`.
+      if (this._modelDraped) continue;
+      const materials = Array.isArray(mesh.material)
+        ? mesh.material
+        : [mesh.material];
+      for (const material of materials) material?.dispose();
+    }
+    this._modelDraped = false;
+    this._modelMeshes = [];
+    this._modelRoot?.removeFromParent();
+    this._modelRoot = null;
+    this._modelQuality = null;
+  }
+
+  // ============================================================================
+  // CLEANUP
+  // ============================================================================
+
+  dispose(): void {
+    if (this._disposed) return;
+    this._disposed = true;
+    this.animationSystem.removeUpdatable(this);
+    this.layers.forEach((mesh) => {
+      mesh.geometry?.dispose();
+      const materials = Array.isArray(mesh.material)
+        ? mesh.material
+        : [mesh.material];
+      materials.forEach((material) => {
+        // TextureSystem owns cached textures. Detach them here, but do not dispose
+        // them per mesh: several materials may share one cached GPU resource. Safe today
+        // because the catalogue is static and CelestialObjects are never destroyed/recreated
+        // mid-session; a future feature that does so would need TextureSystem reference
+        // counting before dispose() could safely free the underlying GPU texture too.
+        if (material instanceof THREE.MeshStandardMaterial) {
+          material.map = null;
+          material.normalMap = null;
+          material.bumpMap = null;
+          material.displacementMap = null;
+          material.roughnessMap = null;
+          material.alphaMap = null;
+          material.emissiveMap = null;
+          // Sampler custom de l'ombre nuageuse : détaché du cache partagé.
+          const cloudShadow = getCloudShadowUniforms(material);
+          if (cloudShadow) cloudShadow.map.value = null;
+        }
+        if (material instanceof THREE.ShaderMaterial) {
+          const uniforms =
+            material.uniforms as unknown as NightLightsShader.NightLightsUniforms;
+          if (uniforms.lightsMap) uniforms.lightsMap.value = null;
+        }
+        material.dispose();
+      });
+    });
+    this.layers.clear();
+    // Les deux géométries de surface sont conservées hors du mesh (swap sans reconstruire) :
+    // celle actuellement attachée a été disposée ci-dessus, mais la détachée doit l'être ici
+    // pour ne pas fuir. dispose() est idempotent → double appel inoffensif sur l'attachée.
+    this._surfaceGeoStd?.dispose();
+    this._surfaceGeoHi?.dispose();
+    this._surfaceGeoStd = null;
+    this._surfaceGeoHi = null;
+    // Modèle de forme : hors de `layers`, donc libéré ici et nulle part ailleurs.
+    this._disposeShapeModel();
+    Logger.warn(`[CelestialObject] Disposed "${this.name}"`);
+  }
+}

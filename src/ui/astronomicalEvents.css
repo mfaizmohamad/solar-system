@@ -1,0 +1,3 @@
+/* Le panneau d'événements est désormais une surface contextuelle standard :
+   styles unifiés dans src/styles.css (.surface, .events-list, .event-row).
+   Ce fichier est conservé pour l'import du module ; plus aucune règle locale. */

@@ -1,0 +1,1210 @@
+#!/usr/bin/env node
+/* global console, process, fetch, Buffer, URL, setTimeout */
+/**
+ * Instantané des SOURCES PRIMAIRES des faits affichés (fiche d'un corps, pages par corps).
+ *
+ * Pourquoi un instantané. Chaque valeur affichée cite une source (`realData.sources`, registre
+ * `src/config/factSources.ts`). Une citation qu'aucun test ne confronte à la source est une
+ * affirmation de plus, pas une preuve : le catalogue a longtemps porté des valeurs « sourcées »
+ * qui ne figuraient dans aucune (gravité de Jupiter 24,79 m/s² quand la fiche NASA donne 25,92
+ * en moyenne et 23,12 à l'équateur ; masse d'Itokawa 3,15e10 kg pour 3,51e10 publiés). Ce
+ * script lit les tables elles-mêmes et écrit `src/config/factSources.snapshot.json`, que
+ * `factProvenance.test.ts` compare à chaque valeur citée. Le JSON n'est importé QUE par ce test :
+ * rien de ceci n'atteint le bundle client.
+ *
+ *   node scripts/snapshot-fact-sources.mjs            (réseau, réponses mises en cache)
+ *   node scripts/snapshot-fact-sources.mjs --offline  (cache .cache/fact-sources/ seul)
+ *   node scripts/snapshot-fact-sources.mjs --carry-over-unavailable
+ *       reprend du relevé précédent une entrée que la source REFUSE de servir, en l'écrivant
+ *       `retrieved: null` + `carriedOver: true`. Sans ce drapeau, le relevé échoue : voir plus bas.
+ *
+ * Sources lues : fiches NASA NSSDCA (Sun, planètes, Lune, Pluton et Charon), tables JPL SSD
+ * des satellites (paramètres physiques, éléments moyens), pages NASA Science des lunes
+ * (nombre de lunes « as of »), API JPL SBDB (petits corps : diamètre, GM, rotation, pôle,
+ * satellites confirmés), fiches du NSSDCA Master Catalog des onze sondes (date de lancement,
+ * masse, lanceur), API SBDB des trois interstellaires (excentricité, périhélie, arc d'observation).
+ * Un libellé introuvable fait ÉCHOUER le script : une table qui change
+ * de forme ne doit pas produire un instantané silencieusement vide.
+ */
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+
+import {
+  CACHE_DIR,
+  assertEveryUrlDated,
+  cacheKey,
+  sectionDates,
+  stampNow,
+  stampOf,
+} from './fact-source-cache.mjs';
+
+const OFFLINE = process.argv.includes('--offline');
+const OUT = 'src/config/factSources.snapshot.json';
+
+/**
+ * UNE SOURCE QUI REFUSE DE SERVIR UNE FICHE, ET CE QU'ON EN FAIT.
+ *
+ * Par défaut, rien : le relevé ÉCHOUE, et c'est voulu. Une source muette ne doit pas produire un
+ * relevé silencieusement incomplet, pas plus qu'une table qui change de forme.
+ *
+ * `--carry-over-unavailable` demande explicitement l'autre comportement : REPRENDRE du relevé
+ * précédent l'entrée qu'on n'a pas pu relire, en DISANT dans le fichier qu'elle a été reprise et
+ * qu'on n'a donc pas de date de lecture pour elle. Le besoin est mesuré : le 2026-09-28, quatre
+ * fiches du Master Catalog du NSSDCA (Cassini, Rosetta, BepiColombo, Hayabusa2) ont servi leur
+ * page « Errors and Messages » en HTTP 200 pendant plus de sept heures, les mêmes quatre à chaque
+ * tour, quel que soit le client HTTP et par n'importe quelle autre adresse du site ; les sept
+ * autres répondaient. Et le cache qui portait leur dernière lecture avait été vidé, donc leur
+ * date de lecture n'existe plus nulle part : elle ne se devine pas, elle s'écrit absente.
+ *
+ * Ce n'est PAS un rattrapage silencieux : sans le drapeau rien ne change, l'entrée reprise porte
+ * `retrieved: null` et `carriedOver: true`, et `factSourceDates.test.ts` énumère exactement
+ * lesquelles le sont. Cette liste doit se VIDER quand la source répond de nouveau.
+ */
+const CARRY_OVER = process.argv.includes('--carry-over-unavailable');
+
+/** La source n'a pas servi le document, par opposition à un document qu'on n'a pas su lire. */
+class SourceUnavailable extends Error {}
+
+const PREVIOUS = existsSync(OUT) ? JSON.parse(readFileSync(OUT, 'utf8')) : {};
+
+/**
+ * Lit une entrée, ou la REPREND du relevé précédent quand la source refuse de la servir et que le
+ * drapeau l'autorise. Toute autre erreur passe : un libellé introuvable reste un échec.
+ */
+async function entry(section, key, read) {
+  try {
+    return await read();
+  } catch (error) {
+    const kept = PREVIOUS[section]?.[key];
+    if (!CARRY_OVER || !(error instanceof SourceUnavailable) || !kept)
+      throw error;
+    console.warn(
+      `reprise du relevé précédent : ${section}.${key} (${error.message})`
+    );
+    const { retrieved: _unknown, carriedOver: _again, url, ...values } = kept;
+    return { url, retrieved: null, carriedOver: true, ...values };
+  }
+}
+mkdirSync(CACHE_DIR, { recursive: true });
+
+/**
+ * UN HTTP 200 N'EST PAS TOUJOURS UNE RÉPONSE. Le Master Catalog du NSSDCA sert sa page
+ * « Errors and Messages » avec un code 200 sur une requête sur deux environ, et pas sur les
+ * mêmes fiches d'un tour à l'autre (mesuré le 2026-09-28 : 4 des 11 sondes en erreur à un
+ * tour, 1 au tour précédent, toutes lisibles quelques minutes plus tard).
+ *
+ * Sans ce contrôle, la page d'erreur entre au CACHE et y reste : le relevé échoue alors
+ * définitivement, sur un fichier qui a l'air d'une réponse valide, et relancer n'y change
+ * rien. C'est exactement le piège du site en production, où la réécriture SPA rend
+ * `index.html` avec un 200 pour un chemin qui n'existe pas.
+ */
+const SERVED_ERROR = /Errors and Messages|An error has occurred/;
+
+/**
+ * Une réponse ET LA DATE À LAQUELLE ELLE A ÉTÉ LUE. Les deux voyagent ensemble, sans quoi la
+ * seconde finit par être celle de l'exécution : c'est le défaut que la ligne 23.1 corrige, et il
+ * a publié le 2026-09-28 pour huit réponses lues le 2026-09-20.
+ */
+async function get(url) {
+  const path = `${CACHE_DIR}/${cacheKey(url)}.txt`;
+  if (existsSync(path))
+    return { text: readFileSync(path, 'utf8'), retrieved: stampOf(path) };
+  // Hors ligne, une réponse absente du cache est une réponse qu'on ne peut pas obtenir : c'est le
+  // même cas qu'une source qui refuse de servir, et `--carry-over-unavailable` s'y applique donc.
+  // C'est ce qui rend une régénération sans réseau identique octet pour octet.
+  if (OFFLINE)
+    throw new SourceUnavailable(`absent du cache (--offline) : ${url}`);
+  // L'API SSD de JPL répond 502 par intermittence (mesuré : environ une requête sur trois le
+  // 2026-09-20, indépendamment de l'en-tête `Origin`). Une erreur de SERVEUR se retente, avec
+  // une attente qui double ; une réponse 4xx est définitive et fait échouer le relevé.
+  for (let attempt = 0; ; attempt++) {
+    // Certains éditeurs (Nature) servent une page d'interstitiel sans en-tête de navigateur.
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (galaxy fact-source snapshot)' },
+    });
+    const retryable = !response.ok && response.status >= 500;
+    const text = response.ok ? await response.text() : '';
+    const served = response.ok && SERVED_ERROR.test(text);
+    if (!retryable && !served) {
+      if (!response.ok) throw new Error(`HTTP ${response.status} : ${url}`);
+      writeFileSync(path, text);
+      return { text, retrieved: stampNow(path) };
+    }
+    if (attempt >= 7)
+      throw new SourceUnavailable(
+        served
+          ? `page d'erreur servie en HTTP 200 après ${attempt + 1} tentatives : ${url}`
+          : `HTTP ${response.status} après ${attempt + 1} tentatives : ${url}`
+      );
+    await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+  }
+}
+
+const decode = (s) =>
+  s
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&omega;/g, 'ω')
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"');
+
+/**
+ * HTML → lignes de texte, espaces normalisés. Les balises sont retirées SANS saut de ligne :
+ * `Mass (10<sup>24</sup> kg)` doit rester un seul libellé, sinon l'exposant 24 se lit comme la
+ * valeur. Les tables placent déjà chaque cellule sur sa propre ligne de source.
+ */
+const htmlLines = (html) =>
+  decode(html.replace(/<[^>]*>/g, ''))
+    .split('\n')
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+
+const number = (raw) => {
+  const value = Number(String(raw).replace(/,/g, '').replace(/\*$/, ''));
+  if (!Number.isFinite(value)) throw new Error(`nombre illisible : ${raw}`);
+  return value;
+};
+
+// ── NASA NSSDCA : fiches par corps ───────────────────────────────────────────────────────────
+
+const NSSDCA_BASE = 'https://nssdc.gsfc.nasa.gov/planetary/factsheet/';
+
+/**
+ * Valeur de la ligne `label` d'une fiche : le premier nombre qui SUIT le libellé. Les fiches
+ * alternent deux mises en page (tableau HTML d'une cellule par valeur, bloc `<pre>` d'une ligne
+ * par grandeur) ; les deux se ramènent à « libellé puis nombres » une fois découpées en jetons.
+ */
+function sheetValue(lines, label, { occurrence = 0 } = {}) {
+  let seen = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.startsWith(label)) continue;
+    if (seen++ < occurrence) continue;
+    const rest = `${line.slice(label.length)} ${lines[i + 1] ?? ''}`
+      .trimStart()
+      // Renvoi de note accolé au libellé : « Sidereal rotation period (hrs)* 609.12 ».
+      .replace(/^\*\s*/, '');
+    const match = rest.match(/^(-?[\d,]+\.?\d*(?:[eE][-+]?\d+)?)\*?(?:\s|$)/);
+    if (!match) throw new Error(`valeur illisible après « ${label} »`);
+    return number(match[1]);
+  }
+  throw new Error(`libellé introuvable : « ${label} »`);
+}
+
+const lastUpdated = (lines) => {
+  const line = lines.find((l) => l.startsWith('Last Updated:'));
+  if (!line) throw new Error('date « Last Updated » introuvable');
+  return new Date(
+    `${line.replace('Last Updated:', '').split(',')[0].trim()} UTC`
+  )
+    .toISOString()
+    .slice(0, 10);
+};
+
+/** Colonnes d'une ligne du tableau principal, dans l'ordre des en-têtes du tableau. */
+const MAIN_COLUMNS = [
+  'mercury',
+  'venus',
+  'earth',
+  'moon',
+  'mars',
+  'jupiter',
+  'saturn',
+  'uranus',
+  'neptune',
+  'pluto',
+];
+function mainRow(lines, label) {
+  const at = lines.findIndex(
+    (l) => l.replace(/ /g, '') === label.replace(/ /g, '')
+  );
+  if (at < 0)
+    throw new Error(`ligne introuvable dans la table principale : ${label}`);
+  const out = {};
+  MAIN_COLUMNS.forEach((body, k) => (out[body] = number(lines[at + 1 + k])));
+  return out;
+}
+
+async function nssdca() {
+  // Les blocs <pre> portent « libellé   valeur » sur une ligne : garder la ligne entière
+  // (le libellé en tête) suffit à `sheetValue`.
+  const sheet = async (file) => {
+    const response = await get(`${NSSDCA_BASE}${file}`);
+    return { lines: htmlLines(response.text), retrieved: response.retrieved };
+  };
+  const index = await get(`${NSSDCA_BASE}index.html`);
+  const main = htmlLines(index.text);
+  const meanTemperature = mainRow(main, 'Mean Temperature (C)');
+  const out = {
+    url: NSSDCA_BASE,
+    retrieved: index.retrieved,
+    mainTableUpdated: lastUpdated(main),
+    bodies: {},
+  };
+  const planet = async (name, file, labels) => {
+    const { lines, retrieved } = await sheet(file);
+    const entry = {
+      updated: lastUpdated(lines),
+      url: `${NSSDCA_BASE}${file}`,
+      retrieved,
+    };
+    for (const [key, label, options] of labels)
+      entry[key] = sheetValue(lines, label, options);
+    if (meanTemperature[name] !== undefined)
+      entry.meanTemperatureC = meanTemperature[name];
+    out.bodies[name] = entry;
+  };
+
+  const common = (radiusLabel, gravityLabel) => [
+    ['mass1e24Kg', 'Mass (1024 kg)'],
+    ['equatorialRadiusKm', radiusLabel],
+    ['volumetricMeanRadiusKm', 'Volumetric mean radius (km)'],
+    ['meanGravity', gravityLabel],
+    ['siderealRotationHours', 'Sidereal rotation period (hrs)'],
+    ['siderealOrbitDays', 'Sidereal orbit period (days)'],
+    ['obliquityDeg', 'Obliquity to orbit (deg)'],
+  ];
+  const terrestrial = [
+    ...common('Equatorial radius (km)', 'Surface gravity (mean) (m/s2)'),
+    ['semiMajorAxisAU', 'Semimajor axis (AU)'],
+    ['moonCount', 'Number of natural satellites'],
+  ];
+  const giant = [
+    ...common(
+      'Equatorial radius (1 bar level) (km)',
+      'Gravity (mean, 1 bar) (m/s2)'
+    ),
+    ['semiMajorAxisAU', 'Semimajor axis (AU)'],
+    ['moonCount', 'Number of natural satellites'],
+  ];
+  await planet('mercury', 'mercuryfact.html', terrestrial);
+  await planet('venus', 'venusfact.html', terrestrial);
+  await planet('earth', 'earthfact.html', terrestrial);
+  await planet('mars', 'marsfact.html', terrestrial);
+  await planet('jupiter', 'jupiterfact.html', giant);
+  await planet('saturn', 'saturnfact.html', giant);
+  await planet('uranus', 'uranusfact.html', giant);
+  await planet('neptune', 'neptunefact.html', giant);
+  await planet('pluto', 'plutofact.html', [
+    ...common('Equatorial radius (km)', 'Surface Gravity (mean) (m/s2)'),
+    ['semiMajorAxisAU', 'Semimajor axis (AU)'],
+    ['moonCount', 'Number of natural satellites'],
+  ]);
+  // Charon est décrit dans la fiche de Pluton, APRÈS les grandeurs de Pluton : deuxième
+  // occurrence de chaque libellé.
+  await planet('charon', 'plutofact.html', [
+    ['mass1e21Kg', 'Mass (1021 kg)'],
+    ['equatorialRadiusKm', 'Equatorial radius (km)', { occurrence: 1 }],
+    ['surfaceGravity', 'Surface gravity (m/s2)'],
+    ['siderealOrbitDays', 'Sidereal orbit period (days)', { occurrence: 1 }],
+    ['siderealRotationDays', 'Sidereal rotation period (days)'],
+  ]);
+  delete out.bodies.charon.meanTemperatureC;
+  await planet('moon', 'moonfact.html', [
+    ['mass1e24Kg', 'Mass (1024 kg)'],
+    ['volumetricMeanRadiusKm', 'Volumetric mean radius (km)'],
+    ['surfaceGravity', 'Surface gravity (m/s2)'],
+    ['semiMajorAxis1e6Km', 'Semimajor axis (106 km)'],
+    ['siderealOrbitDays', 'Revolution period (days)'],
+    ['siderealRotationHours', 'Sidereal rotation period (hrs)'],
+    ['obliquityDeg', 'Obliquity to orbit (deg)'],
+  ]);
+  await planet('sun', 'sunfact.html', [
+    ['mass1e24Kg', 'Mass (1024 kg)'],
+    ['volumetricMeanRadiusKm', 'Volumetric mean radius (km)'],
+    ['surfaceGravityEq', 'Surface gravity (eq.) (m/s2)'],
+    ['siderealRotationHours', 'Sidereal rotation period (hrs)'],
+    ['obliquityDeg', 'Obliquity to ecliptic (deg.)'],
+    ['effectiveTemperatureK', 'Effective temperature:'],
+  ]);
+  return out;
+}
+
+// ── NASA NSSDCA : fiches des satellites ──────────────────────────────────────────────────────
+
+/**
+ * Section « Orbital parameters » des fiches de satellites : demi-grand axe (10³ km), rayons
+ * planétaires, période orbitale SIDÉRALE (jours, suffixe R si rétrograde), puis la rotation :
+ * `S` synchrone, `C` chaotique, ou rien. Préférée à la table JPL des éléments moyens pour la
+ * période, dont la colonne P est anomalistique (Io : 1,7627 j contre 1,7691 j sidéraux).
+ */
+async function nssdcaSatellites() {
+  const sheets = {
+    'joviansatfact.html': {
+      amalthea: 'Amalthea (V)',
+      io: 'Io (I)',
+      europa: 'Europa (II)',
+      ganymede: 'Ganymede (III)',
+      callisto: 'Callisto (IV)',
+    },
+    'saturniansatfact.html': {
+      mimas: 'Mimas (SI)',
+      enceladus: 'Enceladus (SII)',
+      tethys: 'Tethys (SIII)',
+      dione: 'Dione (SIV)',
+      rhea: 'Rhea (SV)',
+      titan: 'Titan (SVI)',
+      hyperion: 'Hyperion (VII)',
+      iapetus: 'Iapetus (VIII)',
+    },
+    'uraniansatfact.html': {
+      miranda: 'Miranda (UV)',
+      ariel: 'Ariel (UI)',
+      umbriel: 'Umbriel (UII)',
+      titania: 'Titania (UIII)',
+      oberon: 'Oberon (UIV)',
+    },
+    'neptuniansatfact.html': {
+      triton: 'Triton (NI)',
+      proteus: 'Proteus (NVIII)',
+      nereid: 'Nereid (NII)',
+    },
+  };
+  const out = {};
+  for (const [file, moons] of Object.entries(sheets)) {
+    const response = await get(`${NSSDCA_BASE}${file}`);
+    const lines = htmlLines(response.text);
+    const orbital = lines.findIndex((l) => l.startsWith('Orbital parameters'));
+    if (orbital < 0) throw new Error(`section orbitale introuvable : ${file}`);
+    const updated = lastUpdated(lines);
+    // Ces fiches ne publient AUCUNE température, et c'est ce qu'une vingtaine de fiches de
+    // corps citent comme raison de n'en afficher aucune. Une raison qui parle d'une source
+    // doit être vérifiée CONTRE la source, sinon c'est une affirmation de plus.
+    const publishesTemperature = lines.some((l) => /temperature/i.test(l));
+    for (const [body, label] of Object.entries(moons)) {
+      const at = lines.indexOf(label, orbital);
+      if (at < 0) throw new Error(`${label} introuvable dans ${file}`);
+      const rotation = lines[at + 4];
+      out[body] = {
+        url: `${NSSDCA_BASE}${file}`,
+        retrieved: response.retrieved,
+        updated,
+        publishesTemperature,
+        semiMajorAxisKm: number(lines[at + 1]) * 1000,
+        siderealOrbitDays: number(lines[at + 3].replace(/R$/, '')),
+        rotation: rotation === 'S' || rotation === 'C' ? rotation : null,
+      };
+    }
+  }
+  // Phobos et Déimos sont décrits dans la fiche de Mars, deux colonnes par grandeur.
+  const marsSheet = await get(`${NSSDCA_BASE}marsfact.html`);
+  const mars = htmlLines(marsSheet.text);
+  const pair = (label) => {
+    // DERNIÈRE occurrence : les mêmes libellés décrivent d'abord Mars elle-même.
+    const at = mars.findLastIndex((l) => l === label);
+    if (at < 0) throw new Error(`fiche de Mars : ${label} introuvable`);
+    return [number(mars[at + 1]), number(mars[at + 2])];
+  };
+  const moonSection = mars.slice(mars.indexOf('Satellites of Mars'));
+  const marsMoonsPublishTemperature = moonSection.some((l) =>
+    /temperature/i.test(l)
+  );
+  const semiMajor = pair('Semimajor axis* (km)');
+  const period = pair('Sidereal orbit period (days)');
+  const rotation = pair('Sidereal rotation period (days)');
+  ['phobos', 'deimos'].forEach((body, k) => {
+    out[body] = {
+      url: `${NSSDCA_BASE}marsfact.html`,
+      retrieved: marsSheet.retrieved,
+      updated: lastUpdated(mars),
+      publishesTemperature: marsMoonsPublishTemperature,
+      semiMajorAxisKm: semiMajor[k],
+      siderealOrbitDays: period[k],
+      rotation: rotation[k] === period[k] ? 'S' : null,
+    };
+  });
+  return out;
+}
+
+// ── JPL SSD : satellites ─────────────────────────────────────────────────────────────────────
+
+/** Lignes d'un tableau HTML, cellules nettoyées ; tolère les `<tr>` jamais refermés. */
+function tableRows(html) {
+  return html
+    .split(/<tr[^>]*>/)
+    .slice(1)
+    .map((chunk) =>
+      [...chunk.matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/g)].map((m) =>
+        decode(m[1].replace(/<[^>]*>/g, ' '))
+          .replace(/\s+/g, ' ')
+          .trim()
+      )
+    );
+}
+
+const JPL_NAME = {
+  moon: 'Moon',
+  phobos: 'Phobos',
+  deimos: 'Deimos',
+  amalthea: 'Amalthea',
+  io: 'Io',
+  europa: 'Europa',
+  ganymede: 'Ganymede',
+  callisto: 'Callisto',
+  mimas: 'Mimas',
+  enceladus: 'Enceladus',
+  tethys: 'Tethys',
+  dione: 'Dione',
+  rhea: 'Rhea',
+  titan: 'Titan',
+  hyperion: 'Hyperion',
+  iapetus: 'Iapetus',
+  miranda: 'Miranda',
+  ariel: 'Ariel',
+  umbriel: 'Umbriel',
+  titania: 'Titania',
+  oberon: 'Oberon',
+  triton: 'Triton',
+  nereid: 'Nereid',
+  proteus: 'Proteus',
+  charon: 'Charon',
+  nix: 'Nix',
+  hydra: 'Hydra',
+  kerberos: 'Kerberos',
+  styx: 'Styx',
+};
+
+/** « 5959.91547 0.00135 JUP365 » → valeur, incertitude, étiquette (n/a → null). */
+function valueCell(cell) {
+  const [value, sigma] = cell.split(' ');
+  // Sans GM publié, la cellule porte « n/a PLU060 » : l'étiquette d'éphéméride n'est pas une
+  // incertitude.
+  const parse = (s) =>
+    s === undefined || !/^-?[\d.]+(e-?\d+)?$/i.test(s) ? null : number(s);
+  return { value: parse(value), sigma: parse(sigma) };
+}
+
+async function jplSatellites() {
+  const physUrl = 'https://ssd.jpl.nasa.gov/sats/phys_par/';
+  const elemUrl = 'https://ssd.jpl.nasa.gov/sats/elem/';
+  const phys = {};
+  const physResponse = await get(physUrl);
+  const physRows = tableRows(physResponse.text);
+  // Les intitulés de la table, pour la même raison que ci-dessus : les quatre petites lunes de
+  // Pluton n'ont pas de fiche NSSDCA, leurs chiffres viennent d'ici, et leur fiche dit qu'on
+  // n'y trouve pas de température.
+  const physColumns = physRows.find((cells) => cells.length >= 6) ?? [];
+  for (const cells of physRows) {
+    const body = Object.keys(JPL_NAME).find((k) => JPL_NAME[k] === cells[1]);
+    if (!body || cells.length < 6) continue;
+    const gm = valueCell(cells[3]);
+    const radius = valueCell(cells[4]);
+    phys[body] = {
+      gmKm3s2: gm.value,
+      gmSigma: gm.sigma,
+      meanRadiusKm: radius.value,
+      meanRadiusSigma: radius.sigma,
+      ephemeris: cells[3].split(' ').pop(),
+    };
+  }
+  const elem = {};
+  const elemResponse = await get(elemUrl);
+  for (const cells of tableRows(elemResponse.text)) {
+    // Colonnes : ID, planète, satellite, code, éphéméride, repère, époque, a, e, ω, M, i, nœud, P.
+    const body = Object.keys(JPL_NAME).find((k) => JPL_NAME[k] === cells[2]);
+    // Première ligne rencontrée seulement : la page répète certains satellites plus bas.
+    if (!body || elem[body] || cells.length < 14) continue;
+    elem[body] = {
+      frame: cells[5],
+      epoch: cells[6],
+      semiMajorAxisKm: number(cells[7]),
+      periodDays: number(cells[13]),
+    };
+  }
+  for (const body of Object.keys(JPL_NAME)) {
+    if (!phys[body]) throw new Error(`JPL phys_par : ${body} introuvable`);
+    if (!elem[body]) throw new Error(`JPL elem : ${body} introuvable`);
+  }
+  return {
+    physicalParameters: {
+      url: physUrl,
+      retrieved: physResponse.retrieved,
+      columns: physColumns,
+      bodies: phys,
+    },
+    meanElements: {
+      url: elemUrl,
+      retrieved: elemResponse.retrieved,
+      bodies: elem,
+    },
+  };
+}
+
+// ── NASA Science : les pages de corps ────────────────────────────────────────────
+
+const NASA_BODY_TARGET = JSON.parse(
+  readFileSync(new URL('./fact-source-targets.json', import.meta.url), 'utf8')
+).nasaScienceBodies;
+
+/**
+ * Température de surface des corps dont une page de la NASA en publie une.
+ *
+ * Aucune table d'agence ne publie de température pour un satellite ou pour un objet
+ * transneptunien : ce qui existe est une PHRASE, dans la page que la NASA consacre au corps.
+ * On la relève telle quelle, avec son ancre déclarée à côté du script, et on en extrait les
+ * valeurs en degrés Celsius — celles que la page met entre parenthèses derrière ses degrés
+ * Fahrenheit.
+ *
+ * UNE valeur veut dire une moyenne, et la fiche du corps l'affiche. PLUSIEURS veut dire une
+ * plage, jamais une moyenne : la fiche écrit alors une raison, qui doit citer ces mêmes
+ * nombres. C'est ce que fait déjà Io, dont la NASA publie une plage et pas une moyenne.
+ *
+ * Une ancre qui ne retrouve rien fait ÉCHOUER le relevé : une page réécrite ne doit pas
+ * produire un relevé silencieusement vide, et surtout pas laisser une valeur affichée sans
+ * plus rien derrière elle.
+ */
+async function nasaScienceBodies() {
+  const out = {};
+  for (const [body, target] of Object.entries(NASA_BODY_TARGET.bodies)) {
+    const url = `https://science.nasa.gov/${target.path}/`;
+    const response = await get(url);
+    const text = htmlLines(response.text).join(' ');
+    const sentence = text
+      .split(/(?<=[.!?]) /)
+      .find((part) => part.includes(target.anchor));
+    if (!sentence)
+      throw new Error(
+        `NASA Science : « ${target.anchor} » introuvable sur ${url}`
+      );
+    const celsius = [
+      ...sentence.matchAll(/(minus |-|−)?(\d+(?:\.\d+)?) degrees Celsius/g),
+    ].map((m) => (m[1] ? -number(m[2]) : number(m[2])));
+    if (celsius.length === 0)
+      throw new Error(
+        `NASA Science : aucune valeur Celsius dans « ${sentence} »`
+      );
+    out[body] = {
+      url,
+      retrieved: response.retrieved,
+      sentence: sentence.trim(),
+      celsius,
+    };
+  }
+  return out;
+}
+
+// ── NASA NAIF : le modèle de rotation de l'UAI ─────────────────────────────────
+
+const NAIF_TARGET = JSON.parse(
+  readFileSync(new URL('./fact-source-targets.json', import.meta.url), 'utf8')
+).naifRotation;
+
+/**
+ * Coefficients de rotation publiés par le noyau PCK générique de NAIF, qui est la forme lisible
+ * par une machine du rapport du groupe de travail de l'UAI sur les éléments de rotation. On
+ * relève les COEFFICIENTS, jamais un pôle calculé : le pôle dépend de l'instant, et c'est
+ * `core/iauPole.ts` qui l'évalue, une seule fois, pour la fiche comme pour le test.
+ *
+ * Deux précautions que ce relevé prend, et qui ont chacune leur raison :
+ *
+ *   1. le code NAIF de chaque corps est confronté à la table « Body Numbers and Names » du noyau
+ *      lui-même. Un code faux désigne un AUTRE corps sans rien dire, exactement comme le « ; » de
+ *      trop côté Horizons faisait répondre l'astéroïde 699 Hela pour Saturne ;
+ *   2. les arguments trigonométriques d'un système sont relevés LIGNE PAR LIGNE, chaque ligne
+ *      étant un argument avec ses propres coefficients. Les mettre à plat obligerait à deviner
+ *      leur degré, et ce degré n'est pas le même partout : ceux du système de Mars sont
+ *      quadratiques, tous les autres linéaires.
+ *
+ * Un corps demandé dont le noyau ne publie aucun pôle est relevé avec `rotation: null`. Cette
+ * absence n'est pas un trou du relevé : c'est elle que la fiche d'Hypérion, de Néréide et des
+ * quatre petites lunes de Pluton cite comme raison de ne pas publier d'obliquité.
+ */
+async function naifRotation() {
+  const response = await get(NAIF_TARGET.url);
+  const text = response.text;
+  // La table des codes du noyau, ISOLÉE : chercher « Nix » dans le fichier entier trouverait
+  // de la prose, et la question posée ici est « ce code est-il celui de ce corps, dans la table
+  // que le noyau publie ».
+  const from = text.indexOf('Body Numbers and Names');
+  const to = text.indexOf('Orientation Constants for the Sun and Planets');
+  if (from < 0 || to <= from)
+    throw new Error('noyau PCK : table des codes introuvable');
+  const flat = ` ${text.slice(from, to).replace(/\s+/g, ' ')} `;
+  const dated = text.match(/By:\s*(.+?)\s*\n/)?.[1];
+  if (!dated) throw new Error('noyau PCK : ligne « By: » introuvable');
+  const blocks = [...text.matchAll(/\\begindata([\s\S]*?)\\begintext/g)];
+  if (blocks.length === 0) throw new Error('noyau PCK : aucun bloc de données');
+  const data = blocks.map((m) => m[1]).join(String.fromCharCode(10));
+  const numbers = (raw) =>
+    raw
+      .trim()
+      .split(/\s+/)
+      .map((cell) => {
+        // Le noyau écrit les petits exposants à la mode Fortran : « -1.4D-12 ».
+        const value = Number(cell.replace(/[dD]/, 'e'));
+        if (!Number.isFinite(value))
+          throw new Error(`noyau PCK : nombre illisible « ${cell} »`);
+        return value;
+      });
+  const scalars = {};
+  const angles = {};
+  for (const m of data.matchAll(/(BODY\d+_[A-Z_]+)\s*=\s*\(([^)]*)\)/g)) {
+    scalars[m[1]] = numbers(m[2]);
+    if (m[1].endsWith('NUT_PREC_ANGLES')) {
+      const rows = m[2]
+        .split(String.fromCharCode(10))
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map(numbers);
+      const widths = new Set(rows.map((row) => row.length));
+      if (widths.size !== 1)
+        throw new Error(
+          `noyau PCK : ${m[1]} mélange des arguments de degrés différents`
+        );
+      angles[m[1]] = rows;
+    }
+  }
+  const systems = {};
+  const bodies = {};
+  for (const [body, target] of Object.entries(NAIF_TARGET.bodies)) {
+    const named = flat.includes(` ${target.id} ${target.expect} `);
+    const pole = scalars[`BODY${target.id}_POLE_RA`];
+    // Un corps que le noyau ne mentionne nulle part n'a pas de nom à confronter : les quatre
+    // petites lunes de Pluton en sont. Mais un nom présent sous un AUTRE code est une erreur de
+    // cible, et c'est exactement ce que ce second membre attrape.
+    if (!named && (pole || flat.includes(` ${target.expect} `)))
+      throw new Error(
+        `noyau PCK : le code ${target.id} n'est pas « ${target.expect} » dans la table du noyau`
+      );
+    if (!pole) {
+      bodies[body] = {
+        naifId: target.id,
+        system: target.system,
+        rotation: null,
+      };
+      continue;
+    }
+    const pm = scalars[`BODY${target.id}_PM`];
+    if (!pm)
+      throw new Error(`noyau PCK : ${body} a un pôle mais pas de méridien`);
+    const key = `BODY${target.system}_NUT_PREC_ANGLES`;
+    if (target.system !== null && angles[key])
+      systems[target.system] = angles[key];
+    bodies[body] = {
+      naifId: target.id,
+      system: target.system,
+      rotation: {
+        poleRaDeg: pole,
+        poleDecDeg: scalars[`BODY${target.id}_POLE_DEC`],
+        nutPrecRa: scalars[`BODY${target.id}_NUT_PREC_RA`] ?? null,
+        nutPrecDec: scalars[`BODY${target.id}_NUT_PREC_DEC`] ?? null,
+        pmRateDegPerDay: pm[1],
+      },
+    };
+  }
+  return {
+    url: NAIF_TARGET.url,
+    retrieved: response.retrieved,
+    kernel: NAIF_TARGET.kernel,
+    dated,
+    systems,
+    bodies,
+  };
+}
+
+// ── NASA Science : nombre de lunes daté ──────────────────────────────────────────────────────
+
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+async function nasaMoonCounts() {
+  const out = {};
+  for (const planet of ['jupiter', 'saturn', 'uranus', 'neptune', 'mars']) {
+    const url = `https://science.nasa.gov/${planet}/moons/`;
+    const response = await get(url);
+    const text = htmlLines(response.text).join(' ');
+    const words = { two: 2 };
+    // La page répète le chiffre dans ses métadonnées, qui peuvent être en retard sur le corps
+    // du texte (Saturne : « 274 » dans la description, « 293 … as of August 2026 » dans la
+    // page). La phrase DATÉE fait foi ; sans date, toutes les occurrences doivent concorder.
+    //
+    // Le qualificatif entre le nombre et « moons » est LIBRE, jusqu'à trois mots : la page
+    // d'Uranus est passée de « 29 known moons » à « 29 officially recognized moons » le
+    // 2026-09-22, et une alternation fermée (« known | confirmed ») a fait échouer le relevé.
+    // C'est ce qu'on veut d'une page de prose : elle bouge, et l'échec le dit.
+    const matches = [
+      ...text.matchAll(
+        /has (\d+|two) (?:[a-z]+ ){0,3}moons(?:[^.]*?as of (\w+) (\d{4}))?/gi
+      ),
+    ];
+    const match = matches.find((m) => m[2]) ?? matches[0];
+    if (!match) throw new Error(`nombre de lunes introuvable : ${url}`);
+    if (!match[2] && new Set(matches.map((m) => m[1])).size > 1)
+      throw new Error(`nombres de lunes contradictoires sans date : ${url}`);
+    const count = words[match[1]] ?? number(match[1]);
+    const month = match[2] ? MONTHS.indexOf(match[2]) + 1 : 0;
+    out[planet] = {
+      url,
+      retrieved: response.retrieved,
+      moonCount: count,
+      asOf: month ? `${match[3]}-${String(month).padStart(2, '0')}` : null,
+      sentence: match[0],
+    };
+  }
+  return out;
+}
+
+// ── JPL SBDB : petits corps ──────────────────────────────────────────────────────────────────
+
+// DONNÉE, pas du code : la liste vit dans `fact-source-targets.json`, à côté de ce
+// script. Ajouter un corps au catalogue n'exige plus de toucher ce fichier.
+const SBDB_TARGET = JSON.parse(
+  readFileSync(new URL('./fact-source-targets.json', import.meta.url), 'utf8')
+).sbdb;
+
+async function sbdb() {
+  const out = {};
+  for (const [body, sstr] of Object.entries(SBDB_TARGET)) {
+    const url = `https://ssd-api.jpl.nasa.gov/sbdb.api?sstr=${encodeURIComponent(sstr)}&phys-par=1&sat=1`;
+    const response = await get(url);
+    const json = JSON.parse(response.text);
+    if (!json.object) throw new Error(`SBDB : ${sstr} introuvable`);
+    const par = (name) => {
+      const p = (json.phys_par ?? []).find((x) => x.name === name);
+      if (!p) return null;
+      return {
+        value: p.value,
+        sigma: p.sigma ?? null,
+        ref: p.ref ?? null,
+        notes: p.notes ?? null,
+        // CE QUE LA BASE DIT DE SA PROPRE GRANDEUR (2026-10-03) : « body rotation period
+        // (synodic) » pour `rot_per`. La fiche lit la nature d'une valeur ici, jamais dans un
+        // souvenir : son libellé disait « rotation sidérale » pour quinze petits corps.
+        desc: p.desc ?? null,
+      };
+    };
+    // Sigma asymétrique SBDB (« -1/+4 ») : conservée telle quelle, la déparer mentirait.
+    const numeric = (p) =>
+      p && {
+        ...p,
+        value: number(p.value),
+        sigma:
+          p.sigma &&
+          (Number.isFinite(Number(String(p.sigma).replace(/,/g, '')))
+            ? Number(String(p.sigma).replace(/,/g, ''))
+            : String(p.sigma)),
+      };
+    const pole = par('pole');
+    out[body] = {
+      url: `https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=${encodeURIComponent(sstr)}`,
+      retrieved: response.retrieved,
+      fullname: json.object.fullname,
+      diameterKm: numeric(par('diameter')),
+      gmKm3s2: numeric(par('GM')),
+      // La DENSITÉ, que la base publie parfois sans GM (Didymos, 2026-10-04) : avec le
+      // diamètre de la même référence, elle donne une masse que la fiche refusait faute de GM.
+      densityGcm3: numeric(par('density')),
+      rotationHours: numeric(par('rot_per')),
+      // DEUX ÉCRITURES du même pôle (RA/Dec équatoriales J2000) : « 51.8/+10.8 » (Lutetia) et
+      // « 78, -71 degrees » (Didymos). Découper sur « / » seul rendait `NaN` pour la seconde,
+      // sans un mot. Que ce soient bien RA et Dec a été VÉRIFIÉ : le pôle écliptique publié par
+      // la source citée pour Didymos (Naidu et al. 2020, λ 310°, β −84°) se convertit en RA 78,2°,
+      // Dec −70,8° (2026-10-04). Une valeur qui ne donne pas deux nombres fait échouer.
+      pole: pole && {
+        ...pole,
+        value: (() => {
+          const parts = pole.value
+            .replace(/degrees?/i, '')
+            .split(/[/,]/)
+            .map((s) => Number(s.trim()));
+          if (parts.length !== 2 || !parts.every(Number.isFinite))
+            throw new Error(`SBDB ${sstr} : pôle illisible « ${pole.value} »`);
+          return parts;
+        })(),
+      },
+      confirmedSatellites: (json.sat ?? []).filter((s) => s.confirmed === 'Y')
+        .length,
+      // TOUT ce que la base publie de physique sur ce corps, par son nom. Une douzaine de
+      // fiches disent « la SBDB ne publie pas de température » ou « pas de pôle » : cette
+      // liste est ce contre quoi ces phrases sont vérifiées.
+      physicalParameterNames: (json.phys_par ?? []).map((x) => x.name).sort(),
+    };
+  }
+  return out;
+}
+
+// ── Articles : les phrases citées doivent figurer dans la source ─────────────────────────────
+
+/**
+ * Chaque valeur tirée d'un article est citée MOT POUR MOT ici, puis cherchée dans le texte
+ * publié (résumé arXiv, page Nature, ou tableau du PDF quand le résumé ne donne pas le
+ * chiffre). `factProvenance.test.ts` relie ensuite la valeur du catalogue à cette citation :
+ * la transcription du chiffre reste humaine, mais le texte qu'elle transcrit est vérifié.
+ */
+const ARTICLES = {
+  'sicardy-2011-eris': {
+    url: 'https://www.nature.com/articles/nature10550',
+    quotes: [
+      'radius 1,163 ± 6 kilometres',
+      'density 2.52 ± 0.05 grams per cm3',
+    ],
+  },
+  'szakats-2023-eris': {
+    arxiv: '2211.07987',
+    quotes: ['P = 15.8 d', 'the rotation of Eris is tidally locked'],
+  },
+  'ragozzine-brown-2009-haumea': {
+    arxivPdf: '0903.4213v1',
+    quotes: ['Haumea Mass 4.006 ± 0.040 1021 kg'],
+  },
+  'brown-2013-makemake': {
+    arxiv: '1304.1041',
+    quotes: ['measured equatorial diameter of 1434 +/- 14 km'],
+  },
+  'kiss-2019-gonggong': {
+    arxiv: '1903.05439',
+    quotes: ['system mass of 1.75x10$^{21}$ kg', 'a size of 1230$\\pm$50 km'],
+  },
+  'margoti-2026-quaoar': {
+    arxiv: '2607.06450',
+    quotes: [
+      'equivalent volumetric diameter of 1094.4 +/- 4.6 km',
+      'density of 1.760 +/- 0.109 g/cm3',
+      '8.8394 +/- 0.0002 hours',
+    ],
+  },
+  'pal-2012-sedna': {
+    arxiv: '1204.0899',
+    quotes: ['995 +/- 80 km'],
+  },
+  'kiss-2016-nereid': {
+    arxiv: '1601.02395',
+    quotes: ['rotation period of P=11.594(+/-)0.017 h'],
+  },
+  'brown-2010-orcus': {
+    arxiv: '0910.4784',
+    quotes: [
+      'system mass of 6.32+- 0.01 X 10^20 kg',
+      'diameter 940+-70 km',
+      'implies sizes of Orcus and Vanth of 900 and 280 km',
+      'implies sizes of 820 and 640 km',
+    ],
+  },
+  // Les satellites de deux cibles de missions (2026-10-04). La page de NASA Science est lue par
+  // curl comme celle de Nature ; Grundy et al. donnent l'orbite dans la table 2 du PDF seule.
+  'nasa-didymos-dimorphos': {
+    url: 'https://science.nasa.gov/solar-system/asteroids/didymos/',
+    quotes: [
+      'The moonlet, Dimorphos (Didymos B), is about 525 feet (160 meters) in diameter.',
+      'shortening the 11-hour and 55-minute orbit to 11 hours and 23 minutes',
+      'margin of uncertainty of approximately plus or minus 2 minutes',
+    ],
+  },
+  'grundy-2018-patroclus': {
+    arxivPdf: '1903.03729v1',
+    quotes: [
+      'Period (days) P 4.282680 ± 0.000063',
+      'Semimajor axis (km) a 688.5 ± 4.7',
+      'System mass (1018 kg) Msys 1.410 ± 0.029',
+      'Buie et al. (2015) estimated the b axis radii as 59 and 54 km',
+    ],
+  },
+  'ortiz-2017-haumea': {
+    arxiv: '2006.03113',
+    quotes: [
+      'elliptical limb with axes 1,704 $\\pm$ 4 km x 1,138 $\\pm$ 26 km',
+      'largest axis is at least 2,322 $\\pm$ 60 km',
+    ],
+  },
+};
+
+/**
+ * Normalisation de recherche : espaces fusionnés, et toute suite de caractères non ASCII
+ * ramenée à `?`. Le « ± » arrive en UTF-8 d'une page web, en Latin-1 ou en caractère de
+ * remplacement de pdftotext selon la plateforme : c'est le chiffre qui est vérifié, pas son
+ * encodage.
+ */
+const collapse = (s) => s.replace(/\s+/g, ' ').replace(/[^\x20-\x7E]+/g, '?');
+
+async function articleText({ url, arxiv, arxivPdf }) {
+  if (arxiv) {
+    const response = await get(
+      `https://export.arxiv.org/api/query?id_list=${arxiv}&max_results=1`
+    );
+    const summary = response.text.match(/<summary>([\s\S]*?)<\/summary>/)?.[1];
+    if (!summary) throw new Error(`résumé arXiv introuvable : ${arxiv}`);
+    return {
+      text: decode(summary.replace(/&lt;/g, '<').replace(/&gt;/g, '>')),
+      retrieved: response.retrieved,
+    };
+  }
+  if (arxivPdf) {
+    // Le tableau n'existe que dans le PDF : extraction par pdftotext (poppler), dont le texte
+    // est mis en cache comme les autres réponses. Hors ligne, seul le cache sert.
+    const { execFileSync } = await import('node:child_process');
+    const source = `https://arxiv.org/pdf/${arxivPdf}#pdftotext`;
+    const key = cacheKey(source);
+    const path = `${CACHE_DIR}/${key}.txt`;
+    if (!existsSync(path)) {
+      if (OFFLINE) throw new Error(`absent du cache (--offline) : ${source}`);
+      const pdf = Buffer.from(
+        await (await fetch(`https://arxiv.org/pdf/${arxivPdf}`)).arrayBuffer()
+      );
+      const pdfPath = `${CACHE_DIR}/${key}.pdf`;
+      writeFileSync(pdfPath, pdf);
+      writeFileSync(
+        path,
+        execFileSync('pdftotext', ['-layout', pdfPath, '-'], {
+          encoding: 'latin1',
+        })
+      );
+      stampNow(path);
+    }
+    return { text: readFileSync(path, 'latin1'), retrieved: stampOf(path) };
+  }
+  // Page d'éditeur : le résumé est dans le HTML servi. Nature répond au `fetch` de Node par
+  // une page de défi JavaScript (« Client Challenge ») mais sert l'article à curl : le texte
+  // est donc lu par curl, et le script ÉCHOUE plutôt que d'accepter la page de défi.
+  const path = `${CACHE_DIR}/${cacheKey(url)}.txt`;
+  if (!existsSync(path)) {
+    if (OFFLINE) throw new Error(`absent du cache (--offline) : ${url}`);
+    const { execFileSync } = await import('node:child_process');
+    writeFileSync(
+      path,
+      execFileSync('curl', ['-sSL', '-A', 'Mozilla/5.0', url], {
+        encoding: 'utf8',
+        maxBuffer: 16 * 1024 * 1024,
+      })
+    );
+    stampNow(path);
+  }
+  const html = readFileSync(path, 'utf8');
+  if (html.includes('<title>Client Challenge</title>'))
+    throw new Error(`page de défi au lieu de l'article : ${url}`);
+  return {
+    text: decode(html.replace(/<[^>]*>/g, ' ')),
+    retrieved: stampOf(path),
+  };
+}
+
+async function articles() {
+  const out = {};
+  for (const [id, article] of Object.entries(ARTICLES)) {
+    const response = await articleText(article);
+    const text = collapse(response.text);
+    for (const quote of article.quotes)
+      if (!text.includes(collapse(quote)))
+        throw new Error(
+          `${id} : citation introuvable dans la source : « ${quote} »`
+        );
+    out[id] = {
+      url:
+        article.url ??
+        `https://arxiv.org/abs/${(article.arxiv ?? article.arxivPdf).replace(/v\d+$/, '')}`,
+      retrieved: response.retrieved,
+      verifiedQuotes: article.quotes,
+    };
+  }
+  return out;
+}
+
+// ── NASA NSSDCA Master Catalog : sondes ──────────────────────────────────────────────────────
+
+/**
+ * Fiche d'une sonde au Master Catalog, repérée par son identifiant NSSDCA/COSPAR. Le nom de la
+ * page est CONFRONTÉ au nom attendu, comme `fetchBody()` confronte `Target body name:` côté
+ * Horizons : un identifiant faux ne renvoie pas d'erreur, il renvoie une AUTRE mission.
+ *
+ * Le bloc « Facts in Brief » porte un champ `Mass` dont le sens VARIE d'une fiche à l'autre : à
+ * masse au lancement pour OSIRIS-REx (1528 contre « Launch mass including propellant is 1529 kg »
+ * dans le corps de la page), masse sèche pour New Horizons (385 contre 465 kg au lancement), et
+ * pour BepiColombo la masse sèche du seul module de propulsion (365 kg, que le corps de la page
+ * attribue au SEPM quand la pile au lancement pesait 1229 kg pour le MPO). Les phrases du corps
+ * de page qui parlent de « launch mass » sont donc relevées À CÔTÉ de la valeur : c'est sur elles
+ * que se décide, fiche par fiche, si la valeur se publie et sous quel libellé.
+ */
+const NSSDCA_MASTER_TARGET = JSON.parse(
+  readFileSync(new URL('./fact-source-targets.json', import.meta.url), 'utf8')
+).nssdcaMasterCatalog;
+
+const NSSDCA_MASTER_BASE =
+  'https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=';
+
+/** Libellés du bloc « Facts in Brief » : liste FERMÉE, elle borne chaque valeur. */
+const FACTS_IN_BRIEF_LABELS = [
+  'Launch Date',
+  'Launch Vehicle',
+  'Launch Site',
+  'Mass',
+  'Nominal Power',
+];
+
+async function nssdcaMasterCatalog() {
+  const out = {};
+  for (const [body, target] of Object.entries(NSSDCA_MASTER_TARGET))
+    out[body] = await entry('nssdcaMasterCatalog', body, () =>
+      spacecraftSheet(target)
+    );
+  return out;
+}
+
+/** UNE fiche de sonde, lue à sa source. Appelée par `entry`, qui sait la reprendre. */
+async function spacecraftSheet(target) {
+  const url = `${NSSDCA_MASTER_BASE}${target.id}`;
+  const response = await get(url);
+  const flat = decode(
+    response.text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')
+  );
+  const head = flat.indexOf('NSSDCA/COSPAR ID');
+  if (head < 0) throw new Error(`page NSSDCA sans identifiant : ${url}`);
+  // Le nom est le dernier segment avant l'identifiant, après la date du jour servie par le site.
+  const name = flat
+    .slice(0, head)
+    .trim()
+    .replace(/^.*\d{4}\s+/, '')
+    .trim();
+  if (name !== target.expect)
+    throw new Error(
+      `NSSDCA ${target.id} : « ${name} » au lieu de « ${target.expect} »`
+    );
+  const id = flat.slice(head).match(/NSSDCA\/COSPAR ID:\s*(\S+)/)?.[1];
+  if (id !== target.id)
+    throw new Error(`NSSDCA : la page ${url} annonce l'identifiant ${id}`);
+  const facts = flat.match(
+    /Facts in Brief\s+(.*?)\s+(?:Funding Agenc|Discipline)/
+  )?.[1];
+  if (!facts) throw new Error(`bloc « Facts in Brief » introuvable : ${url}`);
+  // Un champ court jusqu'au libellé SUIVANT, et ce libellé se prend dans une liste fermée :
+  // les valeurs sont du texte libre contenant des majuscules (« Cape Canaveral, United
+  // States »), donc « un mot capitalisé suivi d'un deux-points » arrêtait le site au premier
+  // mot — relevé « Cape Canaveral, » pour les huit fiches américaines.
+  const NEXT = `(?=\\s+(?:${FACTS_IN_BRIEF_LABELS.join('|')}):|$)`;
+  const field = (label, pattern) => {
+    const match = facts.match(new RegExp(`${label}:\\s*(${pattern})${NEXT}`));
+    return match ? match[1].trim() : null;
+  };
+  const mass = field('Mass', '[\\d.]+ kg');
+  if (!mass)
+    throw new Error(`masse introuvable dans « Facts in Brief » : ${url}`);
+  const launchDate = field('Launch Date', '\\d{4}-\\d{2}-\\d{2}');
+  if (!launchDate) throw new Error(`date de lancement introuvable : ${url}`);
+  const power = field('Nominal Power', '[\\d.]+ W');
+  return {
+    url,
+    retrieved: response.retrieved,
+    cosparId: target.id,
+    name,
+    launchDate,
+    launchVehicle: field('Launch Vehicle', '.+?'),
+    launchSite: field('Launch Site', '.+?'),
+    massKg: number(mass.replace(' kg', '')),
+    nominalPowerW: power ? number(power.replace(' W', '')) : null,
+    // Ce que le corps de la page dit d'une masse au lancement, quand il en dit quelque chose.
+    launchMassMentions: [
+      ...flat
+        .slice(0, flat.indexOf('Facts in Brief'))
+        .matchAll(/[^.]*launch mass[^.]*\./gi),
+    ].map((m) => m[0].trim()),
+  };
+}
+
+// ── JPL SBDB : objets interstellaires ────────────────────────────────────────────────────────
+
+/**
+ * Les trois interstellaires ne passent pas par `sbdb()` : ce qui les décrit n'est pas un
+ * diamètre ni un GM, mais leur ORBITE (excentricité franchement supérieure à 1, périhélie) et
+ * l'arc d'observation qui l'a contrainte. `full-prec=1` est indispensable : sans lui l'API
+ * arrondit e à 1,2 pour ʻOumuamua, ce qui ne se compare plus aux éléments du registre.
+ */
+const SBDB_INTERSTELLAR_TARGET = JSON.parse(
+  readFileSync(new URL('./fact-source-targets.json', import.meta.url), 'utf8')
+).sbdbInterstellar;
+
+async function sbdbInterstellar() {
+  const out = {};
+  for (const [body, target] of Object.entries(SBDB_INTERSTELLAR_TARGET)) {
+    const api = `https://ssd-api.jpl.nasa.gov/sbdb.api?sstr=${encodeURIComponent(target.sstr)}&phys-par=1&full-prec=1`;
+    const response = await get(api);
+    const json = JSON.parse(response.text);
+    if (!json.object) throw new Error(`SBDB : ${target.sstr} introuvable`);
+    if (json.object.fullname !== target.expect)
+      throw new Error(
+        `SBDB ${target.sstr} : « ${json.object.fullname} » au lieu de « ${target.expect} »`
+      );
+    const element = (name) => {
+      const el = (json.orbit?.elements ?? []).find((e) => e.name === name);
+      if (!el) throw new Error(`SBDB ${target.sstr} : élément ${name} absent`);
+      return {
+        value: number(el.value),
+        sigma: el.sigma ? number(el.sigma) : null,
+      };
+    };
+    const phys = (name) => {
+      const p = (json.phys_par ?? []).find((x) => x.name === name);
+      return p
+        ? { value: number(p.value), sigma: p.sigma ? number(p.sigma) : null }
+        : null;
+    };
+    out[body] = {
+      url: `https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=${encodeURIComponent(target.sstr)}`,
+      retrieved: response.retrieved,
+      fullname: json.object.fullname,
+      orbitClass: json.object.orbit_class?.name ?? null,
+      eccentricity: element('e'),
+      perihelionAU: element('q'),
+      inclinationDeg: element('i'),
+      absoluteMagnitude: phys('H'),
+      // Une comète ne porte pas H mais M1, la magnitude TOTALE (noyau et chevelure) de la loi
+      // de brillance cométaire : une autre grandeur, relevée pour que la raison de ne pas
+      // afficher de magnitude absolue soit confrontée à ce que la source publie vraiment.
+      cometTotalMagnitude: phys('M1'),
+      firstObservation: json.orbit?.first_obs ?? null,
+      lastObservation: json.orbit?.last_obs ?? null,
+      observationsUsed: json.orbit?.n_obs_used ?? null,
+      solutionDate: json.orbit?.soln_date ?? null,
+    };
+    if (!out[body].firstObservation)
+      throw new Error(
+        `SBDB ${target.sstr} : date de première observation absente`
+      );
+  }
+  return out;
+}
+
+const sections = {
+  nssdca: await nssdca(),
+  nssdcaSatellites: await nssdcaSatellites(),
+  jplSatellites: await jplSatellites(),
+  naifRotation: await naifRotation(),
+  nasaScienceBodies: await nasaScienceBodies(),
+  nasaMoonCounts: await nasaMoonCounts(),
+  sbdb: await sbdb(),
+  sbdbInterstellar: await sbdbInterstellar(),
+  nssdcaMasterCatalog: await nssdcaMasterCatalog(),
+  articles: await articles(),
+};
+
+/**
+ * UNE DATE PAR SECTION, ET ELLE EST DÉRIVÉE DES RÉPONSES, jamais de l'exécution. Une section
+ * lue en deux fois porte les deux jours, et `articles` en est un cas RÉEL : six résumés arXiv,
+ * la page Nature et le PDF d'Haumea lus le 2026-09-20, les deux articles ajoutés au lot 23 lus le
+ * 2026-09-28. Une date unique pour dix sources était le mensonge de ce relevé ; une date unique
+ * par section en serait un plus petit.
+ *
+ * Rien n'est écrit deux fois : ce tableau se DÉDUIT des sections, et `factSourceDates.test.ts`
+ * le redéduit pour vérifier qu'il n'a pas dérivé. C'est aussi pourquoi le cas particulier hors
+ * ligne a disparu : la date vient désormais du cache, donc une régénération sans réseau rend
+ * exactement le même fichier, ce que le rattrapage d'avant ne faisait que simuler.
+ */
+const snapshot = assertEveryUrlDated({
+  generatedBy: 'scripts/snapshot-fact-sources.mjs',
+  retrieved: Object.fromEntries(
+    Object.entries(sections).map(([name, section]) => [
+      name,
+      sectionDates(section),
+    ])
+  ),
+  ...sections,
+});
+writeFileSync(OUT, `${JSON.stringify(snapshot, null, 2)}\n`);
+console.log(`écrit ${OUT}`);

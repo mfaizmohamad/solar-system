@@ -1,0 +1,84 @@
+import { describe, expect, it } from 'vitest';
+import { Body } from 'astronomy-engine';
+import { CELESTIAL_CONFIG } from './bodies';
+
+const NEXT_MOONS = [
+  ['phobos', 'Phobos', 'mars', Body.Mars, 0.0000626680043, 0.31891012704801625],
+  ['deimos', 'Deimos', 'mars', Body.Mars, 0.00015680036, 1.2624407921255993],
+  [
+    'triton',
+    'Triton',
+    'neptune',
+    Body.Neptune,
+    0.00237169151,
+    5.876844606364144,
+  ],
+  ['charon', 'Charon', 'pluto', undefined, 0.000131017908, 6.38722209972658],
+] as const;
+
+/** Résolutions de surface réellement livrées par corps (voir public/assets/textures). */
+const MOON_SURFACE_RES: Record<string, string[]> = {
+  phobos: ['8k', '4k', '2k', '1k'],
+  deimos: ['1k'],
+  // Triton s'arrete a 4k : son 8k n'ajoutait que 0,15 % de variance sur son propre
+  // aller-retour en demi-resolution, indistinguable a l'oeil (lot 16). La mosaique Voyager 2
+  // fait pourtant 14138 px : une source large n'est pas une source fine.
+  triton: ['4k', '2k', '1k'],
+  charon: ['8k', '4k', '2k', '1k'],
+};
+
+describe('next planetary moon catalogue entries', () => {
+  it.each(NEXT_MOONS)(
+    'declares %s as a textured parent-relative moon',
+    (key, displayName, parent, rotationBody, semiMajorAxisAU, periodDays) => {
+      const moon = CELESTIAL_CONFIG.bodies[parent].satellites?.[key];
+
+      expect(moon).toBeDefined();
+      expect(moon?.kind).toBe('moon');
+      expect(moon?.displayName?.en).toBe(displayName);
+      expect(moon?.frame).toBe('parentRelative');
+      expect(moon?.relativeEphemeris).toEqual({
+        kind: 'horizonsParentRelative',
+      });
+      if (rotationBody !== undefined) {
+        expect(moon?.rotationBody).toBe(rotationBody);
+      }
+      // Tolerance RELATIVE de 0,5 %, et non une egalite a 9 decimales : le catalogue porte
+      // desormais le demi-grand axe OSCULATEUR derive des etats Horizons
+      // (`scripts/derive-relative-elements.mjs`), la ou cette valeur de reference est le
+      // demi-grand axe MOYEN publie. Les deux decrivent la meme orbite et different de
+      // quelques centiemes de pourcent, par definition. La marge reste tres en dessous de
+      // ce qu'une coquille de saisie produirait (chiffre transpose, ordre de grandeur), ce
+      // que cette assertion garde vraiment.
+      expect(
+        Math.abs(
+          (moon!.relativeOrbitalElements!.semiMajorAxisAU - semiMajorAxisAU) /
+            semiMajorAxisAU
+        ),
+        `${key} : demi-grand axe`
+      ).toBeLessThan(0.005);
+      expect(moon?.textures?.surface).toBe(`${key}/${key}_surface`);
+      expect(moon?.textureResolutions.surface).toEqual(MOON_SURFACE_RES[key]);
+      expect(moon?.fallbackColor).toBeTypeOf('number');
+      expect(moon?.realData?.orbitPeriodDays).toBeCloseTo(periodDays, 6);
+    }
+  );
+
+  it.each(NEXT_MOONS)(
+    'uses synchronous rotation for %s',
+    (
+      key,
+      _displayName,
+      parent,
+      _rotationBody,
+      _semiMajorAxisAU,
+      periodDays
+    ) => {
+      const moon = CELESTIAL_CONFIG.bodies[parent].satellites![key];
+      const rotationPeriodDays =
+        (2 * Math.PI) / Math.abs(moon.rotationSpeed) / 86_400;
+
+      expect(rotationPeriodDays).toBeCloseTo(periodDays, 6);
+    }
+  );
+});

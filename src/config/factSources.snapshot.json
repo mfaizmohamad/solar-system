@@ -1,0 +1,4434 @@
+{
+  "generatedBy": "scripts/snapshot-fact-sources.mjs",
+  "retrieved": {
+    "nssdca": [
+      "2026-09-28"
+    ],
+    "nssdcaSatellites": [
+      "2026-09-28"
+    ],
+    "jplSatellites": [
+      "2026-09-28"
+    ],
+    "naifRotation": [
+      "2026-09-28"
+    ],
+    "nasaScienceBodies": [
+      "2026-09-28"
+    ],
+    "nasaMoonCounts": [
+      "2026-09-28"
+    ],
+    "sbdb": [
+      "2026-09-28",
+      "2026-10-04"
+    ],
+    "sbdbInterstellar": [
+      "2026-09-28"
+    ],
+    "nssdcaMasterCatalog": [
+      "2026-09-28"
+    ],
+    "articles": [
+      "2026-09-20",
+      "2026-09-28",
+      "2026-10-04"
+    ]
+  },
+  "nssdca": {
+    "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/",
+    "retrieved": "2026-09-28",
+    "mainTableUpdated": "2025-03-18",
+    "bodies": {
+      "mercury": {
+        "updated": "2024-01-11",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/mercuryfact.html",
+        "retrieved": "2026-09-28",
+        "mass1e24Kg": 0.3301,
+        "equatorialRadiusKm": 2440.5,
+        "volumetricMeanRadiusKm": 2439.7,
+        "meanGravity": 3.7,
+        "siderealRotationHours": 1407.6,
+        "siderealOrbitDays": 87.969,
+        "obliquityDeg": 0.034,
+        "semiMajorAxisAU": 0.38709893,
+        "moonCount": 0,
+        "meanTemperatureC": 167
+      },
+      "venus": {
+        "updated": "2024-01-11",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/venusfact.html",
+        "retrieved": "2026-09-28",
+        "mass1e24Kg": 4.8673,
+        "equatorialRadiusKm": 6051.8,
+        "volumetricMeanRadiusKm": 6051.8,
+        "meanGravity": 8.87,
+        "siderealRotationHours": -5832.6,
+        "siderealOrbitDays": 224.701,
+        "obliquityDeg": 177.36,
+        "semiMajorAxisAU": 0.72333199,
+        "moonCount": 0,
+        "meanTemperatureC": 464
+      },
+      "earth": {
+        "updated": "2024-11-15",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/earthfact.html",
+        "retrieved": "2026-09-28",
+        "mass1e24Kg": 5.9722,
+        "equatorialRadiusKm": 6378.137,
+        "volumetricMeanRadiusKm": 6371,
+        "meanGravity": 9.82,
+        "siderealRotationHours": 23.9345,
+        "siderealOrbitDays": 365.256,
+        "obliquityDeg": 23.44,
+        "semiMajorAxisAU": 1.00000011,
+        "moonCount": 1,
+        "meanTemperatureC": 15
+      },
+      "mars": {
+        "updated": "2025-05-19",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html",
+        "retrieved": "2026-09-28",
+        "mass1e24Kg": 0.64169,
+        "equatorialRadiusKm": 3396.2,
+        "volumetricMeanRadiusKm": 3389.5,
+        "meanGravity": 3.73,
+        "siderealRotationHours": 24.6229,
+        "siderealOrbitDays": 686.98,
+        "obliquityDeg": 25.19,
+        "semiMajorAxisAU": 1.52366231,
+        "moonCount": 2,
+        "meanTemperatureC": -65
+      },
+      "jupiter": {
+        "updated": "2024-10-02",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/jupiterfact.html",
+        "retrieved": "2026-09-28",
+        "mass1e24Kg": 1898.13,
+        "equatorialRadiusKm": 71492,
+        "volumetricMeanRadiusKm": 69911,
+        "meanGravity": 25.92,
+        "siderealRotationHours": 9.925,
+        "siderealOrbitDays": 4332.589,
+        "obliquityDeg": 3.13,
+        "semiMajorAxisAU": 5.20336301,
+        "moonCount": 95,
+        "meanTemperatureC": -110
+      },
+      "saturn": {
+        "updated": "2025-03-18",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/saturnfact.html",
+        "retrieved": "2026-09-28",
+        "mass1e24Kg": 568.32,
+        "equatorialRadiusKm": 60268,
+        "volumetricMeanRadiusKm": 58232,
+        "meanGravity": 11.19,
+        "siderealRotationHours": 10.656,
+        "siderealOrbitDays": 10755.699,
+        "obliquityDeg": 26.73,
+        "semiMajorAxisAU": 9.53707032,
+        "moonCount": 274,
+        "meanTemperatureC": -140
+      },
+      "uranus": {
+        "updated": "2024-10-02",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/uranusfact.html",
+        "retrieved": "2026-09-28",
+        "mass1e24Kg": 86.811,
+        "equatorialRadiusKm": 25559,
+        "volumetricMeanRadiusKm": 25362,
+        "meanGravity": 9.01,
+        "siderealRotationHours": -17.24,
+        "siderealOrbitDays": 30685.4,
+        "obliquityDeg": 97.77,
+        "semiMajorAxisAU": 19.19126393,
+        "moonCount": 28,
+        "meanTemperatureC": -195
+      },
+      "neptune": {
+        "updated": "2024-10-03",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/neptunefact.html",
+        "retrieved": "2026-09-28",
+        "mass1e24Kg": 102.409,
+        "equatorialRadiusKm": 24764,
+        "volumetricMeanRadiusKm": 24622,
+        "meanGravity": 11.27,
+        "siderealRotationHours": 16.11,
+        "siderealOrbitDays": 60189.018,
+        "obliquityDeg": 28.32,
+        "semiMajorAxisAU": 30.06896348,
+        "moonCount": 16,
+        "meanTemperatureC": -200
+      },
+      "pluto": {
+        "updated": "2024-01-11",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/plutofact.html",
+        "retrieved": "2026-09-28",
+        "mass1e24Kg": 0.01303,
+        "equatorialRadiusKm": 1188,
+        "volumetricMeanRadiusKm": 1188,
+        "meanGravity": 0.62,
+        "siderealRotationHours": -153.2928,
+        "siderealOrbitDays": 90560,
+        "obliquityDeg": 119.51,
+        "semiMajorAxisAU": 39.48168677,
+        "moonCount": 5,
+        "meanTemperatureC": -225
+      },
+      "charon": {
+        "updated": "2024-01-11",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/plutofact.html",
+        "retrieved": "2026-09-28",
+        "mass1e21Kg": 1.586,
+        "equatorialRadiusKm": 606,
+        "surfaceGravity": 0.29,
+        "siderealOrbitDays": 6.3872,
+        "siderealRotationDays": 6.3872
+      },
+      "moon": {
+        "updated": "2024-01-11",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/moonfact.html",
+        "retrieved": "2026-09-28",
+        "mass1e24Kg": 0.07346,
+        "volumetricMeanRadiusKm": 1737.4,
+        "surfaceGravity": 1.62,
+        "semiMajorAxis1e6Km": 0.3844,
+        "siderealOrbitDays": 27.3217,
+        "siderealRotationHours": 655.72,
+        "obliquityDeg": 6.68,
+        "meanTemperatureC": -20
+      },
+      "sun": {
+        "updated": "2024-05-09",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/sunfact.html",
+        "retrieved": "2026-09-28",
+        "mass1e24Kg": 1988400,
+        "volumetricMeanRadiusKm": 695700,
+        "surfaceGravityEq": 274,
+        "siderealRotationHours": 609.12,
+        "obliquityDeg": 7.25,
+        "effectiveTemperatureK": 5772
+      }
+    }
+  },
+  "nssdcaSatellites": {
+    "amalthea": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/joviansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2023-12-06",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 181400,
+      "siderealOrbitDays": 0.498179,
+      "rotation": "S"
+    },
+    "io": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/joviansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2023-12-06",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 421800,
+      "siderealOrbitDays": 1.769138,
+      "rotation": "S"
+    },
+    "europa": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/joviansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2023-12-06",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 671100,
+      "siderealOrbitDays": 3.551181,
+      "rotation": "S"
+    },
+    "ganymede": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/joviansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2023-12-06",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 1070400,
+      "siderealOrbitDays": 7.154553,
+      "rotation": "S"
+    },
+    "callisto": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/joviansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2023-12-06",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 1882700,
+      "siderealOrbitDays": 16.689017,
+      "rotation": "S"
+    },
+    "mimas": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/saturniansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2025-07-22",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 185520,
+      "siderealOrbitDays": 0.9424218,
+      "rotation": "S"
+    },
+    "enceladus": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/saturniansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2025-07-22",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 238020,
+      "siderealOrbitDays": 1.370218,
+      "rotation": "S"
+    },
+    "tethys": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/saturniansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2025-07-22",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 294660,
+      "siderealOrbitDays": 1.887802,
+      "rotation": "S"
+    },
+    "dione": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/saturniansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2025-07-22",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 377400,
+      "siderealOrbitDays": 2.736915,
+      "rotation": "S"
+    },
+    "rhea": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/saturniansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2025-07-22",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 527040,
+      "siderealOrbitDays": 4.5175,
+      "rotation": "S"
+    },
+    "titan": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/saturniansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2025-07-22",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 1221870,
+      "siderealOrbitDays": 15.945421,
+      "rotation": "S"
+    },
+    "hyperion": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/saturniansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2025-07-22",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 1500930,
+      "siderealOrbitDays": 21.276609,
+      "rotation": "C"
+    },
+    "iapetus": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/saturniansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2025-07-22",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 3560850,
+      "siderealOrbitDays": 79.330183,
+      "rotation": "S"
+    },
+    "miranda": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/uraniansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2023-03-11",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 129900,
+      "siderealOrbitDays": 1.413479,
+      "rotation": "S"
+    },
+    "ariel": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/uraniansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2023-03-11",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 190900,
+      "siderealOrbitDays": 2.520379,
+      "rotation": "S"
+    },
+    "umbriel": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/uraniansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2023-03-11",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 266000,
+      "siderealOrbitDays": 4.144176,
+      "rotation": "S"
+    },
+    "titania": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/uraniansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2023-03-11",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 436300,
+      "siderealOrbitDays": 8.705867,
+      "rotation": "S"
+    },
+    "oberon": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/uraniansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2023-03-11",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 583500,
+      "siderealOrbitDays": 13.463234,
+      "rotation": "S"
+    },
+    "triton": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/neptuniansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2024-03-11",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 354760,
+      "siderealOrbitDays": 5.876854,
+      "rotation": "S"
+    },
+    "proteus": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/neptuniansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2024-03-11",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 117647,
+      "siderealOrbitDays": 1.122315,
+      "rotation": null
+    },
+    "nereid": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/neptuniansatfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2024-03-11",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 5513400,
+      "siderealOrbitDays": 360.13619,
+      "rotation": null
+    },
+    "phobos": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2025-05-19",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 9378,
+      "siderealOrbitDays": 0.31891,
+      "rotation": "S"
+    },
+    "deimos": {
+      "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/marsfact.html",
+      "retrieved": "2026-09-28",
+      "updated": "2025-05-19",
+      "publishesTemperature": false,
+      "semiMajorAxisKm": 23459,
+      "siderealOrbitDays": 1.26244,
+      "rotation": "S"
+    }
+  },
+  "jplSatellites": {
+    "physicalParameters": {
+      "url": "https://ssd.jpl.nasa.gov/sats/phys_par/",
+      "retrieved": "2026-09-28",
+      "columns": [
+        "Planet",
+        "Satellite",
+        "Code",
+        "GM (km 3 /s 2 )",
+        "Mean Radius (km)",
+        "Mean Density (g/cm 3 )"
+      ],
+      "bodies": {
+        "moon": {
+          "gmKm3s2": 4902.8,
+          "gmSigma": 0.001,
+          "meanRadiusKm": 1737.4,
+          "meanRadiusSigma": 0.1,
+          "ephemeris": "DE440"
+        },
+        "phobos": {
+          "gmKm3s2": 0.0007087,
+          "gmSigma": 6e-7,
+          "meanRadiusKm": 11.08,
+          "meanRadiusSigma": 0.04,
+          "ephemeris": "MAR097"
+        },
+        "deimos": {
+          "gmKm3s2": 0.0000962,
+          "gmSigma": 0.0000028,
+          "meanRadiusKm": 6.2,
+          "meanRadiusSigma": 0.24,
+          "ephemeris": "MAR097"
+        },
+        "io": {
+          "gmKm3s2": 5959.91547,
+          "gmSigma": 0.00135,
+          "meanRadiusKm": 1821.49,
+          "meanRadiusSigma": 0.5,
+          "ephemeris": "JUP365"
+        },
+        "europa": {
+          "gmKm3s2": 3202.7121,
+          "gmSigma": 0.00181,
+          "meanRadiusKm": 1560.8,
+          "meanRadiusSigma": 0.3,
+          "ephemeris": "JUP365"
+        },
+        "ganymede": {
+          "gmKm3s2": 9887.83275,
+          "gmSigma": 0.00247,
+          "meanRadiusKm": 2631.2,
+          "meanRadiusSigma": 1.7,
+          "ephemeris": "JUP365"
+        },
+        "callisto": {
+          "gmKm3s2": 7179.2834,
+          "gmSigma": 0.00324,
+          "meanRadiusKm": 2410.3,
+          "meanRadiusSigma": 1.5,
+          "ephemeris": "JUP365"
+        },
+        "amalthea": {
+          "gmKm3s2": 0.16456,
+          "gmSigma": 0.00867,
+          "meanRadiusKm": 83.5,
+          "meanRadiusSigma": 3,
+          "ephemeris": "JUP365"
+        },
+        "mimas": {
+          "gmKm3s2": 2.50349,
+          "gmSigma": 0.00014,
+          "meanRadiusKm": 198.2,
+          "meanRadiusSigma": 0.4,
+          "ephemeris": "SAT441"
+        },
+        "enceladus": {
+          "gmKm3s2": 7.21037,
+          "gmSigma": 0.00009,
+          "meanRadiusKm": 252.1,
+          "meanRadiusSigma": 0.2,
+          "ephemeris": "SAT441"
+        },
+        "tethys": {
+          "gmKm3s2": 41.21353,
+          "gmSigma": 0.00031,
+          "meanRadiusKm": 531.1,
+          "meanRadiusSigma": 0.6,
+          "ephemeris": "SAT441"
+        },
+        "dione": {
+          "gmKm3s2": 73.11607,
+          "gmSigma": 0.00005,
+          "meanRadiusKm": 561.4,
+          "meanRadiusSigma": 0.4,
+          "ephemeris": "SAT441"
+        },
+        "rhea": {
+          "gmKm3s2": 153.94175,
+          "gmSigma": 0.00041,
+          "meanRadiusKm": 763.5,
+          "meanRadiusSigma": 0.6,
+          "ephemeris": "SAT441"
+        },
+        "titan": {
+          "gmKm3s2": 8978.1371,
+          "gmSigma": 0.00025,
+          "meanRadiusKm": 2574.76,
+          "meanRadiusSigma": 0.02,
+          "ephemeris": "SAT441"
+        },
+        "hyperion": {
+          "gmKm3s2": 0.37049,
+          "gmSigma": 0.00005,
+          "meanRadiusKm": 135,
+          "meanRadiusSigma": 4,
+          "ephemeris": "SAT441"
+        },
+        "iapetus": {
+          "gmKm3s2": 120.51511,
+          "gmSigma": 0.00242,
+          "meanRadiusKm": 734.3,
+          "meanRadiusSigma": 2.8,
+          "ephemeris": "SAT441"
+        },
+        "ariel": {
+          "gmKm3s2": 83.5,
+          "gmSigma": 1.4,
+          "meanRadiusKm": 578.9,
+          "meanRadiusSigma": 0.6,
+          "ephemeris": "URA111"
+        },
+        "umbriel": {
+          "gmKm3s2": 85.1,
+          "gmSigma": 1.9,
+          "meanRadiusKm": 584.7,
+          "meanRadiusSigma": 2.8,
+          "ephemeris": "URA111"
+        },
+        "titania": {
+          "gmKm3s2": 226.9,
+          "gmSigma": 4.1,
+          "meanRadiusKm": 788.9,
+          "meanRadiusSigma": 1.8,
+          "ephemeris": "URA111"
+        },
+        "oberon": {
+          "gmKm3s2": 205.3,
+          "gmSigma": 5.8,
+          "meanRadiusKm": 761.4,
+          "meanRadiusSigma": 2.6,
+          "ephemeris": "URA111"
+        },
+        "miranda": {
+          "gmKm3s2": 4.3,
+          "gmSigma": 0.2,
+          "meanRadiusKm": 235.8,
+          "meanRadiusSigma": 0.7,
+          "ephemeris": "URA111"
+        },
+        "triton": {
+          "gmKm3s2": 1428.49546,
+          "gmSigma": 0.61603,
+          "meanRadiusKm": 1352.6,
+          "meanRadiusSigma": 2.4,
+          "ephemeris": "NEP097"
+        },
+        "nereid": {
+          "gmKm3s2": 0,
+          "gmSigma": 0,
+          "meanRadiusKm": 170,
+          "meanRadiusSigma": 25,
+          "ephemeris": "NEP101"
+        },
+        "proteus": {
+          "gmKm3s2": 2.58342,
+          "gmSigma": 2.4207,
+          "meanRadiusKm": 208,
+          "meanRadiusSigma": 8,
+          "ephemeris": "NEP097"
+        },
+        "charon": {
+          "gmKm3s2": 106.1,
+          "gmSigma": 0.3,
+          "meanRadiusKm": 606,
+          "meanRadiusSigma": 0.5,
+          "ephemeris": "PLU060"
+        },
+        "nix": {
+          "gmKm3s2": 0.0015,
+          "gmSigma": 0.0005,
+          "meanRadiusKm": 18,
+          "meanRadiusSigma": 1,
+          "ephemeris": "PLU060"
+        },
+        "hydra": {
+          "gmKm3s2": 0.002,
+          "gmSigma": 0.0003,
+          "meanRadiusKm": 18.5,
+          "meanRadiusSigma": 1,
+          "ephemeris": "PLU060"
+        },
+        "kerberos": {
+          "gmKm3s2": null,
+          "gmSigma": null,
+          "meanRadiusKm": 6,
+          "meanRadiusSigma": 1,
+          "ephemeris": "PLU060"
+        },
+        "styx": {
+          "gmKm3s2": null,
+          "gmSigma": null,
+          "meanRadiusKm": 5.2,
+          "meanRadiusSigma": 1,
+          "ephemeris": "PLU060"
+        }
+      }
+    },
+    "meanElements": {
+      "url": "https://ssd.jpl.nasa.gov/sats/elem/",
+      "retrieved": "2026-09-28",
+      "bodies": {
+        "moon": {
+          "frame": "ecliptic",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 384400,
+          "periodDays": 27.322
+        },
+        "phobos": {
+          "frame": "Laplace",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 9375,
+          "periodDays": 0.3187
+        },
+        "deimos": {
+          "frame": "Laplace",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 23457,
+          "periodDays": 1.2625
+        },
+        "io": {
+          "frame": "Laplace",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 421800,
+          "periodDays": 1.762732
+        },
+        "europa": {
+          "frame": "Laplace",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 671100,
+          "periodDays": 3.525463
+        },
+        "ganymede": {
+          "frame": "Laplace",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 1070400,
+          "periodDays": 7.155588
+        },
+        "callisto": {
+          "frame": "Laplace",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 1882700,
+          "periodDays": 16.69044
+        },
+        "amalthea": {
+          "frame": "Laplace",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 181400,
+          "periodDays": 0.499918
+        },
+        "mimas": {
+          "frame": "Laplace",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 186000,
+          "periodDays": 0.942422
+        },
+        "enceladus": {
+          "frame": "Laplace",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 238400,
+          "periodDays": 1.370218
+        },
+        "tethys": {
+          "frame": "Laplace",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 295000,
+          "periodDays": 1.887802
+        },
+        "dione": {
+          "frame": "Laplace",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 377700,
+          "periodDays": 2.736916
+        },
+        "rhea": {
+          "frame": "Laplace",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 527200,
+          "periodDays": 4.517503
+        },
+        "titan": {
+          "frame": "Laplace",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 1221900,
+          "periodDays": 15.945448
+        },
+        "hyperion": {
+          "frame": "Laplace",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 1481500,
+          "periodDays": 21.276658
+        },
+        "iapetus": {
+          "frame": "Laplace",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 3561700,
+          "periodDays": 79.331002
+        },
+        "ariel": {
+          "frame": "equatorial",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 190929,
+          "periodDays": 2.520379
+        },
+        "umbriel": {
+          "frame": "equatorial",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 265986,
+          "periodDays": 4.144177
+        },
+        "titania": {
+          "frame": "equatorial",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 436298,
+          "periodDays": 8.705869
+        },
+        "oberon": {
+          "frame": "equatorial",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 583511,
+          "periodDays": 13.463237
+        },
+        "miranda": {
+          "frame": "equatorial",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 129846,
+          "periodDays": 1.413479
+        },
+        "triton": {
+          "frame": "Laplace",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 354800,
+          "periodDays": 5.876994
+        },
+        "proteus": {
+          "frame": "Laplace",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 117600,
+          "periodDays": 1.122315
+        },
+        "nereid": {
+          "frame": "ecliptic",
+          "epoch": "2020-01-01.0",
+          "semiMajorAxisKm": 5513900,
+          "periodDays": 360.133039
+        },
+        "charon": {
+          "frame": "equatorial",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 19600,
+          "periodDays": 6.387222
+        },
+        "styx": {
+          "frame": "equatorial",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 43200,
+          "periodDays": 20.16
+        },
+        "nix": {
+          "frame": "equatorial",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 49300,
+          "periodDays": 24.85
+        },
+        "kerberos": {
+          "frame": "equatorial",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 58300,
+          "periodDays": 32.17
+        },
+        "hydra": {
+          "frame": "equatorial",
+          "epoch": "2000-01-01.5",
+          "semiMajorAxisKm": 65200,
+          "periodDays": 38.2
+        }
+      }
+    }
+  },
+  "naifRotation": {
+    "url": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/pck00011.tpc",
+    "retrieved": "2026-09-28",
+    "kernel": "pck00011.tpc",
+    "dated": "Nat Bachman (NAIF)    2022 December 27",
+    "systems": {
+      "1": [
+        [
+          174.7910857,
+          149472.53587500003
+        ],
+        [
+          349.5821714,
+          298945.07175000006
+        ],
+        [
+          164.3732571,
+          448417.60762500006
+        ],
+        [
+          339.1643429,
+          597890.1435000001
+        ],
+        [
+          153.9554286,
+          747362.679375
+        ]
+      ],
+      "3": [
+        [
+          125.045,
+          -1935.5364525
+        ],
+        [
+          250.089,
+          -3871.072905
+        ],
+        [
+          260.008,
+          475263.3328725
+        ],
+        [
+          176.625,
+          487269.629985
+        ],
+        [
+          357.529,
+          35999.0509575
+        ],
+        [
+          311.589,
+          964468.49931
+        ],
+        [
+          134.963,
+          477198.869325
+        ],
+        [
+          276.617,
+          12006.300765
+        ],
+        [
+          34.226,
+          63863.5132425
+        ],
+        [
+          15.134,
+          -5806.6093575
+        ],
+        [
+          119.743,
+          131.84064
+        ],
+        [
+          239.961,
+          6003.1503825
+        ],
+        [
+          25.053,
+          473327.79642
+        ]
+      ],
+      "4": [
+        [
+          190.72646643,
+          15917.10818695,
+          0
+        ],
+        [
+          21.4689247,
+          31834.27934054,
+          0
+        ],
+        [
+          332.86082793,
+          19139.89694742,
+          0
+        ],
+        [
+          394.93256437,
+          38280.79631835,
+          0
+        ],
+        [
+          189.6327156,
+          41215158.1842005,
+          12.711923222
+        ],
+        [
+          121.46893664,
+          660.22803474,
+          0
+        ],
+        [
+          231.05028581,
+          660.9912354,
+          0
+        ],
+        [
+          251.37314025,
+          1320.50145245,
+          0
+        ],
+        [
+          217.98635955,
+          38279.9612555,
+          0
+        ],
+        [
+          196.19729402,
+          19139.83628608,
+          0
+        ],
+        [
+          198.991226,
+          19139.4819985,
+          0
+        ],
+        [
+          226.292679,
+          38280.8511281,
+          0
+        ],
+        [
+          249.663391,
+          57420.7251593,
+          0
+        ],
+        [
+          266.18351,
+          76560.636795,
+          0
+        ],
+        [
+          79.398797,
+          0.5042615,
+          0
+        ],
+        [
+          122.433576,
+          19139.9407476,
+          0
+        ],
+        [
+          43.058401,
+          38280.8753272,
+          0
+        ],
+        [
+          57.663379,
+          57420.7517205,
+          0
+        ],
+        [
+          79.476401,
+          76560.6495004,
+          0
+        ],
+        [
+          166.325722,
+          0.5042615,
+          0
+        ],
+        [
+          129.071773,
+          19140.0328244,
+          0
+        ],
+        [
+          36.352167,
+          38281.0473591,
+          0
+        ],
+        [
+          56.668646,
+          57420.929536,
+          0
+        ],
+        [
+          67.364003,
+          76560.2552215,
+          0
+        ],
+        [
+          104.79268,
+          95700.4387578,
+          0
+        ],
+        [
+          95.391654,
+          0.5042615,
+          0
+        ]
+      ],
+      "5": [
+        [
+          73.32,
+          91472.9
+        ],
+        [
+          24.62,
+          45137.2
+        ],
+        [
+          283.9,
+          4850.7
+        ],
+        [
+          355.8,
+          1191.3
+        ],
+        [
+          119.9,
+          262.1
+        ],
+        [
+          229.8,
+          64.3
+        ],
+        [
+          352.25,
+          2382.6
+        ],
+        [
+          113.35,
+          6070
+        ],
+        [
+          146.64,
+          182945.8
+        ],
+        [
+          49.24,
+          90274.4
+        ],
+        [
+          99.360714,
+          4850.4046
+        ],
+        [
+          175.895369,
+          1191.9605
+        ],
+        [
+          300.323162,
+          262.5475
+        ],
+        [
+          114.012305,
+          6070.2476
+        ],
+        [
+          49.511251,
+          64.3
+        ]
+      ],
+      "6": [
+        [
+          353.32,
+          75706.7
+        ],
+        [
+          28.72,
+          75706.7
+        ],
+        [
+          177.4,
+          -36505.5
+        ],
+        [
+          300,
+          -7225.9
+        ],
+        [
+          316.45,
+          506.2
+        ],
+        [
+          345.2,
+          -1016.3
+        ],
+        [
+          706.64,
+          151413.4
+        ],
+        [
+          57.44,
+          151413.4
+        ]
+      ],
+      "7": [
+        [
+          115.75,
+          54991.87
+        ],
+        [
+          141.69,
+          41887.66
+        ],
+        [
+          135.03,
+          29927.35
+        ],
+        [
+          61.77,
+          25733.59
+        ],
+        [
+          249.32,
+          24471.46
+        ],
+        [
+          43.86,
+          22278.41
+        ],
+        [
+          77.66,
+          20289.42
+        ],
+        [
+          157.36,
+          16652.76
+        ],
+        [
+          101.81,
+          12872.63
+        ],
+        [
+          138.64,
+          8061.81
+        ],
+        [
+          102.23,
+          -2024.22
+        ],
+        [
+          316.41,
+          2863.96
+        ],
+        [
+          304.01,
+          -51.94
+        ],
+        [
+          308.71,
+          -93.17
+        ],
+        [
+          340.82,
+          -75.32
+        ],
+        [
+          259.14,
+          -504.81
+        ],
+        [
+          204.46,
+          -4048.44
+        ],
+        [
+          632.82,
+          5727.92
+        ]
+      ],
+      "8": [
+        [
+          357.85,
+          52.316
+        ],
+        [
+          323.92,
+          62606.6
+        ],
+        [
+          220.51,
+          55064.2
+        ],
+        [
+          354.27,
+          46564.5
+        ],
+        [
+          75.31,
+          26109.4
+        ],
+        [
+          35.36,
+          14325.4
+        ],
+        [
+          142.61,
+          2824.6
+        ],
+        [
+          177.85,
+          52.316
+        ],
+        [
+          647.84,
+          125213.2
+        ],
+        [
+          355.7,
+          104.632
+        ],
+        [
+          533.55,
+          156.948
+        ],
+        [
+          711.4,
+          209.264
+        ],
+        [
+          889.25,
+          261.58
+        ],
+        [
+          1067.1,
+          313.896
+        ],
+        [
+          1244.95,
+          366.212
+        ],
+        [
+          1422.8,
+          418.528
+        ],
+        [
+          1600.65,
+          470.844
+        ]
+      ]
+    },
+    "bodies": {
+      "sun": {
+        "naifId": 10,
+        "system": null,
+        "rotation": {
+          "poleRaDeg": [
+            286.13,
+            0,
+            0
+          ],
+          "poleDecDeg": [
+            63.87,
+            0,
+            0
+          ],
+          "nutPrecRa": null,
+          "nutPrecDec": null,
+          "pmRateDegPerDay": 14.1844
+        }
+      },
+      "mercury": {
+        "naifId": 199,
+        "system": 1,
+        "rotation": {
+          "poleRaDeg": [
+            281.0103,
+            -0.0328,
+            0
+          ],
+          "poleDecDeg": [
+            61.4155,
+            -0.0049,
+            0
+          ],
+          "nutPrecRa": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "nutPrecDec": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pmRateDegPerDay": 6.1385108
+        }
+      },
+      "venus": {
+        "naifId": 299,
+        "system": 2,
+        "rotation": {
+          "poleRaDeg": [
+            272.76,
+            0,
+            0
+          ],
+          "poleDecDeg": [
+            67.16,
+            0,
+            0
+          ],
+          "nutPrecRa": null,
+          "nutPrecDec": null,
+          "pmRateDegPerDay": -1.4813688
+        }
+      },
+      "earth": {
+        "naifId": 399,
+        "system": 3,
+        "rotation": {
+          "poleRaDeg": [
+            0,
+            -0.641,
+            0
+          ],
+          "poleDecDeg": [
+            90,
+            -0.557,
+            0
+          ],
+          "nutPrecRa": null,
+          "nutPrecDec": null,
+          "pmRateDegPerDay": 360.9856235
+        }
+      },
+      "mars": {
+        "naifId": 499,
+        "system": 4,
+        "rotation": {
+          "poleRaDeg": [
+            317.269202,
+            -0.10927547,
+            0
+          ],
+          "poleDecDeg": [
+            54.432516,
+            -0.05827105,
+            0
+          ],
+          "nutPrecRa": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.000068,
+            0.000238,
+            0.000052,
+            0.000009,
+            0.419057
+          ],
+          "nutPrecDec": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.000051,
+            0.000141,
+            0.000031,
+            0.000005,
+            1.591274
+          ],
+          "pmRateDegPerDay": 350.891982443297
+        }
+      },
+      "jupiter": {
+        "naifId": 599,
+        "system": 5,
+        "rotation": {
+          "poleRaDeg": [
+            268.056595,
+            -0.006499,
+            0
+          ],
+          "poleDecDeg": [
+            64.495303,
+            0.002413,
+            0
+          ],
+          "nutPrecRa": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.000117,
+            0.000938,
+            0.001432,
+            0.00003,
+            0.00215
+          ],
+          "nutPrecDec": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.00005,
+            0.000404,
+            0.000617,
+            -0.000013,
+            0.000926
+          ],
+          "pmRateDegPerDay": 870.536
+        }
+      },
+      "saturn": {
+        "naifId": 699,
+        "system": 6,
+        "rotation": {
+          "poleRaDeg": [
+            40.589,
+            -0.036,
+            0
+          ],
+          "poleDecDeg": [
+            83.537,
+            -0.004,
+            0
+          ],
+          "nutPrecRa": null,
+          "nutPrecDec": null,
+          "pmRateDegPerDay": 810.7939024
+        }
+      },
+      "uranus": {
+        "naifId": 799,
+        "system": 7,
+        "rotation": {
+          "poleRaDeg": [
+            257.311,
+            0,
+            0
+          ],
+          "poleDecDeg": [
+            -15.175,
+            0,
+            0
+          ],
+          "nutPrecRa": null,
+          "nutPrecDec": null,
+          "pmRateDegPerDay": -501.1600928
+        }
+      },
+      "neptune": {
+        "naifId": 899,
+        "system": 8,
+        "rotation": {
+          "poleRaDeg": [
+            299.36,
+            0,
+            0
+          ],
+          "poleDecDeg": [
+            43.46,
+            0,
+            0
+          ],
+          "nutPrecRa": [
+            0.7,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "nutPrecDec": [
+            -0.51,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pmRateDegPerDay": 541.1397757
+        }
+      },
+      "pluto": {
+        "naifId": 999,
+        "system": 9,
+        "rotation": {
+          "poleRaDeg": [
+            132.993,
+            0,
+            0
+          ],
+          "poleDecDeg": [
+            -6.163,
+            0,
+            0
+          ],
+          "nutPrecRa": null,
+          "nutPrecDec": null,
+          "pmRateDegPerDay": 56.3625225
+        }
+      },
+      "moon": {
+        "naifId": 301,
+        "system": 3,
+        "rotation": {
+          "poleRaDeg": [
+            269.9949,
+            0.0031,
+            0
+          ],
+          "poleDecDeg": [
+            66.5392,
+            0.013,
+            0
+          ],
+          "nutPrecRa": [
+            -3.8787,
+            -0.1204,
+            0.07,
+            -0.0172,
+            0,
+            0.0072,
+            0,
+            0,
+            0,
+            -0.0052,
+            0,
+            0,
+            0.0043
+          ],
+          "nutPrecDec": [
+            1.5419,
+            0.0239,
+            -0.0278,
+            0.0068,
+            0,
+            -0.0029,
+            0.0009,
+            0,
+            0,
+            0.0008,
+            0,
+            0,
+            -0.0009
+          ],
+          "pmRateDegPerDay": 13.17635815
+        }
+      },
+      "phobos": {
+        "naifId": 401,
+        "system": 4,
+        "rotation": {
+          "poleRaDeg": [
+            317.67071657,
+            -0.10844326,
+            0
+          ],
+          "poleDecDeg": [
+            52.88627266,
+            -0.06134706,
+            0
+          ],
+          "nutPrecRa": [
+            -1.78428399,
+            0.02212824,
+            -0.01028251,
+            -0.00475595
+          ],
+          "nutPrecDec": [
+            -1.07516537,
+            0.00668626,
+            -0.0064874,
+            0.00281576
+          ],
+          "pmRateDegPerDay": 1128.84475928
+        }
+      },
+      "deimos": {
+        "naifId": 402,
+        "system": 4,
+        "rotation": {
+          "poleRaDeg": [
+            316.65705808,
+            -0.10518014,
+            0
+          ],
+          "poleDecDeg": [
+            53.50992033,
+            -0.05979094,
+            0
+          ],
+          "nutPrecRa": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            3.09217726,
+            0.22980637,
+            0.06418655,
+            0.02533537,
+            0.00778695
+          ],
+          "nutPrecDec": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1.83936004,
+            0.1432532,
+            0.01911409,
+            -0.0148259,
+            0.0019243
+          ],
+          "pmRateDegPerDay": 285.16188899
+        }
+      },
+      "io": {
+        "naifId": 501,
+        "system": 5,
+        "rotation": {
+          "poleRaDeg": [
+            268.05,
+            -0.009,
+            0
+          ],
+          "poleDecDeg": [
+            64.5,
+            0.003,
+            0
+          ],
+          "nutPrecRa": [
+            0,
+            0,
+            0.094,
+            0.024
+          ],
+          "nutPrecDec": [
+            0,
+            0,
+            0.04,
+            0.011
+          ],
+          "pmRateDegPerDay": 203.4889538
+        }
+      },
+      "europa": {
+        "naifId": 502,
+        "system": 5,
+        "rotation": {
+          "poleRaDeg": [
+            268.08,
+            -0.009,
+            0
+          ],
+          "poleDecDeg": [
+            64.51,
+            0.003,
+            0
+          ],
+          "nutPrecRa": [
+            0,
+            0,
+            0,
+            1.086,
+            0.06,
+            0.015,
+            0.009
+          ],
+          "nutPrecDec": [
+            0,
+            0,
+            0,
+            0.468,
+            0.026,
+            0.007,
+            0.002
+          ],
+          "pmRateDegPerDay": 101.3747235
+        }
+      },
+      "ganymede": {
+        "naifId": 503,
+        "system": 5,
+        "rotation": {
+          "poleRaDeg": [
+            268.2,
+            -0.009,
+            0
+          ],
+          "poleDecDeg": [
+            64.57,
+            0.003,
+            0
+          ],
+          "nutPrecRa": [
+            0,
+            0,
+            0,
+            -0.037,
+            0.431,
+            0.091
+          ],
+          "nutPrecDec": [
+            0,
+            0,
+            0,
+            -0.016,
+            0.186,
+            0.039
+          ],
+          "pmRateDegPerDay": 50.3176081
+        }
+      },
+      "callisto": {
+        "naifId": 504,
+        "system": 5,
+        "rotation": {
+          "poleRaDeg": [
+            268.72,
+            -0.009,
+            0
+          ],
+          "poleDecDeg": [
+            64.83,
+            0.003,
+            0
+          ],
+          "nutPrecRa": [
+            0,
+            0,
+            0,
+            0,
+            -0.068,
+            0.59,
+            0,
+            0.01
+          ],
+          "nutPrecDec": [
+            0,
+            0,
+            0,
+            0,
+            -0.029,
+            0.254,
+            0,
+            -0.004
+          ],
+          "pmRateDegPerDay": 21.5710715
+        }
+      },
+      "amalthea": {
+        "naifId": 505,
+        "system": 5,
+        "rotation": {
+          "poleRaDeg": [
+            268.05,
+            -0.009,
+            0
+          ],
+          "poleDecDeg": [
+            64.49,
+            0.003,
+            0
+          ],
+          "nutPrecRa": [
+            -0.84,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.01,
+            0
+          ],
+          "nutPrecDec": [
+            -0.36,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pmRateDegPerDay": 722.631456
+        }
+      },
+      "mimas": {
+        "naifId": 601,
+        "system": 6,
+        "rotation": {
+          "poleRaDeg": [
+            40.66,
+            -0.036,
+            0
+          ],
+          "poleDecDeg": [
+            83.52,
+            -0.004,
+            0
+          ],
+          "nutPrecRa": [
+            0,
+            0,
+            13.56,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "nutPrecDec": [
+            0,
+            0,
+            -1.53,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pmRateDegPerDay": 381.994555
+        }
+      },
+      "enceladus": {
+        "naifId": 602,
+        "system": 6,
+        "rotation": {
+          "poleRaDeg": [
+            40.66,
+            -0.036,
+            0
+          ],
+          "poleDecDeg": [
+            83.52,
+            -0.004,
+            0
+          ],
+          "nutPrecRa": null,
+          "nutPrecDec": null,
+          "pmRateDegPerDay": 262.7318996
+        }
+      },
+      "tethys": {
+        "naifId": 603,
+        "system": 6,
+        "rotation": {
+          "poleRaDeg": [
+            40.66,
+            -0.036,
+            0
+          ],
+          "poleDecDeg": [
+            83.52,
+            -0.004,
+            0
+          ],
+          "nutPrecRa": [
+            0,
+            0,
+            0,
+            9.66,
+            0,
+            0,
+            0,
+            0
+          ],
+          "nutPrecDec": [
+            0,
+            0,
+            0,
+            -1.09,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pmRateDegPerDay": 190.6979085
+        }
+      },
+      "dione": {
+        "naifId": 604,
+        "system": 6,
+        "rotation": {
+          "poleRaDeg": [
+            40.66,
+            -0.036,
+            0
+          ],
+          "poleDecDeg": [
+            83.52,
+            -0.004,
+            0
+          ],
+          "nutPrecRa": null,
+          "nutPrecDec": null,
+          "pmRateDegPerDay": 131.5349316
+        }
+      },
+      "rhea": {
+        "naifId": 605,
+        "system": 6,
+        "rotation": {
+          "poleRaDeg": [
+            40.38,
+            -0.036,
+            0
+          ],
+          "poleDecDeg": [
+            83.55,
+            -0.004,
+            0
+          ],
+          "nutPrecRa": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            3.1,
+            0,
+            0
+          ],
+          "nutPrecDec": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            -0.35,
+            0,
+            0
+          ],
+          "pmRateDegPerDay": 79.6900478
+        }
+      },
+      "titan": {
+        "naifId": 606,
+        "system": 6,
+        "rotation": {
+          "poleRaDeg": [
+            39.4827,
+            0,
+            0
+          ],
+          "poleDecDeg": [
+            83.4279,
+            0,
+            0
+          ],
+          "nutPrecRa": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "nutPrecDec": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pmRateDegPerDay": 22.5769768
+        }
+      },
+      "hyperion": {
+        "naifId": 607,
+        "system": 6,
+        "rotation": null
+      },
+      "iapetus": {
+        "naifId": 608,
+        "system": 6,
+        "rotation": {
+          "poleRaDeg": [
+            318.16,
+            -3.949,
+            0
+          ],
+          "poleDecDeg": [
+            75.03,
+            -1.143,
+            0
+          ],
+          "nutPrecRa": null,
+          "nutPrecDec": null,
+          "pmRateDegPerDay": 4.5379572
+        }
+      },
+      "ariel": {
+        "naifId": 701,
+        "system": 7,
+        "rotation": {
+          "poleRaDeg": [
+            257.43,
+            0,
+            0
+          ],
+          "poleDecDeg": [
+            -15.1,
+            0,
+            0
+          ],
+          "nutPrecRa": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.29
+          ],
+          "nutPrecDec": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.28
+          ],
+          "pmRateDegPerDay": -142.8356681
+        }
+      },
+      "umbriel": {
+        "naifId": 702,
+        "system": 7,
+        "rotation": {
+          "poleRaDeg": [
+            257.43,
+            0,
+            0
+          ],
+          "poleDecDeg": [
+            -15.1,
+            0,
+            0
+          ],
+          "nutPrecRa": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.21
+          ],
+          "nutPrecDec": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.2
+          ],
+          "pmRateDegPerDay": -86.8688923
+        }
+      },
+      "titania": {
+        "naifId": 703,
+        "system": 7,
+        "rotation": {
+          "poleRaDeg": [
+            257.43,
+            0,
+            0
+          ],
+          "poleDecDeg": [
+            -15.1,
+            0,
+            0
+          ],
+          "nutPrecRa": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.29
+          ],
+          "nutPrecDec": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.28
+          ],
+          "pmRateDegPerDay": -41.3514316
+        }
+      },
+      "oberon": {
+        "naifId": 704,
+        "system": 7,
+        "rotation": {
+          "poleRaDeg": [
+            257.43,
+            0,
+            0
+          ],
+          "poleDecDeg": [
+            -15.1,
+            0,
+            0
+          ],
+          "nutPrecRa": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.16
+          ],
+          "nutPrecDec": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0.16
+          ],
+          "pmRateDegPerDay": -26.7394932
+        }
+      },
+      "miranda": {
+        "naifId": 705,
+        "system": 7,
+        "rotation": {
+          "poleRaDeg": [
+            257.43,
+            0,
+            0
+          ],
+          "poleDecDeg": [
+            -15.08,
+            0,
+            0
+          ],
+          "nutPrecRa": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            4.41,
+            0,
+            0,
+            0,
+            0,
+            0,
+            -0.04,
+            0
+          ],
+          "nutPrecDec": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            4.25,
+            0,
+            0,
+            0,
+            0,
+            0,
+            -0.02,
+            0
+          ],
+          "pmRateDegPerDay": -254.6906892
+        }
+      },
+      "triton": {
+        "naifId": 801,
+        "system": 8,
+        "rotation": {
+          "poleRaDeg": [
+            299.36,
+            0,
+            0
+          ],
+          "poleDecDeg": [
+            41.17,
+            0,
+            0
+          ],
+          "nutPrecRa": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            -32.35,
+            0,
+            -6.28,
+            -2.08,
+            -0.74,
+            -0.28,
+            -0.11,
+            -0.07,
+            -0.02,
+            -0.01
+          ],
+          "nutPrecDec": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            22.55,
+            0,
+            2.1,
+            0.55,
+            0.16,
+            0.05,
+            0.02,
+            0.01,
+            0,
+            0
+          ],
+          "pmRateDegPerDay": -61.2572637
+        }
+      },
+      "nereid": {
+        "naifId": 802,
+        "system": 8,
+        "rotation": null
+      },
+      "proteus": {
+        "naifId": 808,
+        "system": 8,
+        "rotation": {
+          "poleRaDeg": [
+            299.27,
+            0,
+            0
+          ],
+          "poleDecDeg": [
+            42.91,
+            0,
+            0
+          ],
+          "nutPrecRa": [
+            0.7,
+            0,
+            0,
+            0,
+            0,
+            0,
+            -0.05,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "nutPrecDec": [
+            -0.51,
+            0,
+            0,
+            0,
+            0,
+            0,
+            -0.04,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "pmRateDegPerDay": 320.7654228
+        }
+      },
+      "charon": {
+        "naifId": 901,
+        "system": 9,
+        "rotation": {
+          "poleRaDeg": [
+            132.993,
+            0,
+            0
+          ],
+          "poleDecDeg": [
+            -6.163,
+            0,
+            0
+          ],
+          "nutPrecRa": null,
+          "nutPrecDec": null,
+          "pmRateDegPerDay": 56.3625225
+        }
+      },
+      "nix": {
+        "naifId": 902,
+        "system": 9,
+        "rotation": null
+      },
+      "hydra": {
+        "naifId": 903,
+        "system": 9,
+        "rotation": null
+      },
+      "kerberos": {
+        "naifId": 904,
+        "system": 9,
+        "rotation": null
+      },
+      "styx": {
+        "naifId": 905,
+        "system": 9,
+        "rotation": null
+      },
+      "dimorphos": {
+        "naifId": 120065803,
+        "system": null,
+        "rotation": null
+      },
+      "menoetius": {
+        "naifId": 120000617,
+        "system": null,
+        "rotation": null
+      },
+      "ida": {
+        "naifId": 2431010,
+        "system": null,
+        "rotation": {
+          "poleRaDeg": [
+            168.76,
+            0,
+            0
+          ],
+          "poleDecDeg": [
+            -87.12,
+            0,
+            0
+          ],
+          "nutPrecRa": null,
+          "nutPrecDec": null,
+          "pmRateDegPerDay": 1864.628007
+        }
+      }
+    }
+  },
+  "nasaScienceBodies": {
+    "enceladus": {
+      "url": "https://science.nasa.gov/saturn/moons/enceladus/",
+      "retrieved": "2026-09-28",
+      "sentence": "Because Enceladus reflects so much sunlight, the surface temperature is extremely cold, about minus 330 degrees Fahrenheit (minus 201 degrees Celsius).",
+      "celsius": [
+        -201
+      ]
+    },
+    "tethys": {
+      "url": "https://science.nasa.gov/saturn/moons/tethys/",
+      "retrieved": "2026-09-28",
+      "sentence": "Tethys has a high reflectivity (or visual albedo) of 1.229 in the visual range, again suggesting a composition largely of water ice, which would behave like rock in the Tethyan average temperature of -305 degrees Fahrenheit (-187 degrees Celsius).",
+      "celsius": [
+        -187
+      ]
+    },
+    "dione": {
+      "url": "https://science.nasa.gov/saturn/moons/dione/",
+      "retrieved": "2026-09-28",
+      "sentence": "At Dione's average temperature of -304 degrees Fahrenheit (-186 degrees Celsius or 87 kelvins), ice is very hard and behaves like rock.",
+      "celsius": [
+        -186
+      ]
+    },
+    "hyperion": {
+      "url": "https://science.nasa.gov/saturn/moons/hyperion/",
+      "retrieved": "2026-09-28",
+      "sentence": "This may be because the average temperature of roughly -300 degrees Fahrenheit (-180 degrees Celsius) might be close enough to a temperature that would cause volatiles to sublimate, leaving the darker materials accumulated on the crater floors.",
+      "celsius": [
+        -180
+      ]
+    },
+    "triton": {
+      "url": "https://science.nasa.gov/neptune/moons/triton/",
+      "retrieved": "2026-09-28",
+      "sentence": "NASA's Voyager 2―the only spacecraft to fly past Neptune and Triton―found surface temperatures of -391degrees Fahrenheit (-235 degrees Celsius).",
+      "celsius": [
+        -235
+      ]
+    },
+    "rhea": {
+      "url": "https://science.nasa.gov/saturn/moons/rhea/",
+      "retrieved": "2026-09-28",
+      "sentence": "Rhea's surface temperatures are also similar to Dione and Tethys, being roughly as warm as -281 degrees Fahrenheit (-174 degrees Celsius) in sunlit areas and ranging down to -364 degrees Fahrenheit (-220 degrees Celsius) in shaded areas.",
+      "celsius": [
+        -174,
+        -220
+      ]
+    },
+    "phobos": {
+      "url": "https://science.nasa.gov/mars/moons/phobos/",
+      "retrieved": "2026-09-28",
+      "sentence": "High temperatures for Phobos were measured at 25 degrees Fahrenheit (-4 degrees Celsius) and lows at -170 degrees Fahrenheit (-112 degrees Celsius).",
+      "celsius": [
+        -4,
+        -112
+      ]
+    },
+    "eris": {
+      "url": "https://science.nasa.gov/dwarf-planets/eris/",
+      "retrieved": "2026-09-28",
+      "sentence": "Scientists think surface temperatures vary from about -359 degrees Fahrenheit (-217 degrees Celsius) to -405 degrees Fahrenheit (-243 degrees Celsius).",
+      "celsius": [
+        -217,
+        -243
+      ]
+    }
+  },
+  "nasaMoonCounts": {
+    "jupiter": {
+      "url": "https://science.nasa.gov/jupiter/moons/",
+      "retrieved": "2026-09-28",
+      "moonCount": 115,
+      "asOf": null,
+      "sentence": "has 115 moons"
+    },
+    "saturn": {
+      "url": "https://science.nasa.gov/saturn/moons/",
+      "retrieved": "2026-09-28",
+      "moonCount": 293,
+      "asOf": "2026-08",
+      "sentence": "has 293 confirmed moons in its orbit as of August 2026"
+    },
+    "uranus": {
+      "url": "https://science.nasa.gov/uranus/moons/",
+      "retrieved": "2026-09-28",
+      "moonCount": 29,
+      "asOf": "2026-08",
+      "sentence": "has 29 officially recognized moons, as of August 2026"
+    },
+    "neptune": {
+      "url": "https://science.nasa.gov/neptune/moons/",
+      "retrieved": "2026-09-28",
+      "moonCount": 16,
+      "asOf": null,
+      "sentence": "has 16 known moons"
+    },
+    "mars": {
+      "url": "https://science.nasa.gov/mars/moons/",
+      "retrieved": "2026-09-28",
+      "moonCount": 2,
+      "asOf": null,
+      "sentence": "has two moons"
+    }
+  },
+  "sbdb": {
+    "ceres": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=1",
+      "retrieved": "2026-09-28",
+      "fullname": "1 Ceres (A801 AA)",
+      "diameterKm": {
+        "value": 939.4,
+        "sigma": 0.2,
+        "ref": "Nature vol. 537, pp515-517 (22 September 2016)",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": {
+        "value": 62.6284,
+        "sigma": 0.0009,
+        "ref": "Nature vol. 537, pp515-517 (22 September 2016)",
+        "notes": null,
+        "desc": "standard gravitational parameter: product of the mass (M) and gravitational constant (G)"
+      },
+      "densityGcm3": {
+        "value": 2.162,
+        "sigma": 0.008,
+        "ref": "Nature vol. 537, pp515-517 (22 September 2016)",
+        "notes": null,
+        "desc": "bulk density"
+      },
+      "rotationHours": {
+        "value": 9.07417,
+        "sigma": 0.000001,
+        "ref": "Nature vol. 537, pp515-517 (22 September 2016)",
+        "notes": "derived from published value: 952.1532 +/- 0.0001 deg./day",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": {
+        "value": [
+          291.421,
+          66.758
+        ],
+        "sigma": "0.007/0.002",
+        "ref": "Nature vol. 537, pp515-517 (22 September 2016)",
+        "notes": null,
+        "desc": "spin-pole direction in R.A./Dec."
+      },
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "BV",
+        "G",
+        "GM",
+        "H",
+        "UB",
+        "albedo",
+        "density",
+        "diameter",
+        "extent",
+        "pole",
+        "rot_per",
+        "spec_B",
+        "spec_T"
+      ]
+    },
+    "pallas": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=2",
+      "retrieved": "2026-09-28",
+      "fullname": "2 Pallas (A802 FA)",
+      "diameterKm": {
+        "value": 513,
+        "sigma": 6,
+        "ref": "Marsset et al., Nature Astronomy 4, 569-576 (2020)",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": {
+        "value": 13.63,
+        "sigma": 0.18,
+        "ref": "Vernazza et al., A&A 654, A56 (2021)",
+        "notes": null,
+        "desc": "standard gravitational parameter: product of the mass (M) and gravitational constant (G)"
+      },
+      "densityGcm3": {
+        "value": 2.89,
+        "sigma": 0.08,
+        "ref": "Marsset et al., Nature Astronomy 4, 569-576 (2020)",
+        "notes": null,
+        "desc": "bulk density"
+      },
+      "rotationHours": {
+        "value": 7.8132214,
+        "sigma": 0.000002,
+        "ref": "Carry et al., Icarus 205, 460-472 (2010)",
+        "notes": null,
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": {
+        "value": [
+          33,
+          -3
+        ],
+        "sigma": "5",
+        "ref": "Carry et al., Icarus 205, 460-472 (2010)",
+        "notes": null,
+        "desc": "spin-pole direction in R.A./Dec."
+      },
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "BV",
+        "G",
+        "GM",
+        "H",
+        "UB",
+        "albedo",
+        "density",
+        "diameter",
+        "extent",
+        "pole",
+        "rot_per",
+        "spec_B",
+        "spec_T"
+      ]
+    },
+    "vesta": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=4",
+      "retrieved": "2026-09-28",
+      "fullname": "4 Vesta (A807 FA)",
+      "diameterKm": {
+        "value": 522.77,
+        "sigma": 0.1,
+        "ref": "Park, R.S. et al. 2025, Nat Astron, DOI: 10.1038/s41550-025-02533-7",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": {
+        "value": 17.2882844,
+        "sigma": 0.000003,
+        "ref": "Park, R.S. et al. 2025, Nat Astron, DOI: 10.1038/s41550-025-02533-7",
+        "notes": null,
+        "desc": "standard gravitational parameter: product of the mass (M) and gravitational constant (G)"
+      },
+      "densityGcm3": {
+        "value": 3.46,
+        "sigma": 0.005,
+        "ref": "Park, R.S. et al. 2025, Nat Astron, DOI: 10.1038/s41550-025-02533-7",
+        "notes": null,
+        "desc": "bulk density"
+      },
+      "rotationHours": {
+        "value": 5.3421276322,
+        "sigma": 4e-10,
+        "ref": "Park, R.S. et al. 2025, Nat Astron, DOI: 10.1038/s41550-025-02533-7",
+        "notes": "Rotation rate (deg/day): 1617.33312922 +/- 0.00000013",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": {
+        "value": [
+          309.0611,
+          42.232386
+        ],
+        "sigma": "0.00031/0.000068",
+        "ref": "Park, R.S. et al. 2025, Nat Astron, DOI: 10.1038/s41550-025-02533-7",
+        "notes": "values in degrees",
+        "desc": "spin-pole direction in R.A./Dec."
+      },
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "BV",
+        "G",
+        "GM",
+        "H",
+        "UB",
+        "albedo",
+        "density",
+        "diameter",
+        "extent",
+        "pole",
+        "rot_per",
+        "spec_B",
+        "spec_T"
+      ]
+    },
+    "hygiea": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=10",
+      "retrieved": "2026-09-28",
+      "fullname": "10 Hygiea (A849 GA)",
+      "diameterKm": {
+        "value": 407.12,
+        "sigma": 6.8,
+        "ref": "IRAS-A-FPA-3-RDR-IMPS-V6.0",
+        "notes": "IRAS observations used: 22",
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": {
+        "value": 7,
+        "sigma": null,
+        "ref": "Scholl et al., A&A, v.179, p.311, 1987",
+        "notes": null,
+        "desc": "standard gravitational parameter: product of the mass (M) and gravitational constant (G)"
+      },
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 13.828,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "REFERENCE LIST:[Pilcher, F. (2020) Minor Planet Bull. 47, 133-135.], [Vernazza, P.; Jorda, L.; Sevecek, P.; Broz, M.; et al. (2020) Nature Astronomy 4, 136-141.], [Ferrais, M.; Jehin, E.; Vernazza, P.; Jorda, L.; et al. (2021) Minor Planet Bull. 48, 166-167.], [Vernazza, P.; Ferrais, M.; Jorda, L.; Hanus, J.; et al. (2021) Astron. Astrophys 654, id. A56.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "BV",
+        "GM",
+        "H",
+        "UB",
+        "albedo",
+        "diameter",
+        "rot_per",
+        "spec_B",
+        "spec_T"
+      ]
+    },
+    "ida": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=243",
+      "retrieved": "2026-09-28",
+      "fullname": "243 Ida (A884 SB)",
+      "diameterKm": {
+        "value": 32,
+        "sigma": null,
+        "ref": "Belton et al. (1995)",
+        "notes": "Yeomans E-mail 2001-Apr-04",
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": {
+        "value": 0.00275,
+        "sigma": 0.00035,
+        "ref": "Belton et al. (1996) Icarus v.120, pp.185-199",
+        "notes": "0.0024 < GM < 0.0031",
+        "desc": "standard gravitational parameter: product of the mass (M) and gravitational constant (G)"
+      },
+      "densityGcm3": {
+        "value": 2.6,
+        "sigma": 0.5,
+        "ref": "Belton et al. (1996) Icarus v.120, pp.185-199",
+        "notes": null,
+        "desc": "bulk density"
+      },
+      "rotationHours": {
+        "value": 4.634,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "REFERENCE LIST:[Binzel, R.P. (1987) Icarus 72, 135-208.], [Binzel, R.P.; Slivan, S.M.; Magnusson, P.; Wisniewski, W.Z.; et al. (1993) Icarus 105, 310-325.], [Davies, M.E.; Colvin, T.R.; Belton, M.J.S.; Veverka, J.; Thomas, P.C. (1996) Icarus 120, 33-37.], [Cieza, L.A.; Ciliberti, L.N.; Iserte, J.A. (1999) IAPPP Comm. #74, 12-23.], [Kaasalainen, M.; Torppa, J.; Muinonen, K. (2001) Icarus 153, 37-51.], [Behrend, R. (2004) Observatoire de Geneve web site, http://obswww.unige.ch/~behrend/page_cou.html], [Proyecto ECLA (Silvia Alonso Perez) (2011) http://www.geocities.com/proyectoecla/], [Hanus, J.; Broz, M.; Durech, J.; Warner, B.D.; et al. (2013) Astron. Astrophys. 559, A134.], [Polakis, T. (2020) Minor Planet Bull. 47, 13-17.], [Behrend, R. (2021) Observatoire de Geneve web site, http://obswww.unige.ch/~behrend/page_cou.html], [Wilkin, F.P.; AlMassri, F.P.; Bowles, P.; Pargiello, M.; et al. (2022) Minor Planet Bull. 49, 267-268.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 1,
+      "physicalParameterNames": [
+        "BV",
+        "GM",
+        "H",
+        "UB",
+        "albedo",
+        "density",
+        "diameter",
+        "extent",
+        "rot_per",
+        "spec_B",
+        "spec_T"
+      ]
+    },
+    "eros": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=433",
+      "retrieved": "2026-09-28",
+      "fullname": "433 Eros (A898 PA)",
+      "diameterKm": {
+        "value": 16.84,
+        "sigma": 0.06,
+        "ref": "Yeomans et al. (2000) Science v.289,pp.2085-2088",
+        "notes": "sphere having the measured volume of 2503 +/- 25 km^3",
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": {
+        "value": 0.0004463,
+        "sigma": 1e-7,
+        "ref": "Yeomans et al. (2000) Science v.289,pp.2085-2088",
+        "notes": null,
+        "desc": "standard gravitational parameter: product of the mass (M) and gravitational constant (G)"
+      },
+      "densityGcm3": {
+        "value": 2.67,
+        "sigma": 0.03,
+        "ref": "Yeomans et al. (2000) Science v.289,pp.2085-2088",
+        "notes": "based on a volume of 2503 +/- 25 km^3. Porosity 10-30%.",
+        "desc": "bulk density"
+      },
+      "rotationHours": {
+        "value": 5.27,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "REFERENCE LIST:[Campa, M. (1938) Mem. Soc. Astron. Ital. 11, 285-301.], [Beyer, M. (1953) Astron. Nachr. 281, 121-130.], [Cailliate, C. (1956) Publ. Observ. Lyon 3, fasc. 28.], [Cristescu, C. (1976) Icarus 28, 39-42.], [Dunlap, J.L. (1976) Icarus 28, 69-78.], [Millis, R.L.; Bowell, E.; Thompson, D.T. (1976) Icarus 28, 53-67.], [Scaltriti, F.; Zappala, V. (1976) Icarus 28, 29-35.], [Taylor, R.C. (1985) Icarus 61, 3, 490-496.], [Hicks, M.; Buratti, B.J.; Rabinowitz, D.L.; Genevier, G. (1999) Icarus 141, 411-414.], [Yeomans, D.K.; Antreasian, P.G.; Bariiot, J.-P.; Chesley, S.R.; et al. (2000) Science 289, 2085-2087.], [Kaasalainen, M.; Torppa, J.; Muinonen, K. (2001) Icarus 153, 37-51.], [Miller, J.K.; Konopliv, A.S.; Antreasian, P.G.; Bordi, J.J.; et al. (2002) Icarus 155, 3-17.], [Wolters, S.D.; Green, S.F.; McBride, N.; Davies, J.K. (2008) Icarus 193, 535-552.], [Behrend, R. (2009) Observatoire de Geneve web site, http://obswww.unige.ch/~behrend/page_cou.html], [Koehn, B.W.; Bowell, E.L.G.; Skiff, B.A.; Sanborn, J.J.; et al. (2014) Minor Planet Bull. 41, 286-300.], [Warner, B.D. (2017) Minor Planet Bull. 44, 22-36.], [Aznar, A.M.; Predatu, M.; Vaduvescu, O.; Oey, J. (2018) arXiv:1801.09420. Romanian J. Phys. 62, 904 (2017).], [Hasegawa, S.; Kuroda, D.; Kitazato, K.; Kasuga, T.; et al. (2018) Pub. Astron. Soc. Japan 70, A114.], [Skiff, B.A.; McLelland, K.P.; Sanborn, J.J.; Pravec, P.; Koehn, B.W. (2019) Minor Planet Bull. 46, 238-265.], [Warner, B.D.; Stephens, R.D. (2019) Minor Planet Bull. 46, 27-40.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": {
+        "value": [
+          11.37,
+          17.22
+        ],
+        "sigma": "0.05",
+        "ref": "Yeomans et al. (2000) Science v.289,pp.2085-2088",
+        "notes": null,
+        "desc": "spin-pole direction in R.A./Dec."
+      },
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "BV",
+        "G",
+        "GM",
+        "H",
+        "UB",
+        "albedo",
+        "density",
+        "diameter",
+        "extent",
+        "pole",
+        "rot_per",
+        "spec_B",
+        "spec_T"
+      ]
+    },
+    "itokawa": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=25143",
+      "retrieved": "2026-09-28",
+      "fullname": "25143 Itokawa (1998 SF36)",
+      "diameterKm": {
+        "value": 0.33,
+        "sigma": null,
+        "ref": "Science 312:1330-1334",
+        "notes": "based on a spheroid of equivalent volume: 1.84e7 m^3",
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": {
+        "value": 2.1e-9,
+        "sigma": 6.3e-11,
+        "ref": "Science 312:1330-1334",
+        "notes": "derived from published mass of 3.51e10 kg +/- 3%",
+        "desc": "standard gravitational parameter: product of the mass (M) and gravitational constant (G)"
+      },
+      "densityGcm3": {
+        "value": 1.9,
+        "sigma": 0.13,
+        "ref": "Science 312:1330-1334",
+        "notes": "Porosity 41%",
+        "desc": "bulk density"
+      },
+      "rotationHours": {
+        "value": 12.132,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "REFERENCE LIST:[Lambert, J.S.; Tholen, D.J. (2001) Bull. Amer. Astron. Soc. 33, 1402.], [Lowry, S.C.; Weissman, P.R.; Hicks, M.D. (2001) Bull. Amer. Astron. Soc. 33, 1150.], [Dermawan, B.; Nakamura, T.; Fukushima, H.; Sato, H.; et al. (2002) Pub. Astron. Soc. Japan 54, 635-640.], [Kaasalainen, M.; et al. (2003) Astron. Astrophys. 405, L29-L32.], [Ohba, Y.; Abe, M.; Hasagawa, S.; Ishiguro, M.; et al. (2005) Earth Planets Space 55, 341-347.], [Warner, B.D. (2004) Minor Planet Bull. 31, 67-70.], [Lowry, S.; Weissman, P.R.; Hicks, M.D.; Whiteley, R.J.; Larson, S. (2005) Icarus 176, 408-417.], [Nishihara, S.; Abe, M.; Hasagawa, S.; Ishiguro, M.; et al. (2005) Lunar & Planetary Sci. XXXVI, 1833.], [Durech, J.; Vokrouhlicky, D.; Kaasalainen, M.; Weissman, P.; et al. (2008) Astron. Astrophys. 488, 345-350.], [Higgins, D.J. (2011) http://www.david-higgins.com/Astronomy/asteroid/lightcurves.htm], [Nishihara, S.; Kitzato, K.; Abe, M.; Hasegawa, S.; et al. (2018) ArXiv:2018.80202742.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": {
+        "value": [
+          90.53,
+          -66.3
+        ],
+        "sigma": "3.9",
+        "ref": "Demura, H., et al., Science, 312, 1347 (2006)",
+        "notes": null,
+        "desc": "spin-pole direction in R.A./Dec."
+      },
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "GM",
+        "H",
+        "I",
+        "density",
+        "diameter",
+        "extent",
+        "pole",
+        "rot_per",
+        "spec_B"
+      ]
+    },
+    "ryugu": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=162173",
+      "retrieved": "2026-09-28",
+      "fullname": "162173 Ryugu (1999 JU3)",
+      "diameterKm": {
+        "value": 0.896,
+        "sigma": 0.004,
+        "ref": "Watanabe, S.; Hirabayashi, M.; Hirata, N.; Hirata, Na.; et al. (2019) Science 364, 267-272.",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": {
+        "value": 3e-8,
+        "sigma": 4e-10,
+        "ref": "Watanabe, S.; Hirabayashi, M.; Hirata, N.; Hirata, Na.; et al. (2019) Science 364, 267-272.",
+        "notes": null,
+        "desc": "standard gravitational parameter: product of the mass (M) and gravitational constant (G)"
+      },
+      "densityGcm3": {
+        "value": 1.19,
+        "sigma": 0.02,
+        "ref": "Watanabe, S.; Hirabayashi, M.; Hirata, N.; Hirata, Na.; et al. (2019) Science 364, 267-272.",
+        "notes": null,
+        "desc": "bulk density"
+      },
+      "rotationHours": {
+        "value": 7.63262,
+        "sigma": 0.00002,
+        "ref": "Watanabe, S.; Hirabayashi, M.; Hirata, N.; Hirata, Na.; et al. (2019) Science 364, 267-272.",
+        "notes": null,
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": {
+        "value": [
+          96.3956,
+          -66.3937
+        ],
+        "sigma": "0.0082/0.006",
+        "ref": "Preusker, F.; Scholten, F.; Elgner, S.; Matz, K. D.; et al. (2019) A&A 632 L4.",
+        "notes": null,
+        "desc": "spin-pole direction in R.A./Dec."
+      },
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "GM",
+        "H",
+        "albedo",
+        "density",
+        "diameter",
+        "extent",
+        "pole",
+        "rot_per",
+        "spec_B"
+      ]
+    },
+    "bennu": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=101955",
+      "retrieved": "2026-09-28",
+      "fullname": "101955 Bennu (1999 RQ36)",
+      "diameterKm": {
+        "value": 0.48444,
+        "sigma": 0.0003,
+        "ref": "Daly, M.G., et al., Sci. Adv. 6, eabd3649 (2020)",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": {
+        "value": 4.8904e-9,
+        "sigma": 9e-13,
+        "ref": "Chesley, S.R., et al., J. Geophys. Res. (Planets) 125, e06363 (2020)",
+        "notes": null,
+        "desc": "standard gravitational parameter: product of the mass (M) and gravitational constant (G)"
+      },
+      "densityGcm3": {
+        "value": 1.194,
+        "sigma": 0.003,
+        "ref": "Daly, M.G., et al., Sci. Adv. 6, eabd3649 (2020)",
+        "notes": null,
+        "desc": "bulk density"
+      },
+      "rotationHours": {
+        "value": 4.296061,
+        "sigma": 0.000002,
+        "ref": "Hergenrother, M.C., et al., Nat. Commun. 10, 1291 (2019)",
+        "notes": "J2000 epoch",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": {
+        "value": [
+          85.4522,
+          -60.3678
+        ],
+        "sigma": "0.0003/0.0001",
+        "ref": "Daly, M.G., et al., Sci. Adv. 6, eabd3649 (2020)",
+        "notes": null,
+        "desc": "spin-pole direction in R.A./Dec."
+      },
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "BV",
+        "G",
+        "GM",
+        "H",
+        "I",
+        "IR",
+        "UB",
+        "albedo",
+        "density",
+        "diameter",
+        "extent",
+        "pole",
+        "rot_acc",
+        "rot_per",
+        "spec_B"
+      ]
+    },
+    "halley": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=1P",
+      "retrieved": "2026-09-28",
+      "fullname": "1P/Halley",
+      "diameterKm": {
+        "value": 11,
+        "sigma": null,
+        "ref": "Lamy,P.L.;Toth,I.;Fernandez,Y.R.;Weaver,H.A. (2004) Comets II, pp. 223-264",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": null,
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "K1",
+        "K2",
+        "M1",
+        "M2",
+        "PC",
+        "albedo",
+        "diameter",
+        "extent"
+      ]
+    },
+    "pluto": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=134340",
+      "retrieved": "2026-09-28",
+      "fullname": "134340 Pluto (1930 BM)",
+      "diameterKm": null,
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 153.2935,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "REFERENCE LIST:[Walker, M.F.; Hardie, R. (1955) Pub. Ast. Soc. Pacific 67, 224.], [Tholen, D.J.; Buie, M.W. (1997) in Pluto and Charon (S.A. Stern and D.J. Tholen, eds.) pp 193-219. Univ. Arizon Press, Tucson.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 5,
+      "physicalParameterNames": [
+        "H",
+        "rot_per"
+      ]
+    },
+    "eris": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=136199",
+      "retrieved": "2026-09-28",
+      "fullname": "136199 Eris (2003 UB313)",
+      "diameterKm": null,
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 25.9,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "[Result based on less than full coverage, so that the period may be wrong by 30 percent or so.]  REFERENCE LIST:[Roe, H. G.; Pike, R.E.; Brown, M.E. (2008) Icarus 198, 459-464.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 1,
+      "physicalParameterNames": [
+        "H",
+        "rot_per"
+      ]
+    },
+    "haumea": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=136108",
+      "retrieved": "2026-09-28",
+      "fullname": "136108 Haumea (2003 EL61)",
+      "diameterKm": null,
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 3.9154,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "REFERENCE LIST:[Rabinowitz, D.L.; Barkume, K.; Brown, M.E.; Roe, H.; et al. (2006) Astrophys. J. 639, 1238-1251.], [Rabinowitz, D.L.; Schaefer, B.E.; Tourtellotte, S.W. (2007) Astron. J. 133, 26-43.], [Lellouch, E.; Kiss, C.; Santos-Sanz, P.; Muller, T.G.; et al. (2010) Astron. Astrophys. 518, L147.], [Thirouin, A.; Ortiz, J.L.; Duffard, R.; Santos-Sanz, P.; et al. (2010) Astron. Astrophys. 522, A93.], [Behrend, R. (2011) Observatoire de Geneve web site, http://obswww.unige.ch/~behrend/page_cou.html], [Behrend, R. (2014) Observatoire de Geneve web site, http://obswww.unige.ch/~behrend/page_cou.html], [Lockwood, A.C.; Brown, M.E.; Stansberry, J. (2014) Earth, Moon, and Planets 111, 127-37.], [Clark, M. (2016) Minor Planet Bull. 43, 2-5.], [Behrend, R. (2017) Observatoire de Geneve web site, http://obswww.unige.ch/~behrend/page_cou.html], [Ortiz, J.L.; Santos-Sanz, P.; Sicardy, B.; Benedetti-Rossi, G.; et al. (2017) Nature 550, 219-223.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 2,
+      "physicalParameterNames": [
+        "H",
+        "rot_per"
+      ]
+    },
+    "makemake": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=136472",
+      "retrieved": "2026-09-28",
+      "fullname": "136472 Makemake (2005 FY9)",
+      "diameterKm": null,
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 22.8266,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "[Result based on less than full coverage, so that the period may be wrong by 30 percent or so.]  REFERENCE LIST:[Hromakina, T.A.; Belskaya, I.N.; Krugly, Yu.N.; Shevchenko, V.G.; et al. (2019) Astron. Astrophys. 625, A46.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 1,
+      "physicalParameterNames": [
+        "H",
+        "rot_per"
+      ]
+    },
+    "orcus": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=90482",
+      "retrieved": "2026-09-28",
+      "fullname": "90482 Orcus (2004 DW)",
+      "diameterKm": null,
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 13.188,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "[Result based on less than full coverage, so that the period may be wrong by 30 percent or so.]  REFERENCE LIST:[Rabinowitz, D.L.; Schaefer, B.E.; Tourtellotte, S.W. (2007) Astron. J. 133, 26-43.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 1,
+      "physicalParameterNames": [
+        "H",
+        "rot_per"
+      ]
+    },
+    "quaoar": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=50000",
+      "retrieved": "2026-09-28",
+      "fullname": "50000 Quaoar (2002 LM60)",
+      "diameterKm": null,
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 8.84,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "[Result based on less than full coverage, so that the period may be wrong by 30 percent or so.]  REFERENCE LIST:[Rabinowitz, D.L.; Schaefer, B.E.; Tourtellotte, S.W. (2007) Astron. J. 133, 26-43.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 1,
+      "physicalParameterNames": [
+        "H",
+        "rot_per"
+      ]
+    },
+    "gonggong": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=225088",
+      "retrieved": "2026-09-28",
+      "fullname": "225088 Gonggong (2007 OR10)",
+      "diameterKm": null,
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 22.4,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "[Result based on less than full coverage, so that the period may be wrong by 30 percent or so.]  REFERENCE LIST:[Pal, A.; Csaba, K.; Muller, T.G.; Molnar, L.; et al. (2016) Astron. J. 151, A117.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 1,
+      "physicalParameterNames": [
+        "H",
+        "rot_per"
+      ]
+    },
+    "sedna": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=90377",
+      "retrieved": "2026-09-28",
+      "fullname": "90377 Sedna (2003 VB12)",
+      "diameterKm": null,
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 10.273,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "[Result based on less than full coverage, so that the period may be wrong by 30 percent or so.]  REFERENCE LIST:[Gaudi, B.S.; Stanek, K.Z.; Hartman, J.D.; Holman, M.J.; McLeod, B.A. (2005) Astrophys. J. Let. 629, L49-L52.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "H",
+        "rot_per"
+      ]
+    },
+    "psyche": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=16",
+      "retrieved": "2026-09-28",
+      "fullname": "16 Psyche (A852 FA)",
+      "diameterKm": {
+        "value": 222,
+        "sigma": "-1/+4",
+        "ref": "Shepard et al. (2021), The Planetary Science Journal 2, 125",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": {
+        "value": 1.601,
+        "sigma": 0.017,
+        "ref": "Farnocchia et al. (2024), AJ 168, 21",
+        "notes": null,
+        "desc": "standard gravitational parameter: product of the mass (M) and gravitational constant (G)"
+      },
+      "densityGcm3": {
+        "value": 4.172,
+        "sigma": 0.145,
+        "ref": "Farnocchia et al. (2024), AJ 168, 21",
+        "notes": null,
+        "desc": "bulk density"
+      },
+      "rotationHours": {
+        "value": 4.196,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "REFERENCE LIST:[Van Houten-Groeneveld, I.; van Houten, C.J. (1958) Astrophys. J. 127, 253-273.], [Taylor, R.C.; Gehrels, T.; Capen, R.C. (1976) Astron. J. 81, 778-786.], [Chang, Y.C.; Zhou, X.-h.; Yang, X.-y.; Zhang, Y.-y.; et al. (1981) Acta Astron. Sin. 22, 169-173; Chin. Astron. Astrophys. 5, 434-437.], [Zhou, X.-h.; Yang, X.-y. (1981) Acta Astron. Sin. 22, 378-382; Chin. Astron. Astrophys. 6, 57-59 (1982, 1982ChA...6...57Z).], [Lupishko, D.F.; Bel'skaya, I.N.; Tupieva, F.A.; Chernova, G.P. (1982) Astron. Vestn. 16, 101-108; Solar System Res. 16, 75-80.], [Zhou, X.-z.; Yang, X.-y.; Wu, Z.-x. (1982) Acta Astron. Sin. 23, 349-352; Chin. Astron. Astrophys. 7, 129-131 (1983, 1983ChA...7..129Z).], [Lupishko, D.F.; Bel'skaya, I.N. (1983) in Asteroids, Comets, Meteors. C.-I. Lagerkvist, H. Rickman, eds. Uppsala, pp. 55-61.], [Tedesco, E.F.; Taylor, R.C.; Drummond, J.; Harwood, D.; et al. (1983) Icarus 54, 30-37.], [Tedesco, E.F.; Taylor, R.C. (1985) Icarus 61, 2, 241-251.], [Magnusson, P. (1986) Icarus 68, 1-39.], [Weidenschilling, S.J.; Chapman, C.R.; Davis, D.R.; Greenberg, R.; et al. (1987) Icarus 70, 191-245.], [Drummond, J.D.; Weidenschilling, S.J.; Chapman, C.R.; Davis, D.R. (1988) Icarus 76, 19-77.], [Magnusson, P. (1990) Icarus 85, 229-240.], [Drummond, J.D.; Weidenschilling, S.J.; Chapman, C.R.; Davis, D.R. (1991) Icarus 89, 44-64.], [Broglia, P.; Manara, A. (1992) Astron. Astrophys. 257, 770-772.], [De Angelis, G. (1993) Planet. Space Sci. 41, 285-290.], [Piironen, J.; Magnusson, P.; Lagerkvist, C.-I.; Williams, I.P.; et al. (1997) Astron. Astrophys. Suppl. Ser. 121, 489-497.], [Kaasalainen, M.; Torppa, J.; Piironen, J. (2002) Icarus 159, 369-395.], [Behrend, R. (2003) Observatoire de Geneve web site, http://obswww.unige.ch/~behrend/page_cou.html], [Durech, J.; Kaasalainen, M.; Herald, D.; Dunham, D.; et al. (2011) Icarus 214, 652-670.], [Proyecto ECLA (Silvia Alonso Perez) (2011) http://www.geocities.com/proyectoecla/], [Hanus, J.; Marchis, F.; Durech, J. (2013) Icarus 226, 1045-1057.], [Hanus, J.; Durech, J.; Oszkiewicz, D.A.; Behrend, R.; et al. (2016) Astron. Astrophys. 586, A108.], [Warner, B.D. (2016) Minor Planet Bull. 43, 137-140.], [Hanus, J.; Viikinkoski, M.; Marchis, F.; Durech, J.; et al (2017) Astron. Astrophys. 601, A114.], [Drummond, J.D.; Merline, W.J.; Carry, B.; Conrad, A.; et al. (2018) Icarus 305, 174-185.], [Viikinkoski, M.; Vernazza, P.; Hanus, J.; Le Coroller, H.; et al. (2018) Astron. Astrophys. 619, L3.], [Ferrais, M.; Vernazz, P.; Jorda, L.; Rambaux, N.; et al. (2020) Astorn. Astrophys. 638, L15.], [Shepard, M.K.; de Kleer, K.; Cambioni, S.; Tayler, P.A.; et al. (2021) Plan. Sci. J. 2, id. 125.], [Vernazza, P.; Ferrais, M.; Jorda, L.; Hanus, J.; et al. (2021) Astron. Astrophys 654, id. A56.], [Ferrais, M.; Vernazza, P.; Jorda, L.; Jehin, E.; et al. (2022) Minor Planet Bull. 49, 307-313.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "BV",
+        "G",
+        "GM",
+        "H",
+        "UB",
+        "albedo",
+        "density",
+        "diameter",
+        "extent",
+        "rot_per",
+        "spec_B",
+        "spec_T"
+      ]
+    },
+    "lutetia": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=21",
+      "retrieved": "2026-10-04",
+      "fullname": "21 Lutetia (A852 VA)",
+      "diameterKm": {
+        "value": 98,
+        "sigma": 2,
+        "ref": "Sierks et al., Science 334, 487, 2011",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": {
+        "value": 0.1134,
+        "sigma": 0.0011,
+        "ref": "Patzold et al., Science 334, 491, 2011",
+        "notes": null,
+        "desc": "standard gravitational parameter: product of the mass (M) and gravitational constant (G)"
+      },
+      "densityGcm3": {
+        "value": 3.4,
+        "sigma": 0.3,
+        "ref": "Patzold et al., Science 334, 491, 2011",
+        "notes": null,
+        "desc": "bulk density"
+      },
+      "rotationHours": {
+        "value": 8.1655,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "REFERENCE LIST:[Lupishko, D.F.; Bel'skaya, I.N.; Tupieva, F.A. (1983) Pis'ma Astron. Zh. 9, 691-694; Sov. Astron. Lett. 9, 358-360.], [Zappala, V.; Di Martino, M.; Knezevic, Z.; Djurasevic, G. (1984) Astron. Astrophys. 130, 208-210.], [Lupishko, D.F.; Velichko, F.P. (1987) Kin. Fiz. Neb. Tel 3(1), 57-65; Kinematics and Physics of Celestial Bodies 3(1), 63-71.], [Michalowski, T. (1992) in Asteroids, Comets, Meteors 1991. A.W. Harris, E. Bowell, eds. Lunar and Planetary Institute, Houston, pp. 417-419.], [Michalowski, T. (1993) Icarus 106, 563-572.], [De Angelis, G. (1995) Planet. Space Sci. 43, 649-682.], [Lagerkvist, C.-I.; Erikson, A.; Debehogne, H.; Festin, L.; et al. (1995) Astron. Astrophys. Suppl. Ser. 113, 115-129.], [Michalowski, T. (1996) Icarus 123, 456-462.], [Szabo, Gy.; Sarneczky, K.; Kiss, L.L. (1999) in Proc. IAU Coll. 173, Evolution and Source Regions of Asteroids and Comets, 185-188.], [Behrend, R. (2003) Observatoire de Geneve web site, http://obswww.unige.ch/~behrend/page_cou.html], [Torppa, J.; Kaasalainen, M.; Michalowski, T.; Kwiatkowski, T.; et al. (2003) Icarus 164, 346-383.], [Faury, G. (2009) Bull. Amer. Astron. Soc. 40.], [Behrend, R. (2010) Observatoire de Geneve web site, http://obswww.unige.ch/~behrend/page_cou.html], [Belskaya, I.N.; Fornasier, S.; Krugly, Yu.N.; Shevchenko, V.G.; et al. (2010) Astron. Astrophys. 515, A29.], [Carry, B.; Kaasalainen, M.; Leyrat, C.; Merline, W.J.; et al. (2010) Astron. Astrophys. 523, A94.], [Behrend, R. (2018) Observatoire de Geneve web site, http://obswww.unige.ch/~behrend/page_cou.html], [Muinonen, K.; Torppa, J.; Wang, X.-B.; Cellino, A.; Penttila, A. (2020) Astron. Astrophys. 642, A138.], [Vernazza, P.; Ferrais, M.; Jorda, L.; Hanus, J.; et al. (2021) Astron. Astrophys 654, id. A56.], [Ferrais, M.; Vernazza, P.; Jorda, L.; Jehin, E.; et al. (2022) Minor Planet Bull. 49, 307-313.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": {
+        "value": [
+          51.8,
+          10.8
+        ],
+        "sigma": "0.4/0.4",
+        "ref": "Sierks et al., Science 334, 487, 2011",
+        "notes": null,
+        "desc": "spin-pole direction in R.A./Dec."
+      },
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "BV",
+        "G",
+        "GM",
+        "H",
+        "UB",
+        "albedo",
+        "density",
+        "diameter",
+        "extent",
+        "pole",
+        "rot_per",
+        "spec_B",
+        "spec_T"
+      ]
+    },
+    "gaspra": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=951",
+      "retrieved": "2026-10-04",
+      "fullname": "951 Gaspra (A916 OJ)",
+      "diameterKm": {
+        "value": 12.2,
+        "sigma": null,
+        "ref": null,
+        "notes": "Yeomans E-mail 2001-Apr-04",
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 7.042,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "REFERENCE LIST:[Barucci, M.A.; Fulchignoni, M.; Di Martino, M. (1989) Bull. Amer. Astron. Soc. 21, 963.], [Di Martino, M.; Ferreri, W.; Fulchignoni, M.; De Angelis, G.; et al. (1990) Icarus 87, 372-376.], [Goldader, J.D.; Tholen, D.J.; Cruikshank, D.P.; Hartmann, W.K. (1991) Astron. J. 102, 1503-1509.], [De Angelis, G. (1992) in Physical properties of small solar system bodies. A. Brahic, J.-C. Gerard, J. Surdej, eds. Universite de Liege, Institut d'Astrophysique, Liege, pp. 195-201.], [Magnusson, P.; Barucci, M.A.; Binzel, R.P.; Blanco, C.; et al. (1992) Icarus 97, 124-129.], [Wisniewski, W.Z.; Barucci, M.A.; Fulchignoni, M.; De Sanctis, C.; et al. (1993) Icarus 101, 213-222.], [De Angelis, G. (1995) Planet. Space Sci. 43, 649-682.], [Kaasalainen, M.; Torppa, J.; Muinonen, K. (2001) Icarus 153, 37-51.], [Tungalag, N.; Shevchenko, V.G.; Lupishko, D.F. (2002) Kin. Fiz. Neb. Tel 18, 508-516; Kinematics and Physics of Celestial Bodies 18, ???-???.], [Hanus, J.; Broz, M.; Durech, J.; Warner, B.D.; et al. (2013) Astron. Astrophys. 559, A134.], [Dykhuis, M.J.; Molnar, L.A.; Gates, C.J.; Gonzales, J.A.; et al. (2016) Icarus 267, 174-203.], [Behrend, R. (2018) Observatoire de Geneve web site, http://obswww.unige.ch/~behrend/page_cou.html]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "BV",
+        "H",
+        "UB",
+        "albedo",
+        "diameter",
+        "extent",
+        "rot_per",
+        "spec_B",
+        "spec_T"
+      ]
+    },
+    "mathilde": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=253",
+      "retrieved": "2026-10-04",
+      "fullname": "253 Mathilde (A885 VA)",
+      "diameterKm": {
+        "value": 52.8,
+        "sigma": null,
+        "ref": null,
+        "notes": "Yeomans E-mail 2001-Apr-04",
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": {
+        "value": 0.00689,
+        "sigma": 0.0003,
+        "ref": "Yeomans et al. (1997) Science v.278, pp.2106-2109",
+        "notes": null,
+        "desc": "standard gravitational parameter: product of the mass (M) and gravitational constant (G)"
+      },
+      "densityGcm3": {
+        "value": 1.3,
+        "sigma": 0.2,
+        "ref": "Yeomans et al. (1997) Science v.278, pp.2106-2109",
+        "notes": "based on a nominal volume of 78000 km^3 (with lower/uppper limits of 67000/90000 km^3)",
+        "desc": "bulk density"
+      },
+      "rotationHours": {
+        "value": 417.7,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "REFERENCE LIST:[Mottola, S.; Sears, W.D.; Erikson, A.; Harris, A.W.; et al. (1995) Planet. Space Sci. 43, 1609-1613.], [Pravec, P.; et al. (2005) Icarus 173, 108-131.], [Durech, J.; Tonry, J.; Erasmus, N.; Denneau, L.; et al. (2020) Astron. Astrophys. 643, A59.], [Martikainen, J.; Muinonen, K.; Penttila, A.; Cellino, A.; Wang, X.-B. (2021) Astron. Astrophys. 649, A98.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "GM",
+        "H",
+        "albedo",
+        "density",
+        "diameter",
+        "rot_per",
+        "spec_B"
+      ]
+    },
+    "steins": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=2867",
+      "retrieved": "2026-10-04",
+      "fullname": "2867 Steins (1969 VC)",
+      "diameterKm": {
+        "value": 5.16,
+        "sigma": 0.167,
+        "ref": "EAR_A_COMPIL_5_NEOWISEDIAM_V1_0[mainbelt] (http://adsabs.harvard.edu/abs/2011ApJ...741...68M)",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 6.049,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "REFERENCE LIST:[Hicks, M.D.; Bauer, J.M.; Tokunaga, A.T. (2004) IAUC 8315.], [Warner, B.D. (2004) Minor Planet Bull. 31, 67-70.], [Behrend, R. (2005) Observatoire de Geneve web site, http://obswww.unige.ch/~behrend/page_cou.html], [Weissman, P.R.; Lowry, S.C.; Choi, Y.-J. (2005) Bull. Amer. Astron. Soc. 37, 644.], [Kuppers, M.; Mottola, S.; Lowry, S.C.; A'Hearn, M.F.; et al. (2007) Astron. Astrophys. 462, L13-L16.], [Weissman, P.R.; Lowry, S.C.; Choi, Y.-J. (2007) Astron. Astrophys. 466, 737-742.], [Jorda, L.; Lamy, P.L.; Faury, G.; Weissman, P.; et al. (2008) Astron. Astrophys. 487, 1171-1178.], [Lamy, P.L.; Kaasalainen, M.; Lowry, S.; Weissman, P.; et al. (2008) Astron. Astrophys. 487, 1179-1185.], [Lamy, P.; Kaasalainen, M.; Jorda, L.; Faury, G.; et al. (2008) Bull. Amer. Astron. Soc. 40 (28.33).], [Dotto, E.; Perna, D.; Fornasier, S.; Belskaya, I.N.; et al. (2009) Astron. Astrophys. 494, L29-L32.], [Jorda, L.; Lamy, P.L.; Gaskell, R.W.; Kaasalainen, M.; et al. (2012) Icarus 221, 1089-1100.], [Waszczak, A.; Chang, C.-K.; Ofeck, E.O.; Laher, F.; et al. (2015) Astron. J. 150, A75.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "H",
+        "albedo",
+        "diameter",
+        "rot_per"
+      ]
+    },
+    "annefrank": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=5535",
+      "retrieved": "2026-10-04",
+      "fullname": "5535 Annefrank (1942 EM)",
+      "diameterKm": {
+        "value": 4.8,
+        "sigma": null,
+        "ref": "T.C. Duxbury et al. (2003) JGR v.109, E02002",
+        "notes": "sphere having a volume equal to that of the fit tri-axial ellipsoid",
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 15.12,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "[Result based on less than full coverage, so that the period may be wrong by 30 percent or so.]  REFERENCE LIST:[Schmidt, B.E.; Bauer, J.; Buratti, J.; Russell, C.T. (2007) Lunar & Planetary Sci. XXXVIII, 1859.], [Waszczak, A.; Chang, C.-K.; Ofeck, E.O.; Laher, F.; et al. (2015) Astron. J. 150, A75.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "H",
+        "albedo",
+        "diameter",
+        "extent",
+        "rot_per"
+      ]
+    },
+    "masursky": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=2685",
+      "retrieved": "2026-10-04",
+      "fullname": "2685 Masursky (1981 JN)",
+      "diameterKm": {
+        "value": 10.744,
+        "sigma": 0.17,
+        "ref": "urn:nasa:pds:neowise_diameters_albedos::2.0[mainbelt] (http://adsabs.harvard.edu/abs/2014ApJ...791..121M)",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 59.531,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "[Result based on less than full coverage, so that the period may be wrong by 30 percent or so.]  REFERENCE LIST:[Hayes-Gehrke, M.; Khan, R.; Liao, S.; Siegel, T.; et al. (2023) Minor Planet Bull. 50, 11.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "H",
+        "albedo",
+        "diameter",
+        "rot_per"
+      ]
+    },
+    "didymos": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=65803",
+      "retrieved": "2026-10-04",
+      "fullname": "65803 Didymos (1996 GT)",
+      "diameterKm": {
+        "value": 0.78,
+        "sigma": 0.03,
+        "ref": "Naidu, S. P.; Benner, L. A. M.; Brozovic, M.; et al. (2020) Icarus 348, 113777",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": null,
+      "densityGcm3": {
+        "value": 2.17,
+        "sigma": 0.35,
+        "ref": "Naidu, S. P.; Benner, L. A. M.; Brozovic, M.; et al. (2020) Icarus 348, 113777",
+        "notes": null,
+        "desc": "bulk density"
+      },
+      "rotationHours": {
+        "value": 2.2593,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "REFERENCE LIST:[Pravec, P.; et al. (2003) IAUC 8244. (65803)], [Kitazato, K.; Abe, M.; Mito, H. (2005) Asia-Oceana Geophys. Soc. abstract 58-PS-A1183.], [Pravec, P.; et al. (2006) Icarus 181, 63-93.], [Naidu, S.P.; Benner, L.A.M.; Brozovic, M.; Nolan, M.C.; et al. (2020) Icarus 348, id. 113777.], [Panfichi, A.M.; Pajuelo, M. (2023) Minor Planet Bull. 50, 128-130.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": {
+        "value": [
+          78,
+          -71
+        ],
+        "sigma": "20 degrees",
+        "ref": "Naidu, S. P.; Benner, L. A. M.; Brozovic, M.; et al. (2020) Icarus 348, 113777",
+        "notes": null,
+        "desc": "spin-pole direction in R.A./Dec."
+      },
+      "confirmedSatellites": 1,
+      "physicalParameterNames": [
+        "H",
+        "density",
+        "diameter",
+        "extent",
+        "pole",
+        "rot_per",
+        "spec_B"
+      ]
+    },
+    "dinkinesh": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=152830",
+      "retrieved": "2026-10-04",
+      "fullname": "152830 Dinkinesh (1999 VD57)",
+      "diameterKm": {
+        "value": 0.719,
+        "sigma": 0.024,
+        "ref": "Levison et al. (2024), https://doi.org/10.1038/s41586-024-07378-0",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": {
+        "value": 3.3e-8,
+        "sigma": 1.6e-9,
+        "ref": "Levison et al. (2024), https://doi.org/10.1038/s41586-024-07378-0",
+        "notes": null,
+        "desc": "standard gravitational parameter: product of the mass (M) and gravitational constant (G)"
+      },
+      "densityGcm3": {
+        "value": 2400,
+        "sigma": 350,
+        "ref": "Levison et al. (2024), https://doi.org/10.1038/s41586-024-07378-0",
+        "notes": null,
+        "desc": "bulk density"
+      },
+      "rotationHours": {
+        "value": 52.67,
+        "sigma": 0.04,
+        "ref": "Mottola, S. et al. (2023) https://doi.org/10.1093/mnrasl/slad066",
+        "notes": null,
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 1,
+      "physicalParameterNames": [
+        "GM",
+        "H",
+        "density",
+        "diameter",
+        "rot_per"
+      ]
+    },
+    "donaldjohanson": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=52246",
+      "retrieved": "2026-10-04",
+      "fullname": "52246 Donaldjohanson (1981 EQ5)",
+      "diameterKm": {
+        "value": 3.895,
+        "sigma": 0.013,
+        "ref": "urn:nasa:pds:neowise_diameters_albedos::2.0[mainbelt] (http://adsabs.harvard.edu/abs/2011ApJ...741...68M)",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": null,
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "H",
+        "albedo",
+        "diameter"
+      ]
+    },
+    "eurybates": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=3548",
+      "retrieved": "2026-10-04",
+      "fullname": "3548 Eurybates (1973 SO)",
+      "diameterKm": {
+        "value": 63.885,
+        "sigma": 0.299,
+        "ref": "urn:nasa:pds:neowise_diameters_albedos::2.0[jupiter_trojans] (http://adsabs.harvard.edu/abs/2012ApJ...759...49G)",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 8.711,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "REFERENCE LIST:[Stephens, R.D. (2010) Minor Planet Bull. 37, 47-48.], [Mottola, S.; Di Martino, M.; Erikson, A.; Gonano-Beurer, M.; et al. (2011) Astron. J. 141, A170.], [Mottola, S.; Marchi, S.; Buie, M.W.; Hellmich, S.; et al. (2016) DPS 48/EPSC 11, 208.04.], [Pal, A.; Szakats, R.; Kiss, C.; Bodi, A.; et al. (2020) Ap. J. Supl. Ser. 247, id.26.], [Stephens, R.D.; Warner, B.D. (2021) Minor Planet Bull. 48, 13-15.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 1,
+      "physicalParameterNames": [
+        "H",
+        "albedo",
+        "diameter",
+        "rot_per"
+      ]
+    },
+    "polymele": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=15094",
+      "retrieved": "2026-10-04",
+      "fullname": "15094 Polymele (1999 WB2)",
+      "diameterKm": {
+        "value": 21.075,
+        "sigma": 0.136,
+        "ref": "urn:nasa:pds:neowise_diameters_albedos::2.0[jupiter_trojans] (http://adsabs.harvard.edu/abs/2012ApJ...759...49G)",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 5.8607,
+        "sigma": 0.0005,
+        "ref": "[Buie, M. W. et al. (2018) AJ 155, Issue 6, article id. 245]",
+        "notes": null,
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "G",
+        "H",
+        "albedo",
+        "diameter",
+        "rot_per"
+      ]
+    },
+    "leucus": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=11351",
+      "retrieved": "2026-10-04",
+      "fullname": "11351 Leucus (1997 TS25)",
+      "diameterKm": {
+        "value": 34.155,
+        "sigma": 0.646,
+        "ref": "urn:nasa:pds:neowise_diameters_albedos::2.0[jupiter_trojans] (http://adsabs.harvard.edu/abs/2012ApJ...759...49G)",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 445.924,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "REFERENCE LIST:[Buie, M.W.; Zangari, A.M.; Marchi, S.; Mottola, S.; Levinson, H.F. (2016) DPS #48, 208.06. (and private communications).], [Buie, M.W.; Zangari, A.M.; Marchi, S.; Levinson, H.F.; Mottola, S. (2018) Astron. J. 155, A245.], [Mottola, S.; Hellmich, S.; Buie, M.W.; Zangari, A.M.; et al. (2020) Plan. Sci. J. 1, id. 73.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "H",
+        "albedo",
+        "diameter",
+        "rot_per"
+      ]
+    },
+    "orus": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=21900",
+      "retrieved": "2026-10-04",
+      "fullname": "21900 Orus (1999 VQ10)",
+      "diameterKm": {
+        "value": 50.81,
+        "sigma": 0.809,
+        "ref": "urn:nasa:pds:neowise_diameters_albedos::2.0[jupiter_trojans] (http://adsabs.harvard.edu/abs/2012ApJ...759...49G)",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 13.45,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "[Result based on less than full coverage, so that the period may be wrong by 30 percent or so.]  REFERENCE LIST:[Mottola, S.; Di Martino, M.; Erikson, A.; Gonano-Beurer, M.; et al. (2011) Astron. J. 141, A170.], [Mottola, S.; Marchi, S.; Buie, M.W.; Hellmich, S.; et al. (2016) DPS 48/EPSC 11, 208.04.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "H",
+        "albedo",
+        "diameter",
+        "rot_per"
+      ]
+    },
+    "patroclus": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=617",
+      "retrieved": "2026-10-04",
+      "fullname": "617 Patroclus (A906 UL)",
+      "diameterKm": {
+        "value": 140.362,
+        "sigma": 0.868,
+        "ref": "urn:nasa:pds:neowise_diameters_albedos::2.0[jupiter_trojans] (http://adsabs.harvard.edu/abs/2012ApJ...759...49G)",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 102.8,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "REFERENCE LIST:[Behrend, R. (2005) Observatoire de Geneve web site, http://obswww.unige.ch/~behrend/page_cou.html], [Marchis, F.; Hestroffer, D.; Descamps, P.; Berthier, J.; et al. (2006) Nature 439, 565-567.], [Mueller, M.; Marchis, F.; Emery, J.P.; Harris, A.W. (DLR); et al. (2010) Icarus 205, 505-515.], [Oey, J. (2012) Minor Planet Bull. 39, 106-107.], [Stephens, R.D.; Warner, B.D. (2018) Minor Planet Bull. 45, 343-347.], [Berthier, J.; Descampls, P.; Vachier, F.; Normand, J.; et al. (2020) Icarus 352, id. 113990.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 1,
+      "physicalParameterNames": [
+        "BV",
+        "H",
+        "UB",
+        "albedo",
+        "diameter",
+        "rot_per",
+        "spec_T"
+      ]
+    },
+    "apophis": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=99942",
+      "retrieved": "2026-10-04",
+      "fullname": "99942 Apophis (2004 MN4)",
+      "diameterKm": {
+        "value": 0.34,
+        "sigma": 0.04,
+        "ref": "Brozovic et al., Icarus 300, 115-128 (2018)",
+        "notes": "Based on 3D shape model derived from radar observations in 2012-2013",
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 30.56,
+        "sigma": 0.01,
+        "ref": "Pravec et al., Icarus 233, 48-60 (2014)",
+        "notes": null,
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "G",
+        "H",
+        "I",
+        "albedo",
+        "diameter",
+        "rot_per",
+        "spec_B"
+      ]
+    },
+    "arrokoth": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=486958",
+      "retrieved": "2026-10-04",
+      "fullname": "486958 Arrokoth (2014 MU69)",
+      "diameterKm": null,
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 15.918,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "[Result based on less than full coverage, so that the period may be wrong by 30 percent or so.]  REFERENCE LIST:[Porter, S.; Beyer, R.; Keane, J.; Umurhan, O.; et al. (2019) EPSC-DPS Joint Meeting, 2019 September 15-20. Geneva, Switzerland, id. EPSC-DPS2019-311.], [Buie, M.W.; Porter, S.B.; Tamblyn, P.; Terrell, D.; and 129 co-authors. (2020) Astron. J. 159, id. 130.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "H",
+        "rot_per"
+      ]
+    },
+    "tempel-1": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=9P",
+      "retrieved": "2026-10-04",
+      "fullname": "9P/Tempel 1",
+      "diameterKm": {
+        "value": 6,
+        "sigma": 0.2,
+        "ref": "A'Hearn, M.F. et al. (2005) Science 310:258-264",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 40.7,
+        "sigma": null,
+        "ref": "A'Hearn, M.F. et al. (2005) Science 310:258-264",
+        "notes": null,
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "K1",
+        "M1",
+        "albedo",
+        "diameter",
+        "extent",
+        "rot_per"
+      ]
+    },
+    "borrelly": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=19P",
+      "retrieved": "2026-10-04",
+      "fullname": "19P/Borrelly",
+      "diameterKm": {
+        "value": 4.8,
+        "sigma": null,
+        "ref": "Lamy,P.L.,Toth,I.,Fernandez,Y.R.,Weaver,H.A. (to be published)",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": null,
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "K1",
+        "K2",
+        "M1",
+        "M2",
+        "PC",
+        "albedo",
+        "diameter"
+      ]
+    },
+    "wild-2": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=81P",
+      "retrieved": "2026-10-04",
+      "fullname": "81P/Wild 2",
+      "diameterKm": {
+        "value": 4,
+        "sigma": null,
+        "ref": "Lamy,P.L.,Toth,I.,Fernandez,Y.R.,Weaver,H.A. (2004) Comets II, pp. 223-264",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": null,
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "K1",
+        "K2",
+        "M1",
+        "M2",
+        "PC",
+        "diameter"
+      ]
+    },
+    "hartley-2": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=103P",
+      "retrieved": "2026-10-04",
+      "fullname": "103P/Hartley 2",
+      "diameterKm": {
+        "value": 1.6,
+        "sigma": null,
+        "ref": "Lamy,P.L.,Toth,I.,Fernandez,Y.R.,Weaver,H.A. (2004) Comets II, pp. 223-264",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": {
+        "value": 18.1,
+        "sigma": null,
+        "ref": "LCDB (Rev. 2023-October); Warner et al., 2009",
+        "notes": "[Result based on less than full coverage, so that the period may be wrong by 30 percent or so.]  REFERENCE LIST:[Harmon, J.K.; Nolan, M.C; Howell, E.S.; Giorgini, J.D. (2010) CBET 2515.], [Belton, M.J.S.; Thomas, P.; Li, J.-Y.; Williams, J.; et al. (2013) Icarus 222, 595-609.]",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "K1",
+        "M1",
+        "diameter",
+        "rot_per"
+      ]
+    },
+    "churyumov-gerasimenko": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=67P",
+      "retrieved": "2026-10-04",
+      "fullname": "67P/Churyumov-Gerasimenko",
+      "diameterKm": {
+        "value": 3.4,
+        "sigma": 0.1,
+        "ref": "Sierks et al., Science 347, aaa1044 (2015)",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": {
+        "value": 6.622e-7,
+        "sigma": 2e-10,
+        "ref": "Patzold et al., Nature 530, 63 (2016)",
+        "notes": null,
+        "desc": "standard gravitational parameter: product of the mass (M) and gravitational constant (G)"
+      },
+      "densityGcm3": {
+        "value": 0.533,
+        "sigma": 0.006,
+        "ref": "Patzold et al., Nature 530, 63 (2016)",
+        "notes": null,
+        "desc": "bulk density"
+      },
+      "rotationHours": {
+        "value": 12.76129,
+        "sigma": 0.00005,
+        "ref": "Mottola et al., Astronomy & Astrophysics 569, L2 (2014)",
+        "notes": "Pre-perihelion in 2015 value, post-perihelion period is 12.4043 +- 0.0007 h",
+        "desc": "body rotation period (synodic)"
+      },
+      "pole": {
+        "value": [
+          69.3,
+          64.1
+        ],
+        "sigma": "0.1",
+        "ref": "Sierks et al., Science 347, aaa1044 (2015)",
+        "notes": null,
+        "desc": "spin-pole direction in R.A./Dec."
+      },
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "GM",
+        "K1",
+        "M1",
+        "density",
+        "diameter",
+        "pole",
+        "rot_per"
+      ]
+    },
+    "giacobini-zinner": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=21P",
+      "retrieved": "2026-10-04",
+      "fullname": "21P/Giacobini-Zinner",
+      "diameterKm": {
+        "value": 2,
+        "sigma": null,
+        "ref": "Lamy,P.L.,Toth,I.,Fernandez,Y.R.,Weaver,H.A. (2004) Comets II, pp. 223-264",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": null,
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "K1",
+        "M1",
+        "diameter"
+      ]
+    },
+    "grigg-skjellerup": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=26P",
+      "retrieved": "2026-10-04",
+      "fullname": "26P/Grigg-Skjellerup",
+      "diameterKm": {
+        "value": 2.6,
+        "sigma": null,
+        "ref": "Lamy,P.L.,Toth,I.,Fernandez,Y.R.,Weaver,H.A. (2004) Comets II, pp. 223-264",
+        "notes": null,
+        "desc": "effective body diameter"
+      },
+      "gmKm3s2": null,
+      "densityGcm3": null,
+      "rotationHours": null,
+      "pole": null,
+      "confirmedSatellites": 0,
+      "physicalParameterNames": [
+        "K1",
+        "M1",
+        "diameter"
+      ]
+    }
+  },
+  "sbdbInterstellar": {
+    "oumuamua": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=1I%2F2017%20U1",
+      "retrieved": "2026-09-28",
+      "fullname": "'Oumuamua (A/2017 U1)",
+      "orbitClass": "Hyperbolic Asteroid",
+      "eccentricity": {
+        "value": 1.201133796102373,
+        "sigma": 0.000021064
+      },
+      "perihelionAU": {
+        "value": 0.2559115812959116,
+        "sigma": 0.0000066635
+      },
+      "inclinationDeg": {
+        "value": 122.7417062847286,
+        "sigma": 0.00028826
+      },
+      "absoluteMagnitude": {
+        "value": 22.08,
+        "sigma": 0.44525
+      },
+      "cometTotalMagnitude": null,
+      "firstObservation": "2017-10-14",
+      "lastObservation": "2018-01-02",
+      "observationsUsed": 207,
+      "solutionDate": "2018-06-26 12:17:57"
+    },
+    "borisov": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=C%2F2019%20Q4",
+      "retrieved": "2026-09-28",
+      "fullname": "C/2019 Q4 (Borisov)",
+      "orbitClass": "Hyperbolic Comet",
+      "eccentricity": {
+        "value": 3.356475782676596,
+        "sigma": 0.000019039
+      },
+      "perihelionAU": {
+        "value": 2.006520878500843,
+        "sigma": 0.0000032904
+      },
+      "inclinationDeg": {
+        "value": 44.05264247909138,
+        "sigma": 0.000016673
+      },
+      "absoluteMagnitude": null,
+      "cometTotalMagnitude": {
+        "value": 13.8,
+        "sigma": 0.8
+      },
+      "firstObservation": "2019-02-24",
+      "lastObservation": "2020-09-30",
+      "observationsUsed": 964,
+      "solutionDate": "2024-06-24 15:49:04"
+    },
+    "atlas": {
+      "url": "https://ssd.jpl.nasa.gov/tools/sbdb_lookup.html#/?sstr=C%2F2025%20N1",
+      "retrieved": "2026-09-28",
+      "fullname": "C/2025 N1 (ATLAS)",
+      "orbitClass": "Hyperbolic Comet",
+      "eccentricity": {
+        "value": 6.141351449317625,
+        "sigma": 0.00002469
+      },
+      "perihelionAU": {
+        "value": 1.356481057231181,
+        "sigma": 0.0000037743
+      },
+      "inclinationDeg": {
+        "value": 175.1164570850441,
+        "sigma": 0.000019023
+      },
+      "absoluteMagnitude": null,
+      "cometTotalMagnitude": {
+        "value": 12.5,
+        "sigma": 0.9
+      },
+      "firstObservation": "2025-05-15",
+      "lastObservation": "2026-02-19",
+      "observationsUsed": 782,
+      "solutionDate": "2026-02-19 09:10:47"
+    }
+  },
+  "nssdcaMasterCatalog": {
+    "voyager1": {
+      "url": "https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1977-084A",
+      "retrieved": "2026-09-28",
+      "cosparId": "1977-084A",
+      "name": "Voyager 1",
+      "launchDate": "1977-09-05",
+      "launchVehicle": "Titan IIIE-Centaur",
+      "launchSite": "Cape Canaveral, United States",
+      "massKg": 721.9,
+      "nominalPowerW": 420,
+      "launchMassMentions": []
+    },
+    "voyager2": {
+      "url": "https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1977-076A",
+      "retrieved": "2026-09-28",
+      "cosparId": "1977-076A",
+      "name": "Voyager 2",
+      "launchDate": "1977-08-20",
+      "launchVehicle": "Titan IIIE-Centaur",
+      "launchSite": "Cape Canaveral, United States",
+      "massKg": 721.9,
+      "nominalPowerW": 420,
+      "launchMassMentions": []
+    },
+    "parker-solar-probe": {
+      "url": "https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=2018-065A",
+      "retrieved": "2026-09-28",
+      "cosparId": "2018-065A",
+      "name": "Parker Solar Probe",
+      "launchDate": "2018-08-12",
+      "launchVehicle": "Delta IV",
+      "launchSite": "Cape Canaveral, United States",
+      "massKg": 685,
+      "nominalPowerW": null,
+      "launchMassMentions": []
+    },
+    "jwst": {
+      "url": "https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=2021-130A",
+      "retrieved": "2026-09-28",
+      "cosparId": "2021-130A",
+      "name": "James Webb Space Telescope",
+      "launchDate": "2021-12-25",
+      "launchVehicle": "Ariane 5",
+      "launchSite": "Kourou, French Guiana",
+      "massKg": 6500,
+      "nominalPowerW": null,
+      "launchMassMentions": []
+    },
+    "new-horizons": {
+      "url": "https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=2006-001A",
+      "retrieved": "2026-09-28",
+      "cosparId": "2006-001A",
+      "name": "New Horizons Pluto Kuiper Belt Flyby",
+      "launchDate": "2006-01-19",
+      "launchVehicle": "Atlas V",
+      "launchSite": "Cape Canaveral, United States",
+      "massKg": 385,
+      "nominalPowerW": 228,
+      "launchMassMentions": [
+        "The 465 kg launch mass includes 80 kg of propellant."
+      ]
+    },
+    "cassini": {
+      "url": "https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=1997-061A",
+      "retrieved": null,
+      "carriedOver": true,
+      "cosparId": "1997-061A",
+      "name": "Cassini",
+      "launchDate": "1997-10-15",
+      "launchVehicle": "Titan IV-Centaur",
+      "launchSite": "Cape Canaveral, United States",
+      "massKg": 2523,
+      "nominalPowerW": 640,
+      "launchMassMentions": []
+    },
+    "juno": {
+      "url": "https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=2011-040A",
+      "retrieved": "2026-09-28",
+      "cosparId": "2011-040A",
+      "name": "Juno",
+      "launchDate": "2011-08-05",
+      "launchVehicle": "Atlas V",
+      "launchSite": "Cape Canaveral, United States",
+      "massKg": 1500,
+      "nominalPowerW": 400,
+      "launchMassMentions": []
+    },
+    "rosetta": {
+      "url": "https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=2004-006A",
+      "retrieved": null,
+      "carriedOver": true,
+      "cosparId": "2004-006A",
+      "name": "Rosetta",
+      "launchDate": "2004-03-02",
+      "launchVehicle": "Ariane 5",
+      "launchSite": "Kourou, French Guiana",
+      "massKg": 1200,
+      "nominalPowerW": 850,
+      "launchMassMentions": [
+        "Total launch mass is 3000 kg including the 100 kg lander and 165 kg of scientific instruments.",
+        "The launch mass of the craft including fuel is 2900 kg."
+      ]
+    },
+    "bepicolombo": {
+      "url": "https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=2018-080A",
+      "retrieved": null,
+      "carriedOver": true,
+      "cosparId": "2018-080A",
+      "name": "BepiColombo",
+      "launchDate": "2018-10-20",
+      "launchVehicle": "Ariane 5",
+      "launchSite": "Kourou, French Guiana",
+      "massKg": 365,
+      "nominalPowerW": null,
+      "launchMassMentions": [
+        "The total launch mass of the entire MPO system will be 1229 kg and for MMO about 1200 kg."
+      ]
+    },
+    "osiris-rex": {
+      "url": "https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=2016-055A",
+      "retrieved": "2026-09-28",
+      "cosparId": "2016-055A",
+      "name": "OSIRIS-REx",
+      "launchDate": "2016-09-08",
+      "launchVehicle": "Atlas V",
+      "launchSite": "Cape Canaveral, United States",
+      "massKg": 1528,
+      "nominalPowerW": null,
+      "launchMassMentions": [
+        "Launch mass including propellant is 1529 kg."
+      ]
+    },
+    "hayabusa2": {
+      "url": "https://nssdc.gsfc.nasa.gov/nmc/spacecraft/display.action?id=2014-076A",
+      "retrieved": null,
+      "carriedOver": true,
+      "cosparId": "2014-076A",
+      "name": "Hayabusa2",
+      "launchDate": "2014-12-03",
+      "launchVehicle": "H-2A",
+      "launchSite": "Tanegashima, Japan",
+      "massKg": 600,
+      "nominalPowerW": null,
+      "launchMassMentions": []
+    }
+  },
+  "articles": {
+    "sicardy-2011-eris": {
+      "url": "https://www.nature.com/articles/nature10550",
+      "retrieved": "2026-09-20",
+      "verifiedQuotes": [
+        "radius 1,163 ± 6 kilometres",
+        "density 2.52 ± 0.05 grams per cm3"
+      ]
+    },
+    "szakats-2023-eris": {
+      "url": "https://arxiv.org/abs/2211.07987",
+      "retrieved": "2026-09-20",
+      "verifiedQuotes": [
+        "P = 15.8 d",
+        "the rotation of Eris is tidally locked"
+      ]
+    },
+    "ragozzine-brown-2009-haumea": {
+      "url": "https://arxiv.org/abs/0903.4213",
+      "retrieved": "2026-09-20",
+      "verifiedQuotes": [
+        "Haumea Mass 4.006 ± 0.040 1021 kg"
+      ]
+    },
+    "brown-2013-makemake": {
+      "url": "https://arxiv.org/abs/1304.1041",
+      "retrieved": "2026-09-20",
+      "verifiedQuotes": [
+        "measured equatorial diameter of 1434 +/- 14 km"
+      ]
+    },
+    "kiss-2019-gonggong": {
+      "url": "https://arxiv.org/abs/1903.05439",
+      "retrieved": "2026-09-20",
+      "verifiedQuotes": [
+        "system mass of 1.75x10$^{21}$ kg",
+        "a size of 1230$\\pm$50 km"
+      ]
+    },
+    "margoti-2026-quaoar": {
+      "url": "https://arxiv.org/abs/2607.06450",
+      "retrieved": "2026-09-20",
+      "verifiedQuotes": [
+        "equivalent volumetric diameter of 1094.4 +/- 4.6 km",
+        "density of 1.760 +/- 0.109 g/cm3",
+        "8.8394 +/- 0.0002 hours"
+      ]
+    },
+    "pal-2012-sedna": {
+      "url": "https://arxiv.org/abs/1204.0899",
+      "retrieved": "2026-09-20",
+      "verifiedQuotes": [
+        "995 +/- 80 km"
+      ]
+    },
+    "kiss-2016-nereid": {
+      "url": "https://arxiv.org/abs/1601.02395",
+      "retrieved": "2026-09-20",
+      "verifiedQuotes": [
+        "rotation period of P=11.594(+/-)0.017 h"
+      ]
+    },
+    "brown-2010-orcus": {
+      "url": "https://arxiv.org/abs/0910.4784",
+      "retrieved": "2026-09-28",
+      "verifiedQuotes": [
+        "system mass of 6.32+- 0.01 X 10^20 kg",
+        "diameter 940+-70 km",
+        "implies sizes of Orcus and Vanth of 900 and 280 km",
+        "implies sizes of 820 and 640 km"
+      ]
+    },
+    "nasa-didymos-dimorphos": {
+      "url": "https://science.nasa.gov/solar-system/asteroids/didymos/",
+      "retrieved": "2026-10-04",
+      "verifiedQuotes": [
+        "The moonlet, Dimorphos (Didymos B), is about 525 feet (160 meters) in diameter.",
+        "shortening the 11-hour and 55-minute orbit to 11 hours and 23 minutes",
+        "margin of uncertainty of approximately plus or minus 2 minutes"
+      ]
+    },
+    "grundy-2018-patroclus": {
+      "url": "https://arxiv.org/abs/1903.03729",
+      "retrieved": "2026-10-04",
+      "verifiedQuotes": [
+        "Period (days) P 4.282680 ± 0.000063",
+        "Semimajor axis (km) a 688.5 ± 4.7",
+        "System mass (1018 kg) Msys 1.410 ± 0.029",
+        "Buie et al. (2015) estimated the b axis radii as 59 and 54 km"
+      ]
+    },
+    "ortiz-2017-haumea": {
+      "url": "https://arxiv.org/abs/2006.03113",
+      "retrieved": "2026-09-28",
+      "verifiedQuotes": [
+        "elliptical limb with axes 1,704 $\\pm$ 4 km x 1,138 $\\pm$ 26 km",
+        "largest axis is at least 2,322 $\\pm$ 60 km"
+      ]
+    }
+  }
+}

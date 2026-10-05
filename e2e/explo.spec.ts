@@ -1,0 +1,276 @@
+import { expect, test } from '@playwright/test';
+import { blockExternalNetwork } from './netBlock';
+
+// Déterminisme : on ne dépend pas de l'API JPL SBDB live (réseau) pendant les tests.
+// L'overlay des petits corps dégrade proprement en champ vide — suffisant pour ces scénarios.
+// La visite guidée du premier lancement est neutralisée (son backdrop plein écran
+// intercepterait sinon les clics sur le canvas et les labels).
+test.beforeEach(async ({ page }) => {
+  await blockExternalNetwork(page);
+  await page.addInitScript(() => {
+    localStorage.setItem('ssv-guided-tour-v1', '1');
+    localStorage.setItem('ssv-explo-tour-nudge-v1', '1');
+  });
+});
+
+/**
+ * Mode Exploration : la couche de labels projetés est active dès le boot (style éduc) ;
+ * basculer en explo change son style (points de repère) ; cliquer un corps ouvre sa fiche
+ * unique avec la distance réelle live (fusionnée depuis l'ancien HUD). Revenir en éducatif
+ * restaure le style éduc.
+ */
+test('explo mode shows projected labels and the live distance in the info card', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (err) => errors.push(err.message));
+
+  await page.goto('/');
+  await expect(page.locator('#loader')).toBeHidden({ timeout: 30_000 });
+
+  // Dès le boot : couche active, en style éducatif (labels au-dessus des meshes).
+  const labels = page.locator('#explo-labels');
+  await expect(labels).toHaveClass(/is-visible/);
+  await expect(labels).toHaveClass(/is-educ-mode/);
+
+  // Basculer en Exploration : la couche passe en style explo (point + texte).
+  await page.locator('.mode-btn[data-mode="explo"]').click();
+  await expect(page.locator('body')).toHaveClass(/is-explo-mode/);
+  await expect(labels).not.toHaveClass(/is-educ-mode/);
+
+  // Cliquer un corps lance le voyage rapproché : la fiche unique s'ouvre avec la cible et sa
+  // distance réelle live (bloc .bi-live fusionné depuis l'ancien HUD « TARGET »).
+  await page.locator('#body-search-trigger').click();
+  await page.locator('#orbit-earth').click();
+  const info = page.locator('#body-info');
+  await expect(info).toBeVisible();
+  await expect(info.locator('.bi-name')).toHaveText('Earth');
+  await expect(info.locator('.bi-live-dist')).toContainText('AU');
+
+  // Au moins un marqueur de corps projeté est affiché.
+  await expect(page.locator('.explo-label:visible').first()).toBeVisible();
+
+  // Retour en Éducatif : la couche reste active mais repasse en style éduc.
+  await page.locator('.mode-btn[data-mode="educ"]').click();
+  await expect(labels).toHaveClass(/is-educ-mode/);
+
+  expect(errors, `Erreurs page : ${errors.join(' | ')}`).toEqual([]);
+});
+
+test('keeps the followed body projected at the screen center', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await expect(page.locator('#loader')).toBeHidden({ timeout: 30_000 });
+
+  await page.locator('.mode-btn[data-mode=explo]').click();
+  await page.locator('#body-search-trigger').click();
+  await page.locator('#orbit-neptune').click();
+  await expect(page.locator('#body-info .bi-name')).toHaveText('Neptune');
+
+  // Laisse le tween de vol (1,2 s) se terminer avant de mesurer le suivi.
+  await page.waitForTimeout(1_400);
+
+  const viewport = page.viewportSize();
+  expect(viewport).not.toBeNull();
+  const centerX = viewport!.width / 2;
+  const centerY = viewport!.height / 2;
+  const targetLabel = page.locator('.explo-label.is-target');
+
+  const sampleDeviation = async (): Promise<number> => {
+    const point = await targetLabel.evaluate((el) => {
+      const matrix = new DOMMatrixReadOnly(getComputedStyle(el).transform);
+      return { x: matrix.m41, y: matrix.m42 };
+    });
+    return Math.hypot(point.x - centerX, point.y - centerY);
+  };
+
+  // Réel puis 6 h/s : la cible doit rester centrée même quand son orbite avance vite.
+  const deviations: number[] = [];
+  for (let i = 0; i < 6; i++) {
+    deviations.push(await sampleDeviation());
+    await page.waitForTimeout(40);
+  }
+  const speedRange = page.locator('#speed-range');
+  await speedRange.press('End');
+  for (let i = 0; i < 6; i++) {
+    deviations.push(await sampleDeviation());
+    await page.waitForTimeout(40);
+  }
+  expect(Math.max(...deviations)).toBeLessThan(0.25);
+});
+
+/**
+ * Petits corps : tous apparaissent comme labels Explo. Les planètes naines qui disposent
+ * d'une texture ont aussi un mesh et un bouton de navigation ; les corps sans texture
+ * restent uniquement accessibles par leur label. Vérifie aussi l'absence d'erreur au boot.
+ */
+test('textured dwarf planets are navigable and other small bodies stay label-only', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  const ephemerisResponses: { file: string; status: number }[] = [];
+  page.on('pageerror', (err) => errors.push(err.message));
+  page.on('response', (response) => {
+    const pathname = new URL(response.url()).pathname;
+    if (!pathname.includes('/assets/ephemerides/')) return;
+    ephemerisResponses.push({
+      file: pathname.slice(pathname.lastIndexOf('/') + 1),
+      status: response.status(),
+    });
+  });
+
+  await page.goto('/');
+  await expect(page.locator('#loader')).toBeHidden({ timeout: 30_000 });
+
+  // Le manifeste + les éphémérides des planètes naines texturées sont chargés (le nombre
+  // total dépend des lunes/corps ajoutés par ailleurs, on ne le fige donc pas).
+  expect(ephemerisResponses.length).toBeGreaterThanOrEqual(5);
+  // Le manifeste arrive ENTIER ; les binaires, eux, sont lus par PLAGES depuis le lot 17C,
+  // donc l'hôte répond 206. Distinguer les deux dit plus que l'ancien « tout à 200 », qui
+  // resterait vrai le jour où le fenêtrage cesserait de fonctionner.
+  for (const { file, status } of ephemerisResponses)
+    expect(status, file).toBe(file.endsWith('.json') ? 200 : 206);
+  expect(ephemerisResponses.map(({ file }) => file)).toEqual(
+    expect.arrayContaining([
+      'manifest.json',
+      expect.stringMatching(/^ceres\.[a-f0-9]{12}\.bin$/),
+      expect.stringMatching(/^eris\.[a-f0-9]{12}\.bin$/),
+      expect.stringMatching(/^haumea\.[a-f0-9]{12}\.bin$/),
+      expect.stringMatching(/^makemake\.[a-f0-9]{12}\.bin$/),
+    ])
+  );
+
+  // Les quatre planètes naines nouvellement texturées ont un mesh et un bouton.
+  for (const name of ['ceres', 'eris', 'haumea', 'makemake']) {
+    await expect(page.locator(`#orbit-${name}`)).toHaveCount(1);
+  }
+  // Vesta reste un petit corps sans texture, donc sans bouton dans la barre.
+  await expect(page.locator('#orbit-vesta')).toHaveCount(1);
+
+  await page.locator('.mode-btn[data-mode=explo]').click();
+  await expect(page.locator('body')).toHaveClass(/is-explo-mode/);
+
+  // Les deux catégories ont bien un label projeté (créé au premier frame du HUD).
+  await expect(page.locator('.explo-label', { hasText: 'Ceres' })).toHaveCount(
+    1
+  );
+  await expect(page.locator('.explo-label', { hasText: 'Vesta' })).toHaveCount(
+    1
+  );
+
+  expect(errors, `Erreurs page : ${errors.join(' | ')}`).toEqual([]);
+});
+
+/**
+ * Champ de masse des petits corps (SBDB) : la couche instrument 2D est présente, s'affiche en
+ * Exploration et reste non bloquante (les gestes caméra la traversent). Le chargement SBDB est
+ * en tâche de fond et dégrade proprement — le boot reste sans erreur même hors ligne.
+ */
+test('small-body field overlay is present, shown in explo and non-blocking', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (err) => errors.push(err.message));
+
+  await page.goto('/');
+  await expect(page.locator('#loader')).toBeHidden({ timeout: 30_000 });
+
+  const overlay = page.locator('#smallbody-overlay');
+  await expect(overlay).toHaveCount(1);
+  await expect(overlay).not.toHaveClass(/is-visible/);
+
+  await page.locator('.mode-btn[data-mode=explo]').click();
+  await expect(overlay).toHaveClass(/is-visible/);
+
+  // Non bloquant : la couche laisse passer les événements pointeur vers la caméra.
+  await expect(overlay).toHaveCSS('pointer-events', 'none');
+
+  expect(errors, `Erreurs page : ${errors.join(' | ')}`).toEqual([]);
+});
+
+/**
+ * Régression : les labels cliquables ne doivent pas bloquer la caméra. Le label de la cible
+ * suivie est toujours au centre de l'écran ; une molette pile dessus doit malgré tout zoomer
+ * (les labels réémettent le geste vers OrbitControls). On l'observe via la distance du HUD.
+ */
+test('mouse wheel over the centered target label still zooms the camera', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await expect(page.locator('#loader')).toBeHidden({ timeout: 30_000 });
+
+  await page.locator('.mode-btn[data-mode=explo]').click();
+  await page.locator('#body-search-trigger').click();
+  await page.locator('#orbit-mars').click();
+  await expect(page.locator('#body-info .bi-name')).toHaveText('Mars');
+  await page.waitForTimeout(1_600); // fin du vol : Mars centré, label is-target au centre
+
+  const distanceLine = page.locator('#body-info .bi-live-dist');
+  const before = await distanceLine.textContent();
+
+  // Molette au centre exact de l'écran, donc sur le label de la cible.
+  const viewport = page.viewportSize()!;
+  await page.mouse.move(viewport.width / 2, viewport.height / 2);
+  for (let i = 0; i < 8; i++) {
+    await page.mouse.wheel(0, -100);
+    await page.waitForTimeout(30);
+  }
+
+  // Le zoom a rapproché la caméra → la distance affichée a changé.
+  await expect(distanceLine).not.toHaveText(before ?? '');
+});
+
+/**
+ * Labels projetés cliquables : en mode Explo, cliquer le label d'un corps le cible dans le
+ * HUD, active son bouton de navigation, termine le vol caméra et le maintient centré, sans
+ * erreur de page. On vole d'abord vers Mars via la barre : son label devient alors la cible
+ * centrée (donc visible de façon déterministe, indépendamment de la date d'éphéméride).
+ */
+test('clicking a projected label selects and centers the body', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (err) => errors.push(err.message));
+
+  await page.goto('/');
+  await expect(page.locator('#loader')).toBeHidden({ timeout: 30_000 });
+
+  await page.locator('.mode-btn[data-mode=explo]').click();
+  await expect(page.locator('body')).toHaveClass(/is-explo-mode/);
+
+  // Amène Mars au centre (son label est alors visible et marqué is-target).
+  await page.locator('#body-search-trigger').click();
+  await page.locator('#orbit-mars').click();
+  await page.waitForTimeout(1_400);
+  const marsLabel = page.locator('.explo-label.is-target');
+  await expect(marsLabel).toBeVisible();
+  // Le nom de la cible est volontairement masqué (il cacherait le corps qu'on regarde) ;
+  // seul le point de repère doré reste visible.
+  await expect(marsLabel.locator('.explo-label-text')).toBeHidden();
+
+  // Le label est un bouton accessible cliquable.
+  await expect(marsLabel).toHaveJSProperty('tagName', 'BUTTON');
+  await expect(marsLabel).toHaveAttribute('aria-label', 'Mars');
+  await marsLabel.click();
+
+  // Clic → cible Mars dans la fiche + bouton de nav actif.
+  await expect(page.locator('#body-info .bi-name')).toHaveText('Mars');
+  await expect(page.locator('#orbit-mars')).toHaveClass(/is-active/);
+
+  // Le vol se termine et Mars reste centré.
+  await page.waitForTimeout(1_400);
+  const viewport = page.viewportSize();
+  expect(viewport).not.toBeNull();
+  const point = await marsLabel.evaluate((el) => {
+    const matrix = new DOMMatrixReadOnly(getComputedStyle(el).transform);
+    return { x: matrix.m41, y: matrix.m42 };
+  });
+  const deviation = Math.hypot(
+    point.x - viewport!.width / 2,
+    point.y - viewport!.height / 2
+  );
+  expect(deviation).toBeLessThan(0.25);
+
+  expect(errors, `Erreurs page : ${errors.join(' | ')}`).toEqual([]);
+});

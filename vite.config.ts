@@ -1,0 +1,1205 @@
+import { existsSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+import { defineConfig } from 'vitest/config';
+import { VitePWA } from 'vite-plugin-pwa';
+import {
+  LANDING_PAGE_GLOB_IGNORES,
+  NAVIGATE_FALLBACK_DENYLIST,
+} from './src/seo/pwaRouting';
+import {
+  collectTranslations,
+  collectDeferredText,
+  deferLongText,
+  stripToEnglish,
+  CARD_TEXT_LOCALES,
+  DERIVED_TEXT_LOCALES,
+  type DerivedTextLocale,
+} from './src/core/registryText';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Removes authoring-only HTML comments from the production document. Comments are
+ * useful while editing the static shell, but they add no runtime value and expose
+ * internal implementation notes in the deployed page source.
+ */
+function stripProductionHtmlComments() {
+  return {
+    name: 'strip-production-html-comments',
+    transformIndexHtml(html: string): string {
+      return html.replace(/<!--[\s\S]*?-->/g, '');
+    },
+  };
+}
+
+/**
+ * Retire des fiches du registre (`src/registry/**.json`) ce qui ne sert qu'au dépôt : `$schema`
+ * (pour l'éditeur), `notes` (les commentaires du catalogue d'origine, qui portent la provenance
+ * et les pièges) et `coverageNote`. Aucun chargeur ne les lit ; sans ce retrait, chaque visiteur
+ * téléchargerait les commentaires de tout le catalogue.
+ *
+ * `enforce: 'pre'` : passe AVANT le plugin JSON de Vite, qui reçoit donc une fiche déjà allégée.
+ * Les tests de schéma lisent les fichiers sur le disque, pas par import : ils voient tout.
+ */
+function stripRegistryNotes() {
+  const DEV_ONLY = ['$schema', 'notes', 'coverageNote'];
+  return {
+    name: 'strip-registry-notes',
+    enforce: 'pre' as const,
+    transform(code: string, id: string): string | null {
+      if (!/[\\/]src[\\/]registry[\\/].+\.json$/.test(id)) return null;
+      const data = JSON.parse(code) as Record<string, unknown>;
+      for (const key of DEV_ONLY) delete data[key];
+      return JSON.stringify(data);
+    },
+  };
+}
+
+/**
+ * LE TEXTE NON ANGLAIS DU REGISTRE NE PART PAS DANS LE BUNDLE — il est DÉRIVÉ par langue.
+ *
+ * Les fiches sont importées par `import.meta.glob({ eager: true })`, donc tout leur contenu part
+ * chez le visiteur. Mesuré au lot 20 : les traductions espagnole et portugaise ajoutaient 50 263
+ * octets payés par TOUS, y compris les anglophones. Ce greffon fait deux choses complémentaires :
+ *
+ *   1. il retire les langues autres que l'anglais des fiches SERVIES AU NAVIGATEUR ;
+ *   2. il expose `virtual:registry-text/<langue>`, une carte « anglais -> traduction » construite
+ *      depuis les MÊMES fiches sur le disque, chargée à la demande avec le dictionnaire de la
+ *      langue (`config/catalogueText.ts`).
+ *
+ * `options.ssr` décide, et c'est le point délicat : le build des pages (`ssrLoadModule`) et les
+ * tests Vitest ont besoin des QUATRE langues — `/methodology` écrit les noms de corps en français.
+ * Ils passent par la voie SSR, qui n'est donc pas allégée. Le navigateur, en dev comme en
+ * production, reçoit la version allégée : la voie exercée par les tests e2e est bien celle qui est
+ * livrée.
+ */
+function deriveRegistryText() {
+  const PREFIX = 'virtual:registry-text/catalogue-';
+  /**
+   * Le texte LONG des fiches (descriptions, raisons, crédits, liens) voyage à part, dans TOUTES
+   * les langues, et n'arrive qu'à la première ouverture d'une fiche : cf.
+   * `core/registryText.ts::DEFERRED_TEXT_KEYS`. Seuls les registres que lit la fiche sont
+   * concernés ; les fournisseurs et les visites gardent leur texte au démarrage.
+   */
+  const CARD_PREFIX = 'virtual:registry-text/card-';
+  const DEFERRING_DIRS = ['entities', 'spacecraft', 'interstellar'];
+  const isRegistryJson = (id: string): boolean =>
+    /[\\/]src[\\/]registry[\\/].+\.json$/.test(id) &&
+    !/order\.json$/.test(id) &&
+    !/[\\/]schema[\\/]/.test(id);
+  const defersText = (id: string): boolean => {
+    const dir = /[\\/]registry[\\/]([^\\/]+)[\\/]/.exec(id)?.[1];
+    return dir !== undefined && DEFERRING_DIRS.includes(dir);
+  };
+
+  /** Les fiches du disque, lues une fois par demande de module virtuel. */
+  const readFiches = async (
+    only?: readonly string[]
+  ): Promise<{ dir: string; fiche: unknown }[]> => {
+    const { readdirSync, readFileSync } = await import('fs');
+    const out: { dir: string; fiche: unknown }[] = [];
+    for (const dir of [
+      'entities',
+      'spacecraft',
+      'interstellar',
+      'providers',
+      'tours',
+    ]) {
+      if (only && !only.includes(dir)) continue;
+      const full = resolve(__dirname, 'src/registry', dir);
+      for (const name of readdirSync(full))
+        if (name.endsWith('.json') && name !== 'order.json')
+          out.push({
+            dir,
+            fiche: JSON.parse(readFileSync(resolve(full, name), 'utf-8')),
+          });
+    }
+    return out;
+  };
+
+  return {
+    name: 'derive-registry-text',
+    enforce: 'pre' as const,
+    resolveId(id: string): string | null {
+      return id.startsWith(PREFIX) || id.startsWith(CARD_PREFIX)
+        ? `\0${id}`
+        : null;
+    },
+    async load(id: string): Promise<string | null> {
+      if (id.startsWith(`\0${CARD_PREFIX}`)) {
+        const locale = id.slice(`\0${CARD_PREFIX}`.length);
+        if (!(CARD_TEXT_LOCALES as readonly string[]).includes(locale))
+          throw new Error(`langue inconnue pour le texte de fiche : ${locale}`);
+        const map: Record<string, string> = {};
+        for (const { fiche } of await readFiches(DEFERRING_DIRS))
+          collectDeferredText(
+            fiche,
+            locale as (typeof CARD_TEXT_LOCALES)[number],
+            map
+          );
+        // Même garde que la carte du démarrage : un module presque vide voudrait dire que les
+        // fiches n'ont pas été lues, et la fiche s'ouvrirait sans aucun texte.
+        if (Object.keys(map).length < 50)
+          throw new Error(
+            `texte de fiche en ${locale} : ${Object.keys(map).length} entrées seulement, fiches non lues ?`
+          );
+        return `export default ${JSON.stringify(map)};`;
+      }
+      if (!id.startsWith(`\0${PREFIX}`)) return null;
+      const locale = id.slice(`\0${PREFIX}`.length);
+      if (!(DERIVED_TEXT_LOCALES as readonly string[]).includes(locale))
+        throw new Error(
+          `langue inconnue pour le texte du registre : ${locale}`
+        );
+      const map: Record<string, string> = {};
+      // Les blocs différés n'entrent pas dans la carte du démarrage : ils sont dans `card-`.
+      for (const { dir, fiche } of await readFiches())
+        collectTranslations(
+          fiche,
+          locale as DerivedTextLocale,
+          map,
+          DEFERRING_DIRS.includes(dir)
+        );
+      // Un module vide voudrait dire que les fiches n'ont pas été lues : mieux vaut casser le
+      // build que servir une langue silencieusement vide.
+      if (Object.keys(map).length < 50)
+        throw new Error(
+          `texte du registre en ${locale} : ${Object.keys(map).length} entrées seulement, fiches non lues ?`
+        );
+      return `export default ${JSON.stringify(map)};`;
+    },
+    transform(
+      code: string,
+      id: string,
+      options?: { ssr?: boolean }
+    ): string | null {
+      if (options?.ssr) return null;
+      if (!isRegistryJson(id)) return null;
+      const english = stripToEnglish(JSON.parse(code));
+      return JSON.stringify(defersText(id) ? deferLongText(english) : english);
+    },
+  };
+}
+
+const SITE_ORIGIN = 'https://galaxy.adrianguichard.dev';
+
+/**
+ * Taille à laquelle la carte équirectangulaire est relue avant d'être projetée.
+ *
+ * Le disque fait 440 px et n'en montre qu'un hémisphère : au centre, un pixel écran couvre
+ * environ 0,41° de longitude, un texel de cette largeur 0,35°. C'est le point d'équilibre —
+ * plus large, la texture est suréchantillonnée et scintille au bord ; plus étroite, le centre
+ * du disque devient flou. Le rééchantillonnage de sharp fait la moyenne des texels, ce qu'un
+ * simple filtrage bilinéaire sur la 2k d'origine ne ferait pas.
+ */
+const CARD_TEXTURE_WIDTH = 1024;
+const CARD_TEXTURE_HEIGHT = 512;
+
+/**
+ * Opacité de l'anneau, reprise de `createRingMaterial()` dans `src/config/layerConfig.ts`.
+ * La vignette doit ressembler à ce que l'application montre, pas à une seconde interprétation.
+ */
+const RING_OPACITY = 0.9;
+
+/**
+ * Une page d'atterrissage statique par corps — `dist/jupiter/index.html` — plus le sitemap
+ * complet. Le POURQUOI et les contraintes vivent dans `src/seo/bodyLandingPage.ts` ; ici on ne
+ * fait que de l'entrée/sortie.
+ *
+ * Le catalogue est du TypeScript qui importe par l'alias `@/`, que Node ne sait pas résoudre.
+ * On passe donc par le chargeur de modules de Vite lui-même (`ssrLoadModule`) : les pages sont
+ * générées à partir EXACTEMENT du même catalogue que l'application, sans copie ni export
+ * intermédiaire qui pourrait dériver.
+ */
+function bodyLandingPages() {
+  return {
+    name: 'galaxy-body-landing-pages',
+    apply: 'build' as const,
+    async closeBundle(): Promise<void> {
+      const { createServer } = await import('vite');
+      const { mkdir, readFile, stat, writeFile } = await import('fs/promises');
+      const sharp = (await import('sharp')).default;
+      const loader = await createServer({
+        configFile: false,
+        logLevel: 'error',
+        server: { middlewareMode: true },
+        resolve: { alias: { '@': resolve(__dirname, 'src') } },
+        // Ce chargeur ne sert JAMAIS un navigateur : il ne fait que `ssrLoadModule`. Sans ces
+        // deux lignes, son explorateur de dépendances cherche à résoudre
+        // `virtual:registry-text/catalogue-*` et imprime « Error: The following dependencies are
+        // imported but could not be resolved » dans un build qui sort pourtant en code 0. Un
+        // avertissement qui dit « Error » sans rien casser est exactement ce qui fera rater le
+        // prochain vrai message, donc on le supprime à la source : le greffon pour que les
+        // modules virtuels se résolvent, et pas d'exploration pour ne rien pré-empaqueter.
+        plugins: [deriveRegistryText()],
+        optimizeDeps: { noDiscovery: true, include: [] },
+      });
+      try {
+        const catalogue = (await loader.ssrLoadModule(
+          '/src/config/bodies.ts'
+        )) as typeof import('./src/config/bodies');
+        const seo = (await loader.ssrLoadModule(
+          '/src/seo/bodyLandingPage.ts'
+        )) as typeof import('./src/seo/bodyLandingPage');
+        const card = (await loader.ssrLoadModule(
+          '/src/seo/socialCard.ts'
+        )) as typeof import('./src/seo/socialCard');
+        const eclipseSeo = (await loader.ssrLoadModule(
+          '/src/seo/eclipseLandingPage.ts'
+        )) as typeof import('./src/seo/eclipseLandingPage');
+
+        // Les langues autres que l'anglais, lues dans le propriétaire unique de la liste.
+        const OTHER_LOCALES = DERIVED_TEXT_LOCALES;
+        const DOC_LOCALE_COUNT = DERIVED_TEXT_LOCALES.length + 1;
+
+        const dist = resolve(__dirname, 'dist');
+        // `closeBundle` tourne AUSSI quand le bundle a échoué, et `dist/index.html` n'existe
+        // alors pas. Lancer une ENOENT ici REMPLACE l'erreur d'origine par la nôtre : c'est
+        // arrivé au lot 20, et le vrai message (celui qui disait quoi corriger) était perdu. On
+        // rend donc la main en le disant, et l'erreur de rollup remonte intacte.
+        const baseHtmlPath = resolve(dist, 'index.html');
+        if (!existsSync(baseHtmlPath)) {
+          console.warn(
+            `  pages de corps non générées : ${baseHtmlPath} absent, donc le bundle n'a pas ` +
+              `été émis. L'erreur qui suit (ou précède) est la vraie cause.`
+          );
+          return;
+        }
+        const baseHtml = await readFile(baseHtmlPath, 'utf-8');
+        /**
+         * LES MISSIONS (2026-10-04) : le catalogue écrit par `pnpm missions:generate`, lu UNE
+         * fois. Il nourrit les pages `/missions/`, et les liens que les pages de corps et de
+         * sondes portent vers elles : un lien ne peut donc pas viser une page absente.
+         */
+        const missionSeo = (await loader.ssrLoadModule(
+          '/src/seo/missionPages.ts'
+        )) as typeof import('./src/seo/missionPages');
+        const missionCatalogue = JSON.parse(
+          await readFile(
+            resolve(__dirname, 'src/seo/missionCatalogue.json'),
+            'utf-8'
+          )
+        ) as import('./src/seo/missionPages').MissionCatalogue;
+        const missionsByBody = missionSeo.missionsByBody(missionCatalogue);
+        const pages = seo.bodyLandingPages(
+          catalogue.CELESTIAL_CONFIG,
+          SITE_ORIGIN,
+          'en',
+          missionsByBody
+        );
+        // Un catalogue vide, un chargeur qui rend un module vide, un renommage de champ : le
+        // build produirait alors zéro page et un sitemap réduit à deux URL, SANS rien signaler
+        // — et le déploiement effacerait les pages existantes. Le seuil est délibérément bas :
+        // il attrape la panne, pas la suppression volontaire d'un corps.
+        if (pages.length < 20)
+          throw new Error(
+            `génération des pages de corps : ${pages.length} page(s) seulement, catalogue non chargé ?`
+          );
+        /**
+         * UNE PAGE PAR CORPS ET PAR LANGUE (lot 20, phase 20D).
+         *
+         * L'anglais garde la racine (`/jupiter/`), ses URL étant indexées depuis le 2026-09-10 ;
+         * les trois autres langues vivent sous leur segment (`/es/jupiter/`). La VIGNETTE, elle,
+         * reste unique par corps : `socialCard.ts` peint la texture, sans un mot de texte, donc
+         * les quatre langues partagent la même image et le relevé d'empreinte garde ses 57.
+         */
+        const localisedBodyPages = OTHER_LOCALES.flatMap((locale) =>
+          seo.bodyLandingPages(
+            catalogue.CELESTIAL_CONFIG,
+            SITE_ORIGIN,
+            locale,
+            missionsByBody
+          )
+        );
+        for (const page of [...pages, ...localisedBodyPages]) {
+          const dir = resolve(dist, page.slug);
+          await mkdir(dir, { recursive: true });
+          await writeFile(
+            resolve(dir, 'index.html'),
+            seo.renderBodyPage(baseHtml, page),
+            'utf-8'
+          );
+        }
+        // Chaque langue produit le même nombre de pages : une langue qui en produirait moins
+        // signifierait un corps sans page dans cette langue, et le sitemap l'annoncerait quand
+        // même. Mieux vaut casser le build.
+        if (localisedBodyPages.length !== pages.length * OTHER_LOCALES.length)
+          throw new Error(
+            `pages de corps traduites : ${localisedBodyPages.length} au lieu de ${pages.length * OTHER_LOCALES.length}`
+          );
+        // Vignettes de partage, une par corps — voir `src/seo/socialCard.ts` pour le POURQUOI.
+        // Elles DÉRIVENT des textures déjà versionnées, donc rien de nouveau n'est committé ;
+        // elles sont reconstruites à l'identique à chaque build (rendu déterministe, sans GPU).
+        const socialDir = resolve(dist, 'social');
+        await mkdir(socialDir, { recursive: true });
+        const domain = new URL(SITE_ORIGIN).host;
+        /** Décode une image en pixels bruts pour `socialCard.ts`. */
+        const loadRaw = async (
+          path: string,
+          width?: number,
+          height?: number
+        ): Promise<import('./src/seo/socialCard').RawImage> => {
+          let pipeline = sharp(resolve(__dirname, path));
+          if (width && height)
+            pipeline = pipeline.resize(width, height, {
+              fit: 'fill',
+            });
+          const { data, info } = await pipeline
+            .removeAlpha()
+            .raw()
+            .toBuffer({ resolveWithObject: true });
+          return {
+            data,
+            width: info.width,
+            height: info.height,
+            channels: info.channels,
+          };
+        };
+
+        /**
+         * Lit positions et indices du premier maillage d'un glTF binaire.
+         *
+         * Écrit à la main plutôt que via `GLTFLoader` : ce dernier veut un contexte navigateur
+         * pour ses textures et ses matériaux, dont la vignette n'a que faire — elle ne lit que
+         * la géométrie. Le conteneur GLB est un en-tête de 12 octets suivi de segments
+         * longueur/type, c'est-à-dire moins de code que la mise en place du chargeur.
+         */
+        const loadShapeMesh = async (
+          path: string
+        ): Promise<import('./src/seo/socialCard').ShapeMesh> => {
+          const bytes = await readFile(resolve(__dirname, path));
+          const view = new DataView(
+            bytes.buffer,
+            bytes.byteOffset,
+            bytes.byteLength
+          );
+          if (view.getUint32(0, true) !== 0x46546c67)
+            throw new Error(`${path} : ce n'est pas un glTF binaire`);
+          let offset = 12;
+          let json: Record<string, never[]> | null = null;
+          let bin: Uint8Array | null = null;
+          while (offset + 8 <= bytes.byteLength) {
+            const length = view.getUint32(offset, true);
+            const type = view.getUint32(offset + 4, true);
+            const start = offset + 8;
+            if (type === 0x4e4f534a)
+              json = JSON.parse(
+                new TextDecoder().decode(bytes.subarray(start, start + length))
+              ) as Record<string, never[]>;
+            else if (type === 0x004e4942)
+              bin = bytes.subarray(start, start + length);
+            offset = start + length + ((4 - (length % 4)) % 4);
+          }
+          if (!json || !bin)
+            throw new Error(`${path} : segments GLB manquants`);
+          const gltf = json as unknown as {
+            meshes: {
+              primitives: {
+                attributes: { POSITION: number };
+                indices: number;
+              }[];
+            }[];
+            accessors: {
+              bufferView: number;
+              componentType: number;
+              count: number;
+              byteOffset?: number;
+            }[];
+            bufferViews: { byteOffset?: number; byteLength: number }[];
+          };
+          const primitive = gltf.meshes?.[0]?.primitives?.[0];
+          if (!primitive) throw new Error(`${path} : aucun maillage`);
+
+          const read = (accessorIndex: number): ArrayLike<number> => {
+            const accessor = gltf.accessors[accessorIndex]!;
+            const bufferView = gltf.bufferViews[accessor.bufferView]!;
+            const start =
+              (bufferView.byteOffset ?? 0) + (accessor.byteOffset ?? 0);
+            const at = bin!.byteOffset + start;
+            // 5126 float32, 5125 uint32, 5123 uint16 — les seuls types qu'un modèle de forme
+            // décimé par `scripts/decimate-shape-model.mjs` peut porter.
+            if (accessor.componentType === 5126)
+              return new Float32Array(bin!.buffer, at, accessor.count * 3);
+            if (accessor.componentType === 5125)
+              return new Uint32Array(bin!.buffer, at, accessor.count);
+            if (accessor.componentType === 5123)
+              return new Uint16Array(bin!.buffer, at, accessor.count);
+            throw new Error(
+              `${path} : type de composant ${accessor.componentType} non géré`
+            );
+          };
+
+          return {
+            positions: Float32Array.from(
+              read(primitive.attributes.POSITION) as ArrayLike<number>
+            ),
+            indices: Uint32Array.from(
+              read(primitive.indices) as ArrayLike<number>
+            ),
+          };
+        };
+
+        for (const page of pages) {
+          const visual = page.visual;
+          const texture = visual.surface
+            ? await loadRaw(
+                visual.surface,
+                CARD_TEXTURE_WIDTH,
+                CARD_TEXTURE_HEIGHT
+              )
+            : null;
+          // Le profil d'anneau est déjà une image large et courte (2048 × 125) : la relire
+          // telle quelle, la redimensionner écraserait justement les fines divisions.
+          const ring = visual.ring
+            ? {
+                texture: await loadRaw(visual.ring.texture),
+                innerRadius: visual.ring.innerRadius,
+                outerRadius: visual.ring.outerRadius,
+                opacity: RING_OPACITY,
+              }
+            : null;
+
+          // Un corps à anneaux est rendu au DOUBLE puis réduit : l'ellipse de l'anneau et sa
+          // découpe sur le globe sont des bords géométriques francs, très visiblement crénelés
+          // sinon. Le globe seul, lui, n'a qu'un bord circulaire, déjà lissé par `coverage` —
+          // d'où le rendu direct, qui garde les cinquante autres vignettes au bit près.
+          //
+          // Un corps porteur d'un MODÈLE DE FORME est rendu par sa géométrie, pas par une
+          // sphère : sans mosaïque publiée, sa vignette sphérique n'était qu'une bille de sa
+          // teinte de repli. Suréchantillonné comme l'anneau, et pour la même raison — une
+          // silhouette de maillage est un bord géométrique franc, crénelé sinon.
+          const span = ring ? card.RINGED_SPAN : card.SPHERE_SIZE;
+          const superSample = ring || visual.model ? 2 : 1;
+          const sphere = visual.model
+            ? card.renderShape(
+                await loadShapeMesh(visual.model),
+                visual.fallback,
+                span * superSample,
+                // Un corps qui a une texture la garde sur sa forme, comme dans l'application.
+                texture
+              )
+            : card.renderSphere(
+                texture,
+                visual.fallback,
+                span * superSample,
+                visual.emissive,
+                ring
+              );
+          const target = resolve(socialDir, `${page.slug}.jpg`);
+          let body = sharp(
+            Buffer.from(sphere.buffer, sphere.byteOffset, sphere.byteLength),
+            {
+              raw: {
+                width: span * superSample,
+                height: span * superSample,
+                channels: 4,
+              },
+            }
+          );
+          if (superSample > 1) body = body.resize(span, span);
+          const bodyPng = await body.png().toBuffer();
+          await sharp(Buffer.from(card.cardBackgroundSvg(page.visual.emissive)))
+            .composite([
+              {
+                input: bodyPng,
+                left: Math.round(card.SPHERE_CENTER_X - span / 2),
+                top: Math.round((card.CARD_HEIGHT - span) / 2),
+              },
+              {
+                input: Buffer.from(
+                  card.cardTextSvg(
+                    page.displayName,
+                    page.facts.map((fact) => `${fact.label}: ${fact.value}`),
+                    domain
+                  )
+                ),
+              },
+            ])
+            // 4:2:0 (le défaut) délave les aplats colorés du texte sur fond sombre — un
+            // liseré terne autour de chaque lettre, très visible à cette taille.
+            .jpeg({ quality: 85, chromaSubsampling: '4:4:4' })
+            .toFile(target);
+          // Une vignette absente ou vide ne se voit NULLE PART : la page se déploie, la balise
+          // pointe vers un 404, et l'aperçu de partage tombe silencieusement sur rien. Le seul
+          // endroit où ça peut encore échouer bruyamment, c'est ici.
+          const written = await stat(target).catch(() => null);
+          if (!written || written.size === 0)
+            throw new Error(`vignette de partage manquante : ${page.slug}.jpg`);
+        }
+
+        /**
+         * LES QUATORZE OBJETS D'INSTRUMENT (2026-10-03) : sondes et interstellaires, chacun sa
+         * page dans les quatre langues et sa vignette. Voir `src/seo/instrumentLandingPage.ts` pour
+         * le pourquoi. Le générateur est PUR : l'archive du PDS et la couverture des éphémérides
+         * sont lues ici et lui sont passées.
+         */
+        const navigable = (await loader.ssrLoadModule(
+          '/src/config/navigable.ts'
+        )) as typeof import('./src/config/navigable');
+        const instrumentSeo = (await loader.ssrLoadModule(
+          '/src/seo/instrumentLandingPage.ts'
+        )) as typeof import('./src/seo/instrumentLandingPage');
+        const instrumentIndex = JSON.parse(
+          await readFile(
+            resolve(__dirname, 'src/config/instrumentIndex.json'),
+            'utf-8'
+          )
+        ) as {
+          retrieved: string;
+          spacecraft: Record<string, unknown>;
+          absent: Record<string, unknown>;
+        };
+        const archives = new Map<
+          string,
+          import('./src/seo/instrumentLandingPage').ArchiveInput
+        >();
+        for (const id of Object.keys(instrumentIndex.spacecraft))
+          archives.set(id, {
+            status: 'declared',
+            archive: JSON.parse(
+              await readFile(
+                resolve(__dirname, `public/assets/instruments/${id}.json`),
+                'utf-8'
+              )
+            ) as import('./src/core/instruments').SpacecraftArchive,
+          });
+        for (const id of Object.keys(instrumentIndex.absent))
+          archives.set(id, { status: 'absent' });
+        // Couverture du fichier Horizons de chaque sonde : début et pas du MANIFESTE, jamais
+        // recopiés. Jour julien (TDB) → jour civil ; la précision voulue est le jour.
+        const ephemerisManifest = JSON.parse(
+          await readFile(
+            resolve(__dirname, 'public/assets/ephemerides/manifest.json'),
+            'utf-8'
+          )
+        ) as {
+          bodies: Record<
+            string,
+            { startJdTdb: number; stepDays: number; sampleCount: number }
+          >;
+        };
+        const jdDay = (jd: number): string =>
+          new Date((jd - 2440587.5) * 86_400_000).toISOString().slice(0, 10);
+        const coverage = new Map<string, { from: string; to: string }>();
+        for (const [id, cfg] of navigable.NAVIGABLE_TARGETS) {
+          const entry = ephemerisManifest.bodies[id];
+          if (cfg.kind !== 'spacecraft' || !entry) continue;
+          coverage.set(id, {
+            from: jdDay(entry.startJdTdb),
+            to: jdDay(
+              entry.startJdTdb + entry.stepDays * (entry.sampleCount - 1)
+            ),
+          });
+        }
+        const instrumentInputs = {
+          archives,
+          archiveRetrieved: instrumentIndex.retrieved,
+          coverage,
+          missionPages: missionSeo.missionSlugsByLid(missionCatalogue),
+        };
+        const instrumentPages = instrumentSeo.instrumentLandingPages(
+          navigable.NAVIGABLE_TARGETS,
+          instrumentInputs,
+          SITE_ORIGIN
+        );
+        // Un objet sans page ne se verrait nulle part : le compte doit être EXACTEMENT celui de
+        // la table, dans chaque langue.
+        if (instrumentPages.length !== navigable.NAVIGABLE_TARGETS.size)
+          throw new Error(
+            `pages d'objets d'instrument : ${instrumentPages.length} au lieu de ${navigable.NAVIGABLE_TARGETS.size}`
+          );
+        const localisedInstrumentPages = OTHER_LOCALES.flatMap((locale) =>
+          instrumentSeo.instrumentLandingPages(
+            navigable.NAVIGABLE_TARGETS,
+            instrumentInputs,
+            SITE_ORIGIN,
+            locale
+          )
+        );
+        for (const page of [...instrumentPages, ...localisedInstrumentPages]) {
+          const dir = resolve(dist, page.slug);
+          await mkdir(dir, { recursive: true });
+          await writeFile(
+            resolve(dir, 'index.html'),
+            instrumentSeo.renderInstrumentPage(baseHtml, page),
+            'utf-8'
+          );
+        }
+        // Vignette : le fond des corps, le POINT du marqueur à la place de la sphère, et le texte.
+        for (const page of instrumentPages) {
+          const target = resolve(socialDir, `${page.slug}.jpg`);
+          await sharp(Buffer.from(card.cardBackgroundSvg(false)))
+            .composite([
+              { input: Buffer.from(card.cardMarkerSvg(page.color)) },
+              {
+                input: Buffer.from(
+                  card.cardTextSvg(
+                    page.displayName,
+                    page.facts.map((fact) => `${fact.label}: ${fact.value}`),
+                    domain,
+                    'Live position and trajectory, in 3D'
+                  )
+                ),
+              },
+            ])
+            .jpeg({ quality: 85, chromaSubsampling: '4:4:4' })
+            .toFile(target);
+          const written = await stat(target).catch(() => null);
+          if (!written || written.size === 0)
+            throw new Error(`vignette de partage manquante : ${page.slug}.jpg`);
+        }
+
+        // Une page par éclipse de la fenêtre fixe 2024-2035 — voir `src/seo/eclipseLandingPage.ts`.
+        // Même garde que pour les corps : la fenêtre en contient 53, et un calcul qui n'en rend
+        // presque aucune est une panne, pas un choix — qui effacerait des pages déjà indexées.
+        const eclipsePages = eclipseSeo.eclipseLandingPages(SITE_ORIGIN);
+        if (eclipsePages.length < 40)
+          throw new Error(
+            `génération des pages d'éclipse : ${eclipsePages.length} page(s) seulement`
+          );
+        const localisedEclipsePages = OTHER_LOCALES.flatMap((locale) =>
+          eclipseSeo.eclipseLandingPages(SITE_ORIGIN, locale)
+        );
+        for (const page of [...eclipsePages, ...localisedEclipsePages]) {
+          // La vignette réutilisée doit exister : sinon la balise pointerait vers un 404.
+          const cardFile = resolve(socialDir, `${page.focusBody}.jpg`);
+          if (!(await stat(cardFile).catch(() => null)))
+            throw new Error(
+              `vignette absente pour l'éclipse ${page.slug} : ${page.focusBody}.jpg`
+            );
+          // Le chemin vient du module, pas d'une concaténation locale : c'est lui qui sait où
+          // vit la langue (`/eclipse/…` ou `/es/eclipse/…`).
+          const dir = resolve(
+            dist,
+            ...eclipseSeo
+              .eclipsePagePath(page.event, page.locale)
+              .replace(/^\/|\/$/g, '')
+              .split('/')
+          );
+          await mkdir(dir, { recursive: true });
+          await writeFile(
+            resolve(dir, 'index.html'),
+            eclipseSeo.renderEclipsePage(baseHtml, page),
+            'utf-8'
+          );
+        }
+
+        // Pages documentaires `/methodology` et `/sources`, FR et EN — voir
+        // `src/seo/documentPage.ts`. Chaque fichier lu ici est la source qui fait foi ; les
+        // modules purs refusent un résumé de validation partiel et une texture sans provenance.
+        const docSeo = (await loader.ssrLoadModule(
+          '/src/seo/documentPage.ts'
+        )) as typeof import('./src/seo/documentPage');
+        const methodologySeo = (await loader.ssrLoadModule(
+          '/src/seo/methodologyPage.ts'
+        )) as typeof import('./src/seo/methodologyPage');
+        const sourcesSeo = (await loader.ssrLoadModule(
+          '/src/seo/sourcesPage.ts'
+        )) as typeof import('./src/seo/sourcesPage');
+        // Provenance des textures : le registre `src/registry/products/` (lot 7, phase 2), qui
+        // a absorbé l'ancien `scripts/texture-sources.json`. Chargé comme le reste, jamais
+        // recopié.
+        const productRegistry = (await loader.ssrLoadModule(
+          '/src/registry/products/index.ts'
+        )) as typeof import('./src/registry/products/index');
+        const readJson = async <T>(path: string): Promise<T> =>
+          JSON.parse(await readFile(resolve(__dirname, path), 'utf-8')) as T;
+        const manifest = await readJson<
+          import('./src/seo/methodologyPage').EphemerisManifest
+        >('public/assets/ephemerides/manifest.json');
+        const validationSummary = await readJson<
+          import('./src/seo/methodologyPage').ValidationSummary
+        >('src/config/horizons-validation-summary.json');
+        const factSnapshot = await readJson<{
+          retrieved: Record<string, string[]>;
+        }>('src/config/factSources.snapshot.json');
+        // Le relevé des faits ne porte plus UNE date mais, par section, les jours où ses réponses
+        // ont été lues (lot 25). Ce qui date cette page est donc la plus récente de toutes, et non
+        // la dernière exécution du relevé : c'est précisément la différence que ce lot corrige,
+        // et `/sources` était l'endroit où l'ancienne date se PUBLIAIT.
+        const factSnapshotRead = Object.values(factSnapshot.retrieved)
+          .flat()
+          .sort()
+          .at(-1)!;
+        // Date DÉTERMINISTE des données publiées. Utiliser la date du build rendrait
+        // /sources différent chaque jour sans qu'aucune donnée n'ait changé, et ferait
+        // échouer le fingerprint généré par construction.
+        const sourcesUpdated = [
+          manifest.generatedAt.slice(0, 10),
+          validationSummary.generatedAt.slice(0, 10),
+          factSnapshotRead,
+        ]
+          .sort()
+          .at(-1)!;
+        const packageJson = await readJson<{
+          dependencies: Record<string, string>;
+        }>('package.json');
+        // Version et licence INSTALLÉES, pas la plage demandée dans package.json.
+        const dependencies = await Promise.all(
+          Object.keys(packageJson.dependencies).map(async (name) => {
+            const installed = await readJson<{
+              version: string;
+              license?: string;
+              homepage?: string;
+            }>(`node_modules/${name}/package.json`);
+            return {
+              name,
+              version: installed.version,
+              license: installed.license ?? 'see package',
+              homepage: installed.homepage?.startsWith('https://')
+                ? installed.homepage
+                : null,
+            };
+          })
+        );
+        // Instantané des petits corps livré : la page en cite la DATE et le nombre d'orbites,
+        // lus dans le fichier lui-même. Il n'est plus tiré à l'exécution (cf. `core/sbdb.ts`).
+        const sbdb = (await loader.ssrLoadModule(
+          '/src/core/sbdb.ts'
+        )) as typeof import('./src/core/sbdb');
+        const smallBodyDatasetFile = await readJson<unknown>(
+          'public/assets/small-bodies/dataset.json'
+        );
+        // Le nombre publié est celui que l'APPLICATION obtient, pas le nombre de lignes du
+        // fichier : `parseSbdbRows` écarte les orbites non elliptiques et les lignes
+        // incomplètes. Deux comptes pour une même chose, c'est une page qui contredit le
+        // panneau — 8000 d'un côté, 6965 de l'autre.
+        const smallBodySnapshot = (() => {
+          const dataset = sbdb.parseSmallBodyDataset(
+            smallBodyDatasetFile as Parameters<
+              typeof sbdb.parseSmallBodyDataset
+            >[0]
+          );
+          if (!dataset.retrieved || dataset.bodies.length === 0)
+            throw new Error('instantané des petits corps vide ou sans date');
+          return { retrieved: dataset.retrieved, count: dataset.bodies.length };
+        })();
+        // Jeux de hauteurs livrés : la fiche du registre donne l'identité et les droits, le
+        // manifeste écrit par `pnpm surface:tiles` donne les MESURES (niveaux cuits, aires
+        // nommées, nombre de tuiles, poids). La page n'en recopie aucune.
+        const heightfields = await Promise.all(
+          productRegistry.HEIGHTFIELD_PRODUCTS.map(async (product) => {
+            const manifest = await readJson<{
+              baseLevel: number;
+              tiles: number;
+              bytes: number;
+              coverage: {
+                level: number;
+                levels?: number[];
+                area?: { name: string };
+              }[];
+            }>(`public/${product.manifest}`);
+            return {
+              body: product.body,
+              title: product.title,
+              mission: product.mission,
+              instrument: product.instrument,
+              credit: product.providers.map((p) => p.name).join(' · '),
+              sourceUrl:
+                product.links.find((l) => l.rel === 'via')?.href ??
+                product.links.find((l) => l.rel === 'describedby')!.href,
+              baseLevel: manifest.baseLevel,
+              areas: manifest.coverage
+                .filter((entry) => entry.area)
+                .map((entry) => ({
+                  name: entry.area!.name,
+                  level: Math.max(...(entry.levels ?? [entry.level])),
+                })),
+              tiles: manifest.tiles,
+              bytes: manifest.bytes,
+            };
+          })
+        );
+        // Hôtes que la CSP de production autorise : la page /sources doit décrire exactement
+        // ceux-là (voir `LIVE_DATA_SERVICES`).
+        const connectHosts = sourcesSeo.connectHostsFromFirebase(
+          await readJson('firebase.json')
+        );
+        const citationFile = await readFile(
+          resolve(__dirname, 'CITATION.cff'),
+          'utf-8'
+        );
+        const citationSeo = (await loader.ssrLoadModule(
+          '/src/seo/citation.ts'
+        )) as typeof import('./src/seo/citation');
+        // Une seule lecture, un seul propriétaire : le module refuse bruyamment un fichier
+        // incomplet plutôt que de publier une page « comment citer » sans DOI.
+        const citation = citationSeo.parseCitation(citationFile);
+        const repository = citation.repository;
+        const docPages = [
+          ...methodologySeo.methodologyPages({
+            citation,
+            summary: validationSummary,
+            manifest,
+            config: catalogue.CELESTIAL_CONFIG,
+            origin: SITE_ORIGIN,
+          }),
+          ...sourcesSeo.sourcesPages({
+            citation,
+            config: catalogue.CELESTIAL_CONFIG,
+            textures: productRegistry.shippedTextures(),
+            manifest,
+            dependencies,
+            notices: await readFile(
+              resolve(__dirname, 'THIRD_PARTY_NOTICES.md'),
+              'utf-8'
+            ),
+            repositoryBlobUrl: `${repository}/blob/main`,
+            connectHosts,
+            updated: sourcesUpdated,
+            origin: SITE_ORIGIN,
+            smallBodies: smallBodySnapshot,
+            heightfields,
+          }),
+        ];
+        /**
+         * LES PAGES DES MISSIONS : l'index et une page par mission, dans chaque langue. Les sondes
+         * de Galaxy qui figurent dans une mission se lisent dans LEUR archive du PDS (lot 42),
+         * jamais dans une table écrite ici.
+         */
+        const spacecraftByMission = new Map<string, string[]>();
+        for (const [id, input] of archives) {
+          if (input.status !== 'declared') continue;
+          for (const investigation of input.archive.investigations) {
+            const list = spacecraftByMission.get(investigation.lid) ?? [];
+            list.push(id);
+            spacecraftByMission.set(investigation.lid, list);
+          }
+        }
+        const missionDocPages = [undefined, ...OTHER_LOCALES].flatMap((locale) =>
+          missionSeo.missionPages(
+            {
+              catalogue: missionCatalogue,
+              config: catalogue.CELESTIAL_CONFIG,
+              navigable: navigable.NAVIGABLE_TARGETS,
+              spacecraftByMission,
+              origin: SITE_ORIGIN,
+            },
+            locale ?? 'en'
+          )
+        );
+        // L'index plus une page par mission, dans chaque langue : rien de moins.
+        if (
+          missionDocPages.length !==
+          (missionCatalogue.missions.length + 1) * DOC_LOCALE_COUNT
+        )
+          throw new Error(
+            `pages des missions : ${missionDocPages.length} au lieu de ${(missionCatalogue.missions.length + 1) * DOC_LOCALE_COUNT}`
+          );
+        docPages.push(...missionDocPages);
+        for (const page of docPages) {
+          const dir = resolve(dist, new URL(page.canonical).pathname.slice(1));
+          await mkdir(dir, { recursive: true });
+          await writeFile(
+            resolve(dir, 'index.html'),
+            docSeo.renderDocPage(
+              page,
+              SITE_ORIGIN,
+              docSeo.socialImageFromHtml(baseHtml)
+            ),
+            'utf-8'
+          );
+        }
+
+        const today = new Date().toISOString().slice(0, 10);
+        await writeFile(
+          resolve(dist, 'sitemap.xml'),
+          seo.renderSitemap(
+            [
+              ...pages,
+              ...localisedBodyPages,
+              ...instrumentPages,
+              ...localisedInstrumentPages,
+              ...eclipsePages,
+              ...localisedEclipsePages,
+              ...docPages,
+            ],
+            SITE_ORIGIN,
+            today
+          ),
+          'utf-8'
+        );
+        /**
+         * CHAQUE URL DU SITEMAP DOIT CORRESPONDRE À UN FICHIER ÉCRIT, et réciproquement.
+         *
+         * Avec 450 adresses dans quatre langues, une page écrite au mauvais chemin ne se verrait
+         * pas : le sitemap l'annoncerait, Firebase répondrait par la réécriture SPA, donc un 200
+         * avec le mauvais document — le piège que ce dépôt a déjà payé. La vérification est ici
+         * plutôt que dans un test, parce qu'un contrôle qu'il faut penser à lancer n'est pas un
+         * contrôle.
+         */
+        const sitemapUrls = [
+          ...(await readFile(resolve(dist, 'sitemap.xml'), 'utf-8')).matchAll(
+            /<loc>([^<]+)<\/loc>/g
+          ),
+        ].map((match) => match[1]!.replace(SITE_ORIGIN, ''));
+        const orphans: string[] = [];
+        for (const url of sitemapUrls) {
+          const file =
+            url === '/'
+              ? 'index.html'
+              : url.endsWith('.html')
+                ? url.slice(1)
+                : `${url.slice(1)}index.html`;
+          if (!existsSync(resolve(dist, file))) orphans.push(url);
+        }
+        if (orphans.length > 0)
+          throw new Error(
+            `${orphans.length} adresse(s) du sitemap sans fichier : ${orphans.slice(0, 5).join(', ')}`
+          );
+        if (new Set(sitemapUrls).size !== sitemapUrls.length)
+          throw new Error('le sitemap contient une adresse en double');
+
+        loader.config.logger.info(
+          `  ${pages.length + localisedBodyPages.length} pages de corps + ` +
+            `${instrumentPages.length + localisedInstrumentPages.length} pages d'objets d'instrument + ` +
+            `${eclipsePages.length + localisedEclipsePages.length} pages d'éclipse + ` +
+            `${docPages.length} pages documentaires (${DOC_LOCALE_COUNT} langues) + vignettes + sitemap générés`
+        );
+      } finally {
+        await loader.close();
+      }
+    },
+  };
+}
+
+export default defineConfig({
+  base: "/solar-system/",
+  json: { stringify: true },
+  plugins: [
+    stripRegistryNotes(),
+    deriveRegistryText(),
+    stripProductionHtmlComments(),
+    bodyLandingPages(),
+    // PWA installable + hors-ligne. Pensé pour l'usage en classe (wifi d'école saturé) :
+    // au 2e chargement, l'app boote sans réseau et les corps déjà visités restent
+    // consultables. On ne PRÉCACHE que l'app shell (JS/CSS/HTML) — jamais les grosses
+    // textures/éphémérides, sinon l'installation téléchargerait des dizaines de Mo. Ces
+    // assets sont mis en cache À LA DEMANDE quand l'utilisateur les rencontre.
+    VitePWA({
+      registerType: 'autoUpdate',
+      // Servi comme fichier statique : pas de précache, on n'auto-inclut donc pas index.html.
+      includeAssets: ['favicon.ico', 'icon.svg', 'icons/apple-touch-icon.png'],
+      manifest: {
+        name: 'Galaxy: 3D Solar System',
+        short_name: 'Galaxy',
+        description:
+          'Explore the solar system in 3D with real NASA/JPL ephemeris positions. Educational and true-scale exploration modes, time travel, real distances and light-time.',
+        lang: 'en-GB',
+        dir: 'ltr',
+        start_url: '/',
+        scope: '/',
+        display: 'standalone',
+        orientation: 'any',
+        background_color: '#02040a',
+        theme_color: '#000000',
+        categories: ['education', 'science'],
+        icons: [
+          { src: '/icons/pwa-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icons/pwa-512.png', sizes: '512x512', type: 'image/png' },
+          {
+            src: '/icons/maskable-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
+        ],
+      },
+      workbox: {
+        // App shell précaché : le chunk `three` (~470 Ko) dépasse le défaut de 2 Mio ?
+        // Non, mais on relève la borne par sécurité pour ne jamais exclure un chunk.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        globPatterns: ['**/*.{js,css,html,ico,svg,woff2}'],
+        // Les pages d'atterrissage (corps ET éclipses) sont des quasi-copies de `index.html` :
+        // les précacher triplait le poids de l'installation pour du contenu que l'app shell
+        // couvre déjà. Règles et raisons dans `src/seo/pwaRouting.ts`, testées contre toutes
+        // les pages générées — la première version ignorait les pages à deux segments.
+        globIgnores: LANDING_PAGE_GLOB_IGNORES,
+        // SPA : toute navigation retombe sur index.html (déjà rewrité côté Firebase).
+        navigateFallback: '/index.html',
+        // …sauf les pages statiques autonomes (confidentialité) : elles doivent être
+        // servies telles quelles, pas remplacées par l'app WebGL.
+        // Les pages d'atterrissage par corps (`/jupiter`) sont de VRAIS fichiers : sans cette
+        // exclusion, un visiteur qui a déjà le service worker recevrait le `/index.html` en
+        // cache et donc les balises de tête de l'accueil. L'application ouvrirait quand même le
+        // bon corps (le chemin suffit, cf. `bodyFromPathname`), mais le document servi serait le
+        // mauvais. Motif : un segment unique sans point — ce qui exclut `/`, `/assets/…` et les
+        // fichiers. Contrepartie assumée : hors ligne, une URL d'un seul segment INCONNUE ne
+        // retombe plus sur l'app ; en ligne la réécriture Firebase s'en charge comme avant.
+        navigateFallbackDenylist: NAVIGATE_FALLBACK_DENYLIST,
+        cleanupOutdatedCaches: true,
+        runtimeCaching: [
+          {
+            // manifest.json n'est PAS un asset immuable : c'est le pointeur mutable vers les
+            // .bin d'éphémérides (nommés avec un hash de contenu, eux). Il est régénéré en
+            // place (même nom de fichier) quand des données sont corrigées — ça s'est produit
+            // deux fois dans cette session (bug de manifest obsolète, puis bug de cible
+            // Horizons résolvant vers un astéroïde différent). Si cette règle passait par le
+            // CacheFirst générique ci-dessous, un utilisateur PWA ayant mis le manifeste en
+            // cache avant une correction continuerait, jusqu'à 30 jours, à pointer vers des
+            // .bin à l'ancien hash — que le déploiement suivant supprime du serveur (ancien
+            // hash absent du nouveau build) : non pas des données périmées mais un vrai 404,
+            // silencieux, sur l'éphéméride d'un corps. Cette règle doit précéder la règle
+            // générique /assets/ (Workbox retient la première correspondance) et repasser par
+            // le réseau à chaque fois que possible — cohérent avec le Cache-Control d'1h que
+            // Firebase applique déjà à ce chemin précis (voir firebase.json).
+            urlPattern: ({ url }) =>
+              url.pathname === '/assets/ephemerides/manifest.json',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'ssv-ephemeris-manifest',
+              networkTimeoutSeconds: 4,
+              expiration: {
+                maxEntries: 1,
+                maxAgeSeconds: 60 * 60,
+                purgeOnQuotaError: true,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // Même raisonnement pour le manifeste des tuiles de hauteurs (lot 9, phase 9D) :
+            // il porte un nom STABLE et pointe un répertoire nommé par le HACHAGE de son
+            // contenu. Une recuisson le réécrit en place et supprime l'ancien répertoire ; un
+            // manifeste servi depuis le cache pointerait donc des tuiles qui n'existent plus,
+            // c'est-à-dire un relief absent sans la moindre erreur. Les tuiles elles-mêmes,
+            // dont l'adresse ne désigne qu'un seul contenu possible, passent par le CacheFirst
+            // générique — et c'est ce qui évite un aller-retour réseau par carreau.
+            urlPattern: ({ url }) =>
+              url.pathname.startsWith('/assets/height-tiles/') &&
+              url.pathname.endsWith('/manifest.json'),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'ssv-height-manifest',
+              networkTimeoutSeconds: 4,
+              expiration: {
+                maxEntries: 4,
+                maxAgeSeconds: 60 * 60,
+                purgeOnQuotaError: true,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // Textures, modèles et instantané des petits corps ont des NOMS STABLES (ex.
+            // earth_surface_1k.jpg, bennu_shape_2k.glb, small-bodies/dataset.json) : une
+            // release peut réécrire les mêmes URLs. Réseau d'abord pour récupérer la version
+            // courante, cache en secours hors-ligne — c'est ce qui donne aux petits corps un
+            // mode hors ligne qu'ils n'ont jamais eu, du temps où ils venaient de JPL.
+            // Cette règle DOIT rester avant le CacheFirst générique ci-dessous.
+            urlPattern: ({ url }) =>
+              url.pathname.startsWith('/assets/textures/') ||
+              url.pathname.startsWith('/assets/models/') ||
+              url.pathname.startsWith('/assets/small-bodies/'),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'ssv-stable-visual-assets',
+              networkTimeoutSeconds: 4,
+              expiration: {
+                maxEntries: 200,
+                maxAgeSeconds: 60 * 60 * 24 * 7,
+                purgeOnQuotaError: true,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // Assets réellement versionnés par leur nom (chunks Vite, binaires d'éphémérides
+            // hashés, etc.) : cache à la demande. Les préfixes à noms stables sont interceptés
+            // par les règles spécifiques ci-dessus.
+            urlPattern: ({ url }) => url.pathname.startsWith('/assets/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'ssv-assets',
+              expiration: {
+                maxEntries: 200,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+                purgeOnQuotaError: true,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+              rangeRequests: true,
+            },
+          },
+          {
+            // Tuiles d'imagerie planétaire (NASA Trek) : le CACHE d'abord, contrairement aux
+            // données temps réel. Une adresse de tuile désigne un niveau, une ligne et une
+            // colonne d'une VERSION PUBLIÉE et figée de la mosaïque (`…_303ppd_v02`) : ses
+            // octets ne changent jamais, et une nouvelle version aurait une autre adresse.
+            // Le « réseau d'abord » du plan de conception aurait donc payé un aller-retour, et
+            // jusqu'à six secondes d'attente, par tuile et par survol, pour re-télécharger des
+            // octets identiques — et aurait sollicité d'autant plus un service dont NASA Trek
+            // ne publie aucune limite de débit. Cette règle doit rester AVANT la règle temps
+            // réel, qui ne connaît pas cet hôte.
+            urlPattern: ({ url }) => url.hostname === 'trek.nasa.gov',
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'ssv-surface-tiles',
+              expiration: {
+                maxEntries: 300,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
+                purgeOnQuotaError: true,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // Données temps réel (météo, GIBS, SBDB) : le frais d'abord, le cache en secours
+            // hors-ligne. Jamais présenté comme temps réel s'il vient du cache (catégorie
+            // temporelle honnête gérée côté app via core/temporal.ts).
+            urlPattern: ({ url }) =>
+              [
+                'gibs.earthdata.nasa.gov',
+                'api.open-meteo.com',
+                'archive-api.open-meteo.com',
+                'ssd-api.jpl.nasa.gov',
+              ].includes(url.hostname),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'ssv-live-data',
+              networkTimeoutSeconds: 6,
+              expiration: {
+                maxEntries: 120,
+                maxAgeSeconds: 60 * 60 * 24 * 7,
+                purgeOnQuotaError: true,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
+      },
+      devOptions: {
+        // Pas de SW en dev (évite les surprises de cache pendant le HMR).
+        enabled: false,
+      },
+    }),
+  ],
+  publicDir: 'public',
+  resolve: {
+    // Alias @/ → src/ : imports absolus, résilients aux déplacements de fichiers
+    alias: { '@': resolve(__dirname, 'src') },
+  },
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    rollupOptions: {
+      input: {
+        SolarSystemApp: resolve(__dirname, 'index.html'),
+      },
+      output: {
+        // Sépare les grosses libs tierces du code applicatif : elles changent
+        // rarement (meilleur cache navigateur) et allègent le chunk principal
+        // sous le seuil d'avertissement de Vite.
+        manualChunks: {
+          three: ['three'],
+          astronomy: ['astronomy-engine'],
+          tween: ['@tweenjs/tween.js'],
+        },
+      },
+    },
+  },
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.ts'],
+  },
+});

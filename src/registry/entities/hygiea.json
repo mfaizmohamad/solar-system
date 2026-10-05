@@ -1,0 +1,119 @@
+{
+  "$schema": "../schema/entity.schema.json",
+  "id": "hygiea",
+  "targetClass": "asteroid",
+  "source": "small-body",
+  "elements": {
+    "displayName": {
+      "en": "Hygiea",
+      "fr": "Hygie",
+      "es": "Higía",
+      "pt-BR": "Hígia"
+    },
+    "a": 3.138421324853723,
+    "e": 0.1194647926154634,
+    "iDeg": 3.842651449337091,
+    "omDeg": 283.6632054163321,
+    "wDeg": 314.3682343023398,
+    "maDeg": 339.2148139451292,
+    "epoch": "2000-01-01T12:00:00Z",
+    "color": "0x6fbf8a",
+    "model": {
+      "resolutions": [
+        "1k"
+      ],
+      "extentRatio": 1.07,
+      "credit": {
+        "en": "ESO VLT/SPHERE adaptive-optics images and light curves, shape model by Vernazza et al. 2020 (Nature Astronomy 4, 136), DAMIT model 4392 (CC BY 4.0), used at its full 3,200 facets.",
+        "fr": "Images d'optique adaptative ESO VLT/SPHERE et courbes de lumière, modèle de forme de Vernazza et al. 2020 (Nature Astronomy 4, 136), modèle DAMIT 4392 (CC BY 4.0), employé avec ses 3 200 facettes.",
+        "es": "Imágenes de óptica adaptativa ESO VLT/SPHERE y curvas de luz, modelo de forma de Vernazza et al. 2020 (Nature Astronomy 4, 136), modelo DAMIT 4392 (CC BY 4.0), usado con sus 3200 facetas completas.",
+        "pt-BR": "Imagens de óptica adaptativa ESO VLT/SPHERE e curvas de luz, modelo de forma de Vernazza et al. 2020 (Nature Astronomy 4, 136), modelo DAMIT 4392 (CC BY 4.0), usado com as suas 3200 facetas completas."
+      },
+      "radiusMismatch": "Le rayon affiché, 203,56 km, vient du diamètre IRAS de 407,12 km que la SBDB publie encore (IRAS-A-FPA-3-RDR-IMPS-V6.0). Le modèle de Vernazza et al. 2020 a un rayon équivalent-volume de 216,9 km, cohérent avec les 434 +/- 14 km de diamètre que DAMIT publie pour lui. Deux mesures publiées différentes."
+    },
+    "surfaceResolutions": [
+      "2k",
+      "1k"
+    ],
+    "description": {
+      "en": "The fourth-largest asteroid. In 2019 it was found to be nearly spherical, so round it may qualify as the smallest dwarf planet in the Solar System.",
+      "fr": "Le quatrième plus gros astéroïde. En 2019, on l’a découvert quasi sphérique, si rond qu’il pourrait être la plus petite planète naine du Système solaire.",
+      "es": "El cuarto asteroide más grande. En 2019 se descubrió que es casi esférico, tan redondo que podría ser el planeta enano más pequeño del Sistema Solar.",
+      "pt-BR": "O quarto maior asteroide. Em 2019 descobriu-se que ele é quase esférico, tão redondo que poderia ser o menor planeta anão do Sistema Solar."
+    },
+    "wiki": {
+      "en": "https://en.wikipedia.org/wiki/10_Hygiea",
+      "fr": "https://fr.wikipedia.org/wiki/(10)_Hygie",
+      "es": "https://es.wikipedia.org/wiki/(10)_Hig%C3%ADa",
+      "pt-BR": "https://pt.wikipedia.org/wiki/10_H%C3%ADgia"
+    }
+  },
+  "facts": {
+    "radiusKm": {
+      "value": {
+        "$diameterKm": 407.12
+      },
+      "source": "jpl-sbdb",
+      "method": "derived",
+      "uncertainty": 3.4,
+      "detail": "radiusFromDiameter",
+      "citation": "IRAS-A-FPA-3-RDR-IMPS-V6.0"
+    },
+    "massKg": {
+      "value": {
+        "$gm": 7
+      },
+      "source": "jpl-sbdb",
+      "method": "derived",
+      "detail": "massFromGM",
+      "citation": "Scholl et al., A&A, v.179, p.311, 1987"
+    },
+    "gravity": {
+      "value": {
+        "$gm": 7,
+        "$radiusKm": {
+          "$diameterKm": 407.12
+        }
+      },
+      "source": "jpl-sbdb",
+      "method": "derived",
+      "detail": "gravityFromGM",
+      "citation": "Scholl et al., A&A, v.179, p.311, 1987"
+    },
+    "meanTempC": {
+      "published": false,
+      "reason": {
+        "en": "The JPL Small-Body Database, the source of its other figures, publishes no temperature among its physical parameters.",
+        "fr": "La base des petits corps de JPL, d'où viennent ses autres chiffres, ne publie aucune température parmi ses paramètres physiques.",
+        "es": "La base de datos de cuerpos menores del JPL, de donde proceden sus demás cifras, no publica ninguna temperatura entre sus parámetros físicos.",
+        "pt-BR": "A base de pequenos corpos do JPL, de onde vêm os seus outros números, não publica nenhuma temperatura entre os seus parâmetros físicos."
+      }
+    },
+    "moonCount": {
+      "value": 0,
+      "source": "jpl-sbdb",
+      "method": "measured",
+      "asOf": "2026-09-28",
+      "detail": "confirmedSatellites"
+    },
+    "rotationPeriod": {
+      "value": 13.828,
+      "source": "jpl-sbdb",
+      "method": "measured",
+      "citation": "LCDB (Rev. 2023-October); Warner et al., 2009"
+    },
+    "axialTilt": {
+      "published": false,
+      "reason": {
+        "en": "The JPL Small-Body Database publishes no spin-axis solution for this body, and an axial tilt cannot be derived without one.",
+        "fr": "La base des petits corps de JPL ne publie aucune solution de pôle pour ce corps, et une inclinaison axiale ne se dérive pas sans elle.",
+        "es": "La base de datos de cuerpos menores del JPL no publica ninguna solución de polo para este cuerpo, y una inclinación axial no puede derivarse sin ella.",
+        "pt-BR": "A base de pequenos corpos do JPL não publica nenhuma solução de polo para este corpo, e uma inclinação axial não se deriva sem ela."
+      }
+    }
+  },
+  "notes": {
+    "a": "Éléments osculateurs JPL Horizons exactement à cette époque — voir le commentaire sur Vesta ci-dessus (même correction, même méthode de vérification).",
+    "facts.gravity": "Valeurs de la SBDB, qui cite encore IRAS pour le diamètre et Scholl et al. (1987) pour GM, sans incertitude : la fiche nomme donc ces références d'origine."
+  }
+}

@@ -1,0 +1,285 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Gate rapide et FIABLE : types, lint, tests unitaires, audit, build. C'est lui qui
+  # conditionne le deploiement — le site se met a jour vite et n'est jamais bloque par un
+  # test e2e navigateur capricieux (GPU logiciel CI).
+  verify:
+    name: Verify and build
+    runs-on: ubuntu-24.04
+    # Ce gate conditionne le deploiement : un blocage ne doit jamais l'immobiliser des heures.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, resolved 2026-09-19
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@26f6d4f2c533a43e6b5da0b4a5dd983f98f7b49a # v6.0.4, resolved 2026-09-19
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0, resolved 2026-09-19
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify
+      - run: pnpm audit:prod
+      - run: pnpm build
+
+      # GENERATED DOCUMENT FINGERPRINT. The build derives 114 pages, the sitemap, and 56
+      # thumbnails from the catalog. A migration that changes a value, key ordering, or rounding
+      # can pass every test while silently changing indexed content. Batch 7 moves the catalog
+      # out of TypeScript, which is why this guard exists.
+      #
+      # `--portable` excludes thumbnails. This is not a weaker check: their SVG text is rendered
+      # by sharp with the `Segoe UI, Helvetica, Arial, DejaVu Sans` stack, so this Linux runner
+      # uses DejaVu Sans where the Windows reference used Segoe UI. Identical data therefore
+      # produces different bytes. The remaining 115 documents (pages + sitemap) are text emitted
+      # by the same code and must be identical across machines.
+      #
+      # This is intentionally blocking. When this check was manual, it was not an enforceable
+      # control. For an intentional change, run `pnpm fingerprint:generated --write` and commit
+      # the updated reference separately.
+      - name: Verify generated documents are unchanged
+        run: node scripts/fingerprint-generated.mjs --portable
+
+      # STARTUP BUDGET, FAMILY BY FAMILY (batch 17, phase 17F). This step covers the JavaScript
+      # family only, because it is the one that does not exist before a build: the three others
+      # (ephemeris window, textures, shape models) are measured against the committed artefacts by
+      # src/config/startupBudget.test.ts, inside `pnpm verify` above.
+      #
+      # There is deliberately NO global total. A single startup budget would create permanent
+      # pressure to degrade textures in order to fund something else, contradicting the parity rule
+      # established by batch 16. Each family is judged on its own ceiling, and a breach names the
+      # family. The method behind every number is `node scripts/measure-startup-bytes.mjs`.
+      #
+      # Blocking on purpose: an unbounded bundle is exactly the kind of growth nobody notices.
+      - name: Verify the startup budget per family
+        run: node scripts/check-startup-budget.mjs
+
+      # LES PAGES GENEREES, CHARGEES DANS UN NAVIGATEUR (ligne 39.1, lot 41).
+      #
+      # `/methodology`, `/sources` et les pages de corps ne naissent qu'au BUILD, et le serveur
+      # de developpement que joue le job e2e ne les sert pas : `e2e/bodyLanding.spec.ts` teste
+      # l'application ouverte sur un CHEMIN, jamais la page elle-meme. Personne ne les avait
+      # donc jamais ouvertes en CI, et la section que le lot 39 a ajoutee a `/methodology` a du
+      # etre verifiee A LA MAIN.
+      #
+      # ELLES TOURNENT ICI, ET PAS DANS LE JOB e2e, POUR UNE RAISON DE COUT MESUREE : le job
+      # e2e est shard sur NEUF machines qui ne construisent pas, donc il faudrait neuf
+      # `pnpm build`. Ce job-ci construit deja, et n'utilise que 2,4 min de ses 15 ; la suite
+      # ajoute 11 scenarios en 16 s en local, plus l'installation de Chromium.
+      #
+      # Bloquant, parce qu'une page publiee illisible est un defaut visible par un visiteur.
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Check the generated pages in a browser
+        run: pnpm test:pages
+
+      # Informational measurement of the actual deploy payload after firebase.json exclusions,
+      # so unexpected growth remains visible in deployment logs.
+      #
+      # This intentionally blocks nothing. A hard limit would eventually reject legitimate
+      # texture additions and encourage disabling the guard. The 638 MB SPK kernel is prevented
+      # from returning by its firebase.json exclusion, enforced by
+      # src/config/hostingPayload.test.ts.
+      - name: Report deploy payload size
+        run: node scripts/check-deploy-size.mjs
+
+      # Deploy to Firebase Hosting on pushes to main after verify+build pass, without waiting
+      # for E2E. Requires the FIREBASE_TOKEN secret.
+      - name: Deploy to Firebase Hosting
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: pnpm dlx firebase-tools@15.30.2 deploy --only hosting --token ${{ secrets.FIREBASE_TOKEN }}
+
+      # « CI verte » ne dit rien de ce qui est EN LIGNE. Cette etape recupere l'index servi et
+      # compare le nom hache de l'entree applicative a celle qu'on vient de construire.
+      #
+      # Elle ne bloque rien : elle tourne APRES le deploiement, donc elle ne peut rien
+      # empecher. Elle transforme seulement une question qu'il fallait penser a se poser en
+      # une reponse qui s'affiche toute seule. Le 2026-09-11, faute de cette ligne, l'etat de
+      # la production a ete affirme faux deux fois de suite.
+      - name: Verify production serves this build
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: node scripts/check-deployed-bundle.mjs
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, resolved 2026-09-19
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Une PR valide d'abord le cablage essentiel dans un seul navigateur. La suite complete
+  # reste executee sur main et a la demande ci-dessous : elle n'est donc ni supprimee ni
+  # reduite, mais elle n'est plus payee deux fois pour le meme changement.
+  e2e-smoke:
+    name: Browser smoke test
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, resolved 2026-09-19
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@26f6d4f2c533a43e6b5da0b4a5dd983f98f7b49a # v6.0.4, resolved 2026-09-19
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0, resolved 2026-09-19
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright test e2e/smoke.spec.ts
+      - name: Upload Playwright diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, resolved 2026-09-20
+        with:
+          name: playwright-smoke-diagnostics-${{ github.run_id }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Tests navigateur end-to-end : job SEPARE qui tourne en parallele. Il sert d'ALERTE
+  # (un echec signale une regression de cablage) mais ne bloque pas le deploiement, car
+  # le rendu WebGL en GPU logiciel CI est lent et parfois capricieux sur les scenarios lourds.
+  e2e-full:
+    name: Browser tests (e2e ${{ matrix.shard }}/9)
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    # SHARDING. La suite entiere ne tenait PAS dans le budget : mesure du 2026-09-08, elle
+    # atteignait 69 tests sur 88 en 35 min avec ZERO echec, puis se faisait couper. C'est la
+    # cause des 22 runs annules de l'historique, longtemps prise pour de l'instabilite.
+    #
+    # PASSE DE 3 A 4 le 2026-09-09, sur mesure et non par precaution : la suite est montee a
+    # 97 scenarios et le run vert `dcc565e` donnait 21 / 14 / 14 min pour un budget de 30. Le
+    # shard 1 occupait donc 70 % de son enveloppe, bien au-dela des 12-15 min de la
+    # calibration d'origine — exactement l'etat qui precede une serie de runs coupes. Noter
+    # que Playwright repartit par NOMBRE de tests, pas par duree : l'ecart 21 vs 14 vient de
+    # scenarios lourds tombes dans le meme tiers, et un runner de plus le dilue.
+    #
+    # PASSE DE 4 A 6 le 2026-09-28, sur la MEME mesure et pour la meme raison : la suite est
+    # montee a 195 scenarios, et le run du lot 20 (`36373970699`, pousse sur main) a donne
+    # 24m39 / 21m04 / 23m05 pour les trois premiers shards et un shard 4 COUPE a 30m23 par le
+    # garde-fou. Ce n'est donc pas un echec de test, c'est l'enveloppe qui est pleine : le
+    # meme etat qu'au 2026-09-08 et qu'au 2026-09-09, deux fois de suite. MESURE APRES le passage,
+    # sur le run `36383735129` de main : 14m11 / 19m39 / 15m24 / 15m36 / 18m48 / 19m31, donc au pire
+    # 19m39 pour un garde-fou de 30 min, dix minutes de marge. L'estimation posee avant la mesure
+    # disait 16-17 min : le pire shard est au-dessus, et c'est le chiffre mesure qui fait foi.
+    #
+    # PASSE DE 6 A 7 le 2026-10-02, et cette fois c'est le GUETTEUR qui l'a dit, avant toute
+    # coupure : le run `36943944669` de main (pas 2 de la ligne 22.10, 261 scenarios, tous verts,
+    # aucun reessai) a donne 13,0 / 21,2 / 18,8 / 19,2 / 24,3 / 24,0 min d'ETAPE de tests, et
+    # `pnpm ci:health` l'a declare non sain sur le shard 5 (24,3 min, seuil de 80 % a 24). Le run
+    # precedent, 255 scenarios, plafonnait a 23,6 : la derive etait deja la, six tests de plus
+    # ont franchi le seuil. Meme etat qu'aux deux passages precedents, corrige AVANT la coupure.
+    #
+    # PASSE DE 7 A 8 le 2026-10-03 (ligne 44.3), encore signale par le GUETTEUR avant toute
+    # coupure. Le shard 7 etait deja a 22,8 min sur le run `37026665886` de main ; la ligne 44.3
+    # y a ajoute le temoin `e2e/textureLoadState.spec.ts` (24 a 28 s, l'arrivee sur la Terre
+    # elle-meme, que le temoin ne peut pas eviter) et l'attente des textures aux scenarios qui
+    # agissent juste apres cette arrivee. Trois runs simultanes de la branche ont alors donne au
+    # shard 7 : 21,2 min (Xeon 8573C), 23,9 (EPYC 7763) et 24,1 (EPYC 9V74), au seuil de 24. La
+    # MACHINE compte desormais dans cette lecture : l'etape « Runner CPU » l'imprime, et le meme
+    # shard 6 a pris 13,7 min sur un EPYC 9V45 et 24,4 sur un EPYC 7763 (runs `37069463653` et
+    # `37069466894`).
+    #
+    # PASSE DE 8 A 9 le 2026-10-04, la reponse que le passage precedent avait ecrite d'avance.
+    # Le shard 7 a franchi le seuil DEUX fois sur la meme machine, un Intel Xeon Platinum 8370C :
+    # 23,9 min sur le run `37105797805` de main, puis 24,3 sur le run `37183782647` (branche des
+    # modeles de forme, aucun test navigateur ajoute, tous verts, aucun reessai). Les MEMES
+    # 36 scenarios ont pris 21,6 min sur un EPYC 7763 (run `37183269879`). Ce n'est donc pas une
+    # derive du code mais la machine la plus lente que GitHub serve, et elle revient : la marge
+    # se reprend en repartissant, pas en esperant une autre machine. MESURE APRES, sur le run
+    # `37186382225` de la branche : pire shard 19,9 min (EPYC 7763), contre 23,2 sur le meme
+    # processeur a huit machines (run `37183782647`), tous verts, aucun reessai.
+    #
+    # Et la lecon de procedure, deja payee au lot 19 : ajouter des tests REDISTRIBUE les shards,
+    # ce job ne tourne QUE sur main (`if: push`), et une suite locale ne sharde pas. Aucune CI de
+    # branche ne peut donc montrer ce depassement avant la fusion : il se corrige a l'avance, en
+    # regardant le dernier run de main, ou pas du tout.
+    #
+    # DEPUIS LE LOT 24, CETTE LECTURE EXISTE ET ELLE EST AUTOMATIQUE. `pnpm ci:health` lit un run
+    # (par defaut le dernier de main) et sort en code 1 sur quatre choses : un job rouge, un test
+    # passe SEULEMENT au reessai, un shard qui atteint 80 % de ce garde-fou, et un journal qu'il
+    # n'a pas pu lire -- parce que « je n'ai pas pu mesurer » n'est pas « tout va bien ». Le workflow
+    # `main-ci-watch.yml` la joue apres chaque run de main et ouvre une issue. Ce qui a motive ce
+    # guetteur est mesure : DEUX fusions consecutives rouges que personne n'a vues (PR #40 shard 4,
+    # PR #42 shard 6), et DIX scenarios distincts passes au reessai sur les huit derniers runs,
+    # dans des jobs verts.
+    #
+    # On repartit sur des MACHINES, jamais sur des workers : `playwright.config.ts` impose
+    # `workers: 1` et `fullyParallel: false` parce que deux contextes WebGL en GPU logiciel
+    # se disputent le meme CPU et rendent les scenarios lourds instables. Chaque shard garde
+    # donc son worker unique, la calibration est intacte.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    # Garde-fous PAR ETAPE depuis le 2026-10-01 (ligne 44.2). Il n'y en avait qu'un, de 30 min sur
+    # le JOB entier, pose contre une install apt bloquee. Il mesurait donc aussi un miroir tiers :
+    # ce jour-la, `playwright install --with-deps` a pris 68 s le matin, puis 363 s et 500 s
+    # ("Fetched 32.1 MB in 5min 43s (93.6 kB/s)", le navigateur lui-meme en 8 s), et deux shards
+    # aux tests SAINS (43 passes sur 46, aucun echec ; puis 29,5 min dont 20 de tests) ont ete
+    # coupes ou rases. Chaque etape a maintenant son garde-fou : 12 min pour l'install (l'intention
+    # d'origine), 30 min pour les TESTS (l'enveloppe que `pnpm ci:health` mesure, sur cette etape
+    # et non sur le job), et 45 min pour le job, qui ne doit plus jamais etre celui qui coupe.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, resolved 2026-09-19
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@26f6d4f2c533a43e6b5da0b4a5dd983f98f7b49a # v6.0.4, resolved 2026-09-19
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0, resolved 2026-09-19
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+        timeout-minutes: 12
+      # LE PROCESSEUR DE LA MACHINE, imprime avant les tests (ligne 44.3, 2026-10-02). GitHub ne
+      # sert pas toujours le meme : mesure ce jour-la sur la vue Terre, en rendu logiciel, une
+      # image coute 224 ms sur un AMD EPYC 9V45 et ~430 ms sur un EPYC 7763, a code egal. Un
+      # shard lent n'accuse donc pas forcement le code. `scripts/check-ci-health.mjs` lit cette
+      # ligne (RUNNER_CPU_LINE) et l'affiche a cote de chaque shard.
+      - name: Runner CPU
+        run: |
+          echo "RUNNER_CPU $(lscpu | grep -m1 'Model name' | cut -d: -f2 | xargs) | nproc $(nproc)"
+      # `playwright` en direct plutot que `pnpm test:e2e --` : pas d'ambiguite sur la
+      # transmission des arguments a travers le script npm. Le NOM de l'etape est lu par
+      # `scripts/check-ci-health.mjs` (E2E_TEST_STEP) : le changer, c'est changer les deux.
+      - name: Run e2e shard
+        timeout-minutes: 30
+        run: pnpm exec playwright test --shard=${{ matrix.shard }}/9
+      - name: Upload Playwright diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1, resolved 2026-09-20
+        with:
+          name: playwright-diagnostics-${{ github.run_id }}-${{ matrix.shard }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7

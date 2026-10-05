@@ -1,0 +1,144 @@
+{
+  "$schema": "../schema/entity.schema.json",
+  "id": "nix",
+  "targetClass": "satellite",
+  "source": "catalogue",
+  "config": {
+    "kind": "moon",
+    "displayName": {
+      "en": "Nix",
+      "fr": "Nix",
+      "es": "Nix",
+      "pt-BR": "Nix"
+    },
+    "radius": 0.06,
+    "rotationSpeed": {
+      "$rotationHours": 43.9
+    },
+    "orbitalColor": "0xd8d3c9",
+    "fallbackColor": "0xcfc9bd",
+    "frame": "parentRelative",
+    "rotationBody": "Pluto",
+    "relativeOrbitalElements": {
+      "semiMajorAxisAU": 0.0003256427173,
+      "eccentricity": 0,
+      "inclinationRad": {
+        "$deg": 112.8719
+      },
+      "ascendingNodeRad": {
+        "$deg": 227.3803
+      },
+      "argPerihelionRad": 0,
+      "meanAnomalyAtEpochRad": {
+        "$deg": 125.705
+      },
+      "epoch": {
+        "$date": "2025-12-31T00:00:00.000Z"
+      }
+    },
+    "relativeEphemeris": {
+      "kind": "horizonsParentRelative"
+    },
+    "textureResolutions": {
+      "surface": [
+        "2k",
+        "1k"
+      ]
+    },
+    "realData": {
+      "orbitalInclination": 0,
+      "ascendingNode": 0,
+      "description": {
+        "en": "A moon with a reddish crater on an otherwise bright icy surface, rotating chaotically and retrograde relative to its own orbit.",
+        "fr": "Une lune marquée d’un cratère rougeâtre sur une surface glacée par ailleurs brillante, en rotation chaotique et rétrograde par rapport à sa propre orbite.",
+        "es": "Una luna marcada por un cráter rojizo sobre una superficie helada por lo demás brillante, en rotación caótica y retrógrada respecto a su propia órbita.",
+        "pt-BR": "Uma lua marcada por uma cratera avermelhada sobre uma superfície gelada de resto brilhante, em rotação caótica e retrógrada em relação à sua própria órbita."
+      },
+      "wiki": {
+        "en": "https://en.wikipedia.org/wiki/Nix_(moon)",
+        "fr": "https://fr.wikipedia.org/wiki/Nix_(lune)",
+        "es": "https://es.wikipedia.org/wiki/Nix_(sat%C3%A9lite)",
+        "pt-BR": "https://pt.wikipedia.org/wiki/Nix_(sat%C3%A9lite)"
+      }
+    },
+    "cameraDistance": {
+      "educ": 0.5,
+      "explo": {
+        "$cameraFromRadiusKm": 18
+      }
+    },
+    "loadPriority": 14
+  },
+  "facts": {
+    "radiusKm": {
+      "value": 18,
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "measured",
+      "uncertainty": 1
+    },
+    "massKg": {
+      "value": {
+        "$gm": 0.0015
+      },
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "derived",
+      "uncertainty": {
+        "$gm": 0.0005
+      },
+      "detail": "massFromGM"
+    },
+    "gravity": {
+      "value": {
+        "$gm": 0.0015,
+        "$radiusKm": 18
+      },
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "derived",
+      "detail": "gravityFromGM"
+    },
+    "meanTempC": {
+      "published": false,
+      "reason": {
+        "en": "No temperature is published where its other figures come from: JPL's satellite tables carry size, mass and orbit, and no temperature.",
+        "fr": "Aucune température n'est publiée là où viennent ses autres chiffres : les tables des satellites de JPL portent la taille, la masse et l'orbite, pas de température.",
+        "es": "No se publica ninguna temperatura allí donde se obtienen sus demás cifras: las tablas de satélites del JPL recogen tamaño, masa y órbita, pero ninguna temperatura.",
+        "pt-BR": "Nenhuma temperatura é publicada onde vêm os seus outros números: as tabelas de satélites do JPL trazem tamanho, massa e órbita, mas nenhuma temperatura."
+      }
+    },
+    "axialTilt": {
+      "value": 0,
+      "published": false,
+      "reason": {
+        "en": "The IAU report on rotational elements, which gives the spin axis of most moons shown here, publishes no pole for this body, so a tilt relative to its orbit cannot be derived.",
+        "fr": "Le rapport de l'UAI sur les éléments de rotation, qui donne l'axe de la plupart des lunes affichées ici, ne publie aucun pôle pour ce corps : son inclinaison sur son orbite ne peut donc pas en être dérivée.",
+        "es": "El informe de la UAI sobre elementos de rotación, que da el eje de la mayoría de las lunas mostradas aquí, no publica ningún polo para este cuerpo, así que su inclinación respecto a su órbita no puede derivarse.",
+        "pt-BR": "O relatório da UAI sobre elementos de rotação, que dá o eixo da maioria das luas mostradas aqui, não publica nenhum polo para este corpo, portanto a sua inclinação em relação à órbita não pode ser derivada."
+      }
+    },
+    "distanceAU": {
+      "value": {
+        "$km": 49300
+      },
+      "source": "jpl-ssd-satellite-mean-elements",
+      "method": "measured"
+    },
+    "orbitPeriodDays": {
+      "value": 24.85465798523317,
+      "source": "jpl-ssd-satellite-mean-elements",
+      "method": "measured"
+    },
+    "rotationPeriod": {
+      "published": false,
+      "reason": {
+        "en": "No rotation period is published where its other figures come from: JPL's satellite tables have no rotation column.",
+        "fr": "Aucune période de rotation n'est publiée là où viennent ses autres chiffres : les tables des satellites de JPL n'ont pas de colonne de rotation.",
+        "es": "No se publica ningún periodo de rotación allí donde se obtienen sus demás cifras: las tablas de satélites del JPL no tienen columna de rotación.",
+        "pt-BR": "Nenhum período de rotação é publicado onde vêm os seus outros números: as tabelas de satélites do JPL não têm coluna de rotação."
+      }
+    }
+  },
+  "notes": {
+    "relativeOrbitalElements": "Elements MOYENS, mesures sur le binaire (cf. scripts/derive-relative-elements.mjs --mean). Les elements OSCULATEURS sont ici aberrants : cette lune orbite le barycentre Pluton-Charon, et Pluton oscille de 2 100 km autour de ce point, si bien que l'etat instantane decrit une conique qui n'existe pas (Styx : periode osculatrice 47 j pour 20,2 j reels). Le plan et le rayon sont donc moyennes sur 400 jours, ou le ballant se compense ; la periode vient du catalogue. Precision attendue : de l'ordre du ballant residuel, quelques pour cent.",
+    "textureResolutions": "Texture procédurale générée : base claire + une tache rougeâtre isolée, paramétrée sur la vraie tache rouge autour d'un cratère d'impact repérée par New Horizons (Showalter et al. 2015 — voir registry/products/textures)."
+  }
+}

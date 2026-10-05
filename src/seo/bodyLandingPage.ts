@@ -1,0 +1,1051 @@
+/**
+ * PAGES D'ATTERRISSAGE PAR CORPS — le seul levier d'audience qui restait.
+ *
+ * L'application est une URL unique : `?body=jupiter` est un paramètre, pas une route. Un
+ * moteur de recherche ne peut donc classer qu'UN sujet pour tout le site, alors que le
+ * catalogue en contient une cinquantaine. Ce module transforme chaque corps en une vraie page
+ * indexable — titre, description, canonique, contenu textuel propre — qui ouvre la scène
+ * directement sur ce corps.
+ *
+ * Trois contraintes ont dicté la forme, et il vaut mieux les connaître avant de la changer :
+ *
+ *   1. **Ce sont des FICHIERS statiques, pas des routes.** `dist/jupiter/index.html` est servi
+ *      par Firebase avant la réécriture SPA `** → /index.html`. Aucun changement d'hébergement
+ *      n'est nécessaire, et une page de corps ne peut pas porter `?body=` dans son URL.
+ *   2. **Pas de script en ligne.** La CSP du projet est `script-src 'self'` sans
+ *      `unsafe-inline` : impossible d'injecter le corps courant par un `<script>` généré. C'est
+ *      le CHEMIN qui porte l'information, lu par `core/permalink.ts::bodyFromPathname`.
+ *   3. **Du contenu réel, pas une coquille.** Cinquante pages quasi identiques seraient du
+ *      contenu pauvre et dupliqué. Chacune porte donc la description du catalogue et les
+ *      données mesurées de ce corps — la même matière que la fiche de l'application.
+ *
+ * Module PUR : il transforme du HTML et des données en HTML. L'écriture des fichiers vit dans
+ * le plugin Vite (`vite.config.ts`), pour que tout ce qui décide quelque chose soit testable
+ * sans build.
+ */
+import { flattenBodies, modelPath, ringTexturePath } from '@/config/catalog';
+import type {
+  CelestialBodyConfig,
+  CelestialConfig,
+  FactField,
+  FactMethod,
+  TextureQuality,
+} from '@/types';
+import {
+  bodyFact,
+  citationOrder,
+  displayedUncertainty,
+} from '@/core/bodyFacts';
+import { factSource } from '@/config/factSources';
+import { rotationLabelKey, temperatureLabelKey } from '@/core/factQuantity';
+import { KM_PER_AU } from '@/core/ScaleService';
+import { distanceDecimals } from '@/core/units';
+import { CARD_HEIGHT, CARD_WIDTH } from './socialCard';
+import { messages } from '@/i18n/allDictionaries';
+import { HTML_LANG, LOCALES, LOCALE_PATH, type Locale } from '@/i18n/locales';
+
+export interface BodyFact {
+  label: string;
+  value: string;
+  /** Numéro de la source dans la liste de la page (absent pour « Orbits »). */
+  source?: number;
+  method?: FactMethod;
+}
+
+/** Une source citée par la page, numérotée comme les renvois des faits. */
+export interface BodySource {
+  index: number;
+  text: string;
+  url: string;
+}
+
+/**
+ * De quoi PEINDRE la vignette de partage de ce corps — la matière première que le plugin de
+ * build passe à `socialCard.ts`. Décidée ici, dans le module pur, pour la même raison que tout
+ * le reste : ce qui décide quelque chose doit être testable sans build.
+ */
+export interface BodyVisual {
+  /**
+   * Carte équirectangulaire de la surface, chemin depuis la racine du dépôt, ou `null` pour un
+   * corps sans texture locale.
+   */
+  surface: string | null;
+  /** Teinte de repli, en composantes 0-255 — utilisée quand `surface` est `null`. */
+  fallback: [number, number, number];
+  /** Le corps ÉMET sa lumière (étoile) : pas de terminateur, un assombrissement centre-bord. */
+  emissive: boolean;
+  /**
+   * Anneau à peindre, ou `null`. Les rayons viennent du CATALOGUE (`config.ring`) : la vignette
+   * décrit la même représentation que la scène 3D, elle n'en invente pas une seconde.
+   */
+  ring: BodyRingVisual | null;
+  /**
+   * Modèle de forme (glTF binaire), chemin depuis la racine du dépôt, ou `null`.
+   *
+   * Prend le pas sur la sphère quand il existe : un petit corps n'a pas de mosaïque
+   * équirectangulaire publiée, donc sa vignette sphérique n'était qu'une bille de la teinte de
+   * repli. Ce qui l'identifie est sa SILHOUETTE, et elle est ici. Cf. `renderShape`.
+   */
+  model: string | null;
+}
+
+export interface BodyRingVisual {
+  /** Profil radial de l'anneau, chemin depuis la racine du dépôt. */
+  texture: string;
+  /** Rayon interne, en rayons du corps. */
+  innerRadius: number;
+  /** Rayon externe, en rayons du corps. */
+  outerRadius: number;
+}
+
+/**
+ * Repli quand le catalogue ne déclare aucune couleur : un gris moyen neutre. Surtout pas du
+ * noir — sur un fond spatial la sphère disparaîtrait, et une vignette vide se partage mal.
+ */
+const NEUTRAL_FALLBACK: [number, number, number] = [154, 154, 154];
+
+/** Du plus petit au plus grand — sert à choisir « la plus petite disponible » sans deviner. */
+const RESOLUTION_ORDER: readonly TextureQuality[] = ['1k', '2k', '4k', '8k'];
+
+/**
+ * Résolution de texture à charger pour une vignette.
+ *
+ * Le disque fait 440 px : au centre, un pixel écran couvre environ 0,4° de longitude, ce qu'une
+ * carte 2k (0,18°/texel) sature déjà largement. Charger la 8k d'une planète ne changerait rien
+ * à l'image et coûterait cinquante décodages inutiles au build. On prend donc la 2k quand elle
+ * existe, la 1k sinon (cinq lunes n'ont que celle-là), et à défaut la plus petite disponible —
+ * jamais la première du tableau, dont l'ordre est une convention d'affichage, pas un contrat.
+ */
+export function pickSurfaceResolution(
+  available: readonly TextureQuality[] | undefined
+): TextureQuality | null {
+  if (!available || available.length === 0) return null;
+  if (available.includes('2k')) return '2k';
+  if (available.includes('1k')) return '1k';
+  return (
+    [...available].sort(
+      (a, b) => RESOLUTION_ORDER.indexOf(a) - RESOLUTION_ORDER.indexOf(b)
+    )[0] ?? null
+  );
+}
+
+/** `0x9b6a45` → `[155, 106, 69]`. */
+function rgbFromHex(hex: number): [number, number, number] {
+  return [(hex >> 16) & 0xff, (hex >> 8) & 0xff, hex & 0xff];
+}
+
+/** Ce qu'il faut pour dessiner ce corps : sa carte de surface, sa couleur, son éclairage. */
+export function bodyVisual(
+  config: CelestialBodyConfig,
+  bodyName: string
+): BodyVisual {
+  const resolution = pickSurfaceResolution(config.textureResolutions?.surface);
+  const base = config.textures?.surface;
+  return {
+    surface:
+      base && resolution
+        ? `public/assets/textures/${base}_${resolution}.jpg`
+        : null,
+    fallback:
+      config.fallbackColor === undefined
+        ? NEUTRAL_FALLBACK
+        : rgbFromHex(config.fallbackColor),
+    emissive: config.kind === 'star',
+    ring: bodyRingVisual(config, bodyName),
+    // Le chemin du catalogue est une URL servie (`/assets/...`) ; ici il faut un chemin de
+    // DÉPÔT, parce que la vignette est fabriquée au build, avant qu'aucun serveur n'existe.
+    model: config.model
+      ? `public${modelPath(bodyName, config.model.resolutions.includes('2k') ? '2k' : config.model.resolutions[0]!)}`
+      : null,
+  };
+}
+
+/**
+ * L'anneau du corps, s'il en a un.
+ *
+ * Le chemin de la texture passe par `ringTexturePath`, comme la scène 3D — le nommage a une
+ * source unique et personne ne l'écrit à la main. La résolution suit la même règle que la
+ * surface : le profil radial d'un anneau est une image large et courte, la 2k y suffit
+ * largement pour 540 px de large.
+ */
+function bodyRingVisual(
+  config: CelestialBodyConfig,
+  bodyName: string
+): BodyRingVisual | null {
+  const ring = config.ring;
+  if (!ring) return null;
+  const resolution = pickSurfaceResolution(ring.textureResolutions);
+  if (!resolution) return null;
+  const base = ring.textures ?? ringTexturePath(bodyName);
+  return {
+    texture: `public/assets/textures/${base}_${resolution}.jpg`,
+    innerRadius: ring.innerRadius,
+    outerRadius: ring.outerRadius,
+  };
+}
+
+/**
+ * Ce que toute page d'atterrissage réécrit dans `index.html` — corps ou éclipse. Le reste de
+ * chaque type de page (faits, vignette à peindre, événement) vit dans son propre module.
+ */
+export interface LandingPage {
+  title: string;
+  description: string;
+  heading: string;
+  canonical: string;
+  image: string;
+  imageAlt: string;
+}
+
+export interface BodyPage extends LandingPage {
+  /**
+   * Chemin d'URL, en minuscules — `jupiter`, ou `es/jupiter` pour une langue non anglaise.
+   * C'est aussi le dossier écrit dans `dist/`.
+   */
+  slug: string;
+  /** Clé du corps dans le catalogue, indépendante de la langue : elle nomme la vignette. */
+  body: string;
+  locale: Locale;
+  displayName: string;
+  summary: string;
+  facts: BodyFact[];
+  /** Sources primaires des faits, dans l'ordre de leurs numéros. */
+  sources: BodySource[];
+  /**
+   * Les missions que l'archive du PDS déclare pour ce corps, chacune liée à sa page
+   * (`missionPages.ts`, 2026-10-04). Vide pour un corps qu'aucune mission ne vise.
+   */
+  missions: { name: string; href: string }[];
+  canonical: string;
+  /**
+   * Vignette de partage PROPRE à ce corps. Les cinquante et une pages partageaient jusqu'ici
+   * une vieille capture générique de la vue d'ensemble : un lien vers Titan montrait le Soleil.
+   * Pour un site qui vit du partage, c'est l'image qui décide du clic.
+   *
+   * Hors de `/assets/` volontairement : Firebase y applique un cache immuable d'un an, et ces
+   * fichiers-ci portent un nom STABLE (`/social/titan.jpg`) que chaque régénération réécrit.
+   * Un an de cache sur une URL qui change de contenu, c'est une vignette périmée qu'on ne peut
+   * plus corriger.
+   */
+  image: string;
+  imageAlt: string;
+  /** De quoi peindre cette vignette au build — voir `socialCard.ts`. */
+  visual: BodyVisual;
+}
+
+/** Échappement HTML — tout ce qui vient du catalogue traverse ceci. */
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+const NBSP = '\u202f';
+
+/** Séparateur de milliers fin ; le séparateur décimal vient de la langue. */
+export function formatNumber(
+  value: number,
+  decimals = 0,
+  locale: Locale = 'en'
+): string {
+  const fixed = value.toFixed(decimals);
+  const [whole, fraction] = fixed.split('.');
+  const grouped = (whole ?? '').replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
+  return fraction === undefined
+    ? grouped
+    : `${grouped}${PAGE_MARKS[locale].decimal}${fraction}`;
+}
+
+const SUPERSCRIPTS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+
+/** Masse en notation scientifique, exposant en vrais chiffres suscrits : `1.90 × 10²⁷ kg`. */
+export function formatMass(kilograms: number, locale: Locale = 'en'): string {
+  const exponent = Math.floor(Math.log10(Math.abs(kilograms)));
+  const mantissa = kilograms / 10 ** exponent;
+  const digits = [...String(exponent)]
+    .map((d) => SUPERSCRIPTS[Number(d)] ?? d)
+    .join('');
+  return `${formatNumber(mantissa, 2, locale)} × 10${digits} kg`;
+}
+
+/**
+ * LES LIBELLÉS DE FAITS D'UNE PAGE, dans les quatre langues — et pourquoi ils ne sont PAS ceux
+ * du dictionnaire de l'application.
+ *
+ * L'intention première était de les lire dans `i18n/locales` (une seule source pour un même
+ * mot). La MESURE l'a corrigée : quatre libellés y sont écrits autrement, parce qu'une fiche
+ * d'application a une colonne étroite là où une page a de la place — « Gravity » contre
+ * « Surface gravity », « Mean distance (Sun) » contre « Mean distance from the Sun ». Les
+ * reprendre aurait réécrit l'anglais de 57 pages indexées ET de 34 vignettes de partage, pour un
+ * lecteur qui n'y gagne rien. L'anglais ci-dessous est donc EXACTEMENT celui d'avant le lot 20,
+ * et c'est l'empreinte des documents générés qui le tient : une vignette modifiée le dirait.
+ */
+const FACT_LABELS = {
+  orbits: {
+    en: 'Orbits',
+    fr: 'En orbite autour de',
+    es: 'Orbita a',
+    'pt-BR': 'Orbita',
+  },
+  radius: { en: 'Radius', fr: 'Rayon', es: 'Radio', 'pt-BR': 'Raio' },
+  mass: { en: 'Mass', fr: 'Masse', es: 'Masa', 'pt-BR': 'Massa' },
+  gravity: {
+    en: 'Surface gravity',
+    fr: 'Gravité de surface',
+    es: 'Gravedad en la superficie',
+    'pt-BR': 'Gravidade na superfície',
+  },
+  distanceFromParent: {
+    en: 'Mean distance from {parent}',
+    fr: 'Distance moyenne à {parent}',
+    es: 'Distancia media a {parent}',
+    'pt-BR': 'Distância média a {parent}',
+  },
+  distanceFromSun: {
+    en: 'Mean distance from the Sun',
+    fr: 'Distance moyenne au Soleil',
+    es: 'Distancia media al Sol',
+    'pt-BR': 'Distância média ao Sol',
+  },
+  orbitalPeriod: {
+    en: 'Orbital period',
+    fr: 'Période orbitale',
+    es: 'Periodo orbital',
+    'pt-BR': 'Período orbital',
+  },
+  axialTilt: {
+    en: 'Axial tilt',
+    fr: 'Inclinaison axiale',
+    es: 'Inclinación axial',
+    'pt-BR': 'Inclinação axial',
+  },
+  knownMoons: {
+    en: 'Known moons',
+    fr: 'Lunes connues',
+    es: 'Lunas conocidas',
+    'pt-BR': 'Luas conhecidas',
+  },
+} as const;
+
+/** Un libellé de fait, dans une langue. */
+function factLabel(key: keyof typeof FACT_LABELS, locale: Locale): string {
+  return FACT_LABELS[key][locale];
+}
+
+/** Ordre des faits sur la page publique d'un corps. */
+const PAGE_FACT_ORDER: readonly FactField[] = [
+  'radiusKm',
+  'massKg',
+  'gravity',
+  'meanTempC',
+  'distanceAU',
+  'orbitPeriodDays',
+  'rotationPeriod',
+  'axialTilt',
+  'moonCount',
+];
+
+/**
+ * Les noms de mois, ecrits ici plutot que lus dans `Intl`.
+ *
+ * Une page statique doit rendre le MEME octet a chaque build, sur n'importe quelle machine :
+ * `Intl.DateTimeFormat` depend des donnees ICU du moteur, et un changement de version ferait
+ * bouger 444 pages sans qu'aucune source ait change. L'empreinte des documents generes
+ * l'attraperait, mais apres coup et sans en donner la raison.
+ */
+const MONTHS_EN = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const;
+const MONTHS_FR = [
+  'janvier',
+  'février',
+  'mars',
+  'avril',
+  'mai',
+  'juin',
+  'juillet',
+  'août',
+  'septembre',
+  'octobre',
+  'novembre',
+  'décembre',
+] as const;
+const MONTHS_ES = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+] as const;
+const MONTHS_PT = [
+  'janeiro',
+  'fevereiro',
+  'março',
+  'abril',
+  'maio',
+  'junho',
+  'julho',
+  'agosto',
+  'setembro',
+  'outubro',
+  'novembro',
+  'dezembro',
+] as const;
+
+/**
+ * La ponctuation des nombres et les mots de date, PAR LANGUE.
+ *
+ * Tout ceci etait ecrit en dur avec le commentaire « la page est statique et servie en anglais ».
+ * Depuis le lot 20 il y a quatre langues de pages, donc le point decimal anglais servi a un
+ * lecteur hispanophone serait une valeur mille fois fausse a la lecture.
+ */
+const PAGE_MARKS: Record<
+  Locale,
+  { decimal: string; months: readonly string[] }
+> = {
+  en: {
+    decimal: '.',
+    months: MONTHS_EN,
+  },
+  fr: { decimal: ',', months: MONTHS_FR },
+  es: { decimal: ',', months: MONTHS_ES },
+  'pt-BR': { decimal: ',', months: MONTHS_PT },
+};
+
+/** `2026-08` → « August 2026 » / « août 2026 » / « agosto de 2026 ». */
+function formatAsOf(asOf: string, locale: Locale = 'en'): string {
+  const [year, month] = asOf.split('-').map(Number);
+  if (!month) return String(year);
+  const name = PAGE_MARKS[locale].months[month - 1]!;
+  // L'anglais et le français juxtaposent, l'espagnol et le portugais lient par « de ».
+  return locale === 'es' || locale === 'pt-BR'
+    ? `${name} de ${year}`
+    : `${name} ${year}`;
+}
+
+function formatRotation(hours: number, locale: Locale = 'en'): string {
+  const dict = messages[locale];
+  return hours < 48
+    ? `${formatNumber(hours, 2, locale)} ${dict['unit.hours']}`
+    : `${formatNumber(hours / 24, hours / 24 < 10 ? 2 : 0, locale)} ${dict['unit.days']}`;
+}
+
+/**
+ * Faits sourcés de ce corps. La décision de ce qui s'affiche vient de `core/bodyFacts.ts`,
+ * partagée avec la fiche de l'application. Un champ non affichable (déclaré inconnu, pas encore
+ * sourcé, hors sujet) est simplement OMIS : une page statique qui aligne des marques « n/a »
+ * n'apprend rien, alors que la fiche de l'application, elle, affiche la raison.
+ */
+export function bodyFacts(
+  config: CelestialBodyConfig,
+  parentDisplayName?: string,
+  locale: Locale = 'en'
+): BodyFact[] {
+  return bodyFactsWithSources(config, parentDisplayName, locale).facts;
+}
+
+export function bodyFactsWithSources(
+  config: CelestialBodyConfig,
+  parentDisplayName?: string,
+  locale: Locale = 'en'
+): { facts: BodyFact[]; sources: BodySource[] } {
+  // LES LIBELLES VIENNENT DU DICTIONNAIRE DE L'APPLICATION, jamais d'un second jeu de chaines.
+  // Ils etaient ecrits en dur ici (`'Radius'`, `'Mass'`…) alors que `locales.ts` portait deja
+  // `stat.radius` et `stat.mass` : deux verites a tenir pour le meme mot, et c'est la derive que
+  // ce depot corrige partout ailleurs. Une seule source, et la page devient traduisible sans un
+  // mot de plus.
+  const dict = messages[locale];
+  const facts: BodyFact[] = [];
+  if (!config.realData) return { facts, sources: [] };
+  const entries = PAGE_FACT_ORDER.map((field) => bodyFact(config, field));
+  const citations = citationOrder(entries);
+
+  if (parentDisplayName)
+    facts.push({
+      label: factLabel('orbits', locale),
+      value: parentDisplayName,
+    });
+  for (const entry of entries) {
+    if (entry.status !== 'value') continue;
+    // Les pages publiques ne décrivent que des corps du catalogue, dont tous les faits sont
+    // numériques : les faits DATÉS n'existent que pour la couche instrument, qui n'a pas de
+    // page (cf. `config/navigable.ts`). Le filtre est explicite plutôt que supposé.
+    if (entry.value.kind !== 'number') continue;
+    const v = entry.value.value;
+    let label: string;
+    let value: string;
+    switch (entry.field) {
+      case 'radiusKm':
+        // Décimales selon l'ordre de grandeur, même règle que la fiche de l'application. Sans
+        // elle Bennu, 242 mètres de rayon, annonçait « 0 km » sur sa page ET sur sa vignette.
+        label = factLabel('radius', locale);
+        value = `${formatNumber(v, distanceDecimals(v), locale)} km`;
+        break;
+      case 'massKg':
+        label = factLabel('mass', locale);
+        value = formatMass(v, locale);
+        break;
+      case 'gravity':
+        label = factLabel('gravity', locale);
+        value = `${formatNumber(v, v < 0.1 ? 4 : 2, locale)} m/s²`;
+        break;
+      case 'meanTempC':
+        // Le libellé suit la grandeur que la source déclare (`core/factQuantity.ts`), comme sur
+        // la fiche : la Terre a une moyenne, Jupiter une moyenne à 1 bar, le Soleil une
+        // température effective, Encelade une température de surface.
+        label = dict[temperatureLabelKey(entry.provenance)];
+        value = `${formatNumber(v, 0, locale)} °C`;
+        break;
+      case 'distanceAU':
+        // Demi-grand axe mesuré depuis le PARENT pour un satellite : la page de Titan annonçait
+        // « Distance from the Sun: 0.008 AU », soit sa distance à Saturne sous le mauvais libellé.
+        if (parentDisplayName) {
+          label = factLabel('distanceFromParent', locale).replace(
+            '{parent}',
+            parentDisplayName
+          );
+          value = `${formatNumber(v * KM_PER_AU, 0, locale)} km`;
+        } else {
+          label = factLabel('distanceFromSun', locale);
+          value = `${formatNumber(v, 3, locale)} ${dict['unit.au']}`;
+        }
+        break;
+      case 'orbitPeriodDays':
+        label = factLabel('orbitalPeriod', locale);
+        value = `${formatNumber(v, v < 10 ? 2 : 0, locale)} ${dict['unit.days']}`;
+        break;
+      case 'rotationPeriod':
+        // Sidérale, synodique ou neutre selon ce que la source déclare (`core/factQuantity.ts`).
+        label = dict[rotationLabelKey(entry.provenance)];
+        value = formatRotation(v, locale);
+        break;
+      case 'axialTilt':
+        label = factLabel('axialTilt', locale);
+        value = `${formatNumber((v * 180) / Math.PI, 1, locale)}°`;
+        break;
+      case 'moonCount':
+        label = factLabel('knownMoons', locale);
+        value = formatNumber(v, 0, locale);
+        break;
+      default:
+        // Faits propres à la couche instrument : jamais dans `PAGE_FACT_ORDER`, donc jamais ici.
+        continue;
+    }
+    const uncertainty = displayedUncertainty(entry);
+    if (uncertainty !== null)
+      value += ` (± ${formatNumber(uncertainty * 100, 0, locale)} %)`;
+    if (entry.provenance.asOf)
+      value += ` (${dict['fact.asOf'].replace('{date}', formatAsOf(entry.provenance.asOf, locale))})`;
+    facts.push({
+      label,
+      value,
+      source: citations.get(entry.provenance.source),
+      method: entry.provenance.method,
+    });
+  }
+
+  const sources: BodySource[] = [];
+  for (const [id, index] of citations) {
+    const source = factSource(id);
+    if (!source) throw new Error(`source inconnue du registre : ${id}`);
+    sources.push({
+      index,
+      text: [
+        `${source.publisher}, ${source.title}`,
+        source.kind === 'preprint'
+          ? dict['fact.kind.preprint']
+          : source.journal,
+        source.published?.slice(0, 4),
+        dict['fact.accessed'].replace('{date}', source.accessed),
+      ]
+        .filter(Boolean)
+        .join('. '),
+      url: source.url,
+    });
+  }
+  return { facts, sources };
+}
+
+/**
+ * Coupe une description à la longueur utile d'une meta.
+ *
+ * Une PHRASE complète d'abord, un mot ensuite : couper au milieu d'une proposition
+ * (« … Its Great… ») se lit mal dans un résultat de recherche, et c'est là que ce texte est
+ * vu. On ne recule jusqu'à une fin de phrase que si elle garde l'essentiel du budget.
+ */
+export function trimForMeta(text: string, max = 155): string {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  if (clean.length <= max) return clean;
+  const cut = clean.slice(0, max);
+  const lastSentence = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '));
+  if (lastSentence >= max * 0.5) return cut.slice(0, lastSentence + 1);
+  // Seuil RELATIF au budget, pas absolu : écrit `> 40`, la règle du mot devenait inerte dès
+  // qu'on demandait une coupe courte (le test l'a montré sur un budget de 20).
+  const lastSpace = cut.lastIndexOf(' ');
+  return `${(lastSpace >= max * 0.5 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
+}
+
+/**
+ * Une page par corps SÉLECTIONNABLE — exactement l'ensemble que l'application sait ouvrir
+ * (`flattenBodies` moins la skybox). Une page menant vers un corps qu'on ne peut pas
+ * sélectionner serait une promesse non tenue.
+ */
+/**
+ * Le texte de page qui n'est ni dans le dictionnaire ni dans le catalogue : les quatre phrases
+ * propres a une page de corps. Ecrites ici, dans les quatre langues, parce qu'elles n'existent
+ * que sur ces pages et que le dictionnaire de l'application n'a pas a les porter.
+ */
+const PAGE_TEXT = {
+  /** Repli de description quand le catalogue n'en a pas pour ce corps. */
+  fallbackDescription: {
+    en: '{name} in an interactive 3D solar system, at its real position right now, from NASA/JPL ephemeris data.',
+    fr: '{name} dans un système solaire 3D interactif, à sa position réelle en ce moment, à partir des éphémérides NASA/JPL.',
+    es: '{name} en un sistema solar 3D interactivo, en su posición real en este momento, a partir de las efemérides NASA/JPL.',
+    'pt-BR':
+      '{name} em um Sistema Solar 3D interativo, na sua posição real neste momento, a partir das efemérides NASA/JPL.',
+  },
+  /** Phrase d'appel ajoutée APRÈS la troncature de la meta. */
+  callToAction: {
+    en: 'See {name} in 3D, at its real position right now.',
+    fr: 'Voir {name} en 3D, à sa position réelle en ce moment.',
+    es: 'Ver {name} en 3D, en su posición real en este momento.',
+    'pt-BR': 'Veja {name} em 3D, na sua posição real neste momento.',
+  },
+  /** Texte alternatif de la vignette : ce que l'image MONTRE. */
+  imageAlt: {
+    en: '{name} rendered as a 3D sphere by Galaxy',
+    fr: '{name} rendu en sphère 3D par Galaxy',
+    es: '{name} representado como una esfera 3D por Galaxy',
+    'pt-BR': '{name} renderizado como uma esfera 3D pela Galaxy',
+  },
+  /** Le corps du bloc indexable, sous le canevas. */
+  intro: {
+    en: '{name} is shown at its real position, computed from NASA/JPL ephemeris data. The view opens on {name}; you can travel in time, switch between the educational overview and the true-scale voyage, and compare it with every other body of the solar system.',
+    fr: '{name} est montré à sa position réelle, calculée à partir des éphémérides NASA/JPL. La vue s’ouvre sur {name} ; vous pouvez voyager dans le temps, basculer entre la vue d’ensemble éducative et le voyage à vraie échelle, et le comparer à tous les autres corps du système solaire.',
+    es: '{name} se muestra en su posición real, calculada a partir de las efemérides NASA/JPL. La vista se abre sobre {name}; puede viajar en el tiempo, alternar entre la vista general educativa y el viaje a escala real, y compararlo con todos los demás cuerpos del sistema solar.',
+    'pt-BR':
+      '{name} é mostrado na sua posição real, calculada a partir das efemérides NASA/JPL. A vista se abre sobre {name}; você pode viajar no tempo, alternar entre a visão geral educativa e a viagem em escala real, e compará-lo com todos os outros corpos do Sistema Solar.',
+  },
+  /** Titre de la liste des sources primaires. */
+  sources: {
+    en: 'Sources',
+    fr: 'Sources',
+    es: 'Fuentes',
+    'pt-BR': 'Fontes',
+  },
+} as const;
+
+/** Une phrase de page, dans une langue, avec son `{name}` rempli. */
+function pageText(
+  key: keyof typeof PAGE_TEXT,
+  locale: Locale,
+  name = ''
+): string {
+  return PAGE_TEXT[key][locale].replace(/\{name\}/g, name);
+}
+
+/**
+ * Le chemin d'une page de corps dans une langue : `/jupiter/` en anglais, `/es/jupiter/` sinon.
+ *
+ * L'anglais reste a la racine parce que ses URL sont indexees depuis le 2026-09-10, et une URL
+ * publiee ne se deplace pas. Meme regle que les pages documentaires (`documentPage.docPath`).
+ */
+export function bodyPagePath(name: string, locale: Locale): string {
+  const segment = LOCALE_PATH[locale];
+  const slug = name.toLowerCase();
+  return segment === '' ? slug : `${segment}/${slug}`;
+}
+
+export function bodyLandingPages(
+  config: CelestialConfig,
+  origin: string,
+  locale: Locale = 'en',
+  /** Corps → missions qui le visent, chemin sans langue (`missions/voyager`). */
+  missions: ReadonlyMap<
+    string,
+    readonly { name: string; slug: string }[]
+  > = new Map()
+): BodyPage[] {
+  const flat = flattenBodies(config);
+  const parentOf = new Map<string, string>();
+  for (const [name, cfg] of Object.entries(config.bodies))
+    for (const satellite of Object.keys(cfg.satellites ?? {}))
+      parentOf.set(satellite, name);
+
+  const dict = messages[locale];
+  const displayOf = (name: string): string => {
+    const cfg = flat.get(name);
+    return (
+      cfg?.displayName?.[locale] ??
+      cfg?.displayName?.en ??
+      name.charAt(0).toUpperCase() + name.slice(1)
+    );
+  };
+
+  const pages: BodyPage[] = [];
+  for (const [name, cfg] of flat.entries()) {
+    if (cfg.kind === 'skybox') continue;
+    const slug = bodyPagePath(name, locale);
+    const displayName = displayOf(name);
+    const parent = parentOf.get(name);
+    const description =
+      cfg.realData?.description?.[locale] ??
+      cfg.realData?.description?.en ??
+      '';
+    const { facts, sources } = bodyFactsWithSources(
+      cfg,
+      parent ? displayOf(parent) : undefined,
+      locale
+    );
+    pages.push({
+      slug,
+      displayName,
+      // Titre COURT, sans nom de site. Mesuré sur les 51 pages générées : le format précédent
+      // (« … — live position, size and orbit | Solar System 3D ») faisait 58 à 65 caractères et
+      // 43 d'entre eux se faisaient tronquer dans les résultats de recherche. Le nom du corps
+      // était déjà en tête, donc la coupe mangeait le nom du site plutôt que le sujet — mais
+      // une ellipse en fin de titre reste du bruit. Google ajoute lui-même le nom du site quand
+      // il le juge utile ; le budget est mieux dépensé sur ce qui distingue la page.
+      body: name,
+      locale,
+      title: dict['title.body'].replace('{name}', displayName),
+      // La phrase d'appel est ajoutée APRÈS la troncature : sinon c'est elle qui se fait
+      // couper en plein milieu dans les résultats de recherche, ce qui est exactement
+      // l'endroit où elle doit être lisible.
+      description: description
+        ? `${trimForMeta(description, 92)} ${pageText('callToAction', locale, displayName)}`
+        : pageText('fallbackDescription', locale, displayName),
+      heading: dict['title.body'].replace('{name}', displayName),
+      summary: description,
+      facts,
+      sources,
+      // Même règle de chemin que les documents (`documentPage.docPath`), écrite ici sans
+      // l'importer : `documentPage` importe déjà ce module.
+      missions: (missions.get(name) ?? []).map((mission) => ({
+        name: mission.name,
+        href:
+          LOCALE_PATH[locale] === ''
+            ? `/${mission.slug}/`
+            : `/${LOCALE_PATH[locale]}/${mission.slug}/`,
+      })),
+      // Barre finale VOULUE. La page est `dist/<slug>/index.html` : Firebase sert un index de
+      // répertoire et redirige `/jupiter` (301) vers `/jupiter/`. Un canonique sans barre
+      // désignerait donc une URL qui redirige — le canonique doit nommer l'adresse finale.
+      // Vérifié localement : `vite preview` sert la page sur `/jupiter/` et retombe sur le
+      // shell SPA sur `/jupiter`, même distinction.
+      canonical: `${origin}/${slug}/`,
+      // La vignette est PARTAGÉE par les quatre langues : `socialCard.ts` peint la texture du
+      // corps, sans un mot de texte, donc une page espagnole n'a aucune raison d'en avoir une
+      // autre. C'est aussi ce qui garde les 57 vignettes à 57 (garde de l'invariant du lot).
+      image: `${origin}/social/${name.toLowerCase()}.jpg`,
+      // Décrit ce que l'image MONTRE, pas ce que la page raconte : c'est un texte alternatif,
+      // lu à voix haute par un lecteur d'écran sur une carte de partage.
+      imageAlt: pageText('imageAlt', locale, displayName),
+      visual: bodyVisual(cfg, name),
+    });
+  }
+  return pages.sort((a, b) => a.slug.localeCompare(b.slug));
+}
+
+/**
+ * Remplace une portion délimitée, en ÉCHOUANT si le repère n'existe pas.
+ *
+ * Le mode d'échec à éviter est connu de ce dépôt : un `replace` dont le motif ne correspond
+ * plus devient un no-op SILENCIEUX. Ici cela produirait cinquante pages portant toutes le
+ * titre de l'accueil — du contenu dupliqué, exactement ce que ces pages existent pour éviter,
+ * et rien pour le signaler. Une mise à jour de Vite ou du HTML doit casser le build, pas le
+ * référencement.
+ */
+function replaceBetween(
+  html: string,
+  start: string,
+  end: string,
+  replacement: string
+): string {
+  const from = html.indexOf(start);
+  if (from < 0) throw new Error(`repère introuvable dans le HTML : ${start}`);
+  const to = html.indexOf(end, from + start.length);
+  if (to < 0) throw new Error(`fin introuvable dans le HTML : ${end}`);
+  return html.slice(0, from) + start + replacement + html.slice(to);
+}
+
+/** Remplace la valeur d'un attribut `content="…"` (ou `href`) du bloc qui suit `anchor`. */
+function replaceAttrAfter(
+  html: string,
+  anchor: string,
+  attribute: string,
+  value: string
+): string {
+  const anchorAt = html.indexOf(anchor);
+  if (anchorAt < 0) throw new Error(`repère introuvable : ${anchor}`);
+  const attrAt = html.indexOf(`${attribute}="`, anchorAt);
+  if (attrAt < 0)
+    throw new Error(`attribut ${attribute} introuvable après ${anchor}`);
+  const valueAt = attrAt + attribute.length + 2;
+  const valueEnd = html.indexOf('"', valueAt);
+  if (valueEnd < 0) throw new Error(`valeur non terminée pour ${attribute}`);
+  return html.slice(0, valueAt) + escapeHtml(value) + html.slice(valueEnd);
+}
+
+/** Le contenu textuel indexable de la page, réutilisé par `<noscript>` et le bloc lecteur. */
+function contentBlock(page: BodyPage): string {
+  const facts = page.facts
+    .map(
+      (fact) =>
+        `<dt>${escapeHtml(fact.label)}</dt><dd>${escapeHtml(fact.value)}` +
+        (fact.source === undefined
+          ? ''
+          : `<sup><a href="#source-${fact.source}">${fact.source}</a></sup>` +
+            // `fact.method.derived` vaut DÉJÀ « derived value » / « valeur dérivée » : le
+            // gabarit « {method} value » qui l'enveloppait rendait « (derived value value) »,
+            // en anglais comme dans les trois autres langues. Trouvé en RELISANT la page
+            // rendue, pas par un test : aucune garde ne comparait cette parenthèse. Il y en a
+            // une maintenant (`localisedPages.test.ts`).
+            (fact.method === 'measured'
+              ? ''
+              : ` (${messages[page.locale][`fact.method.${fact.method}` as 'fact.method.derived']})`)) +
+        '</dd>'
+    )
+    .join('');
+  // Chaque valeur renvoie à sa source primaire : c'est ce qui distingue ces pages d'une copie
+  // d'encyclopédie, et ce qu'un enseignant vérifie en premier.
+  const sources = page.sources.length
+    ? `<h2>${escapeHtml(pageText('sources', page.locale))}</h2><ol>${page.sources
+        .map(
+          (source) =>
+            `<li id="source-${source.index}" value="${source.index}">${escapeHtml(source.text)}. ` +
+            `<a href="${escapeHtml(source.url)}" rel="noopener noreferrer">${escapeHtml(source.url)}</a></li>`
+        )
+        .join('')}</ol>`
+    : '';
+  const summary = page.summary ? `<p>${escapeHtml(page.summary)}</p>` : '';
+  // Le même titre que le bloc de la fiche (`bi.missions.label`), et la même note : une cible
+  // déclarée n'est pas un relevé d'observation, et le début est celui du projet.
+  const missions = page.missions.length
+    ? `<h2>${escapeHtml(messages[page.locale]['bi.missions.label'])}</h2><ul>${page.missions
+        .map(
+          (mission) =>
+            `<li><a href="${escapeHtml(mission.href)}">${escapeHtml(mission.name)}</a></li>`
+        )
+        .join('')}</ul>`
+    : '';
+  return (
+    summary +
+    `<p>${escapeHtml(pageText('intro', page.locale, page.displayName))}</p>` +
+    (facts ? `<dl>${facts}</dl>` : '') +
+    missions +
+    sources
+  );
+}
+
+/**
+ * Une page de corps à partir du `index.html` CONSTRUIT : mêmes scripts, mêmes styles, mêmes
+ * chemins absolus (`/assets/…`), seules les balises de tête et le contenu textuel changent.
+ * La page EST donc l'application, ouverte sur ce corps — pas une page intermédiaire qui
+ * demanderait un clic de plus.
+ */
+export function renderBodyPage(
+  baseHtml: string,
+  page: BodyPage,
+  origin = new URL(page.canonical).origin
+): string {
+  // Les quatre adresses de CE corps, dérivées de la même règle que son propre chemin.
+  const alternates = Object.fromEntries(
+    LOCALES.map((locale) => [
+      locale,
+      `${origin}/${bodyPagePath(page.body, locale)}/`,
+    ])
+  ) as Record<Locale, string>;
+  // Données structurées PROPRES à la page. Sans cela, cinquante et une pages annonceraient la
+  // même entité `WebApplication`, mots-clés compris — de la donnée structurée dupliquée, ce que
+  // ces pages existent précisément pour éviter. Ici chaque page se décrit elle-même et se
+  // rattache à l'application, ce qui est à la fois vrai et distinct.
+  return renderLandingPage(
+    baseHtml,
+    page,
+    contentBlock(page),
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      name: page.title,
+      description: page.description,
+      url: page.canonical,
+      inLanguage: page.locale,
+      isPartOf: {
+        '@type': 'WebApplication',
+        name: 'Galaxy',
+        url: `${origin}/`,
+        applicationCategory: 'EducationalApplication',
+      },
+      about: { '@type': 'Thing', name: page.displayName },
+    },
+    page.locale,
+    alternates
+  );
+}
+
+/**
+ * Réécrit les balises de tête, les données structurées et le contenu textuel d'`index.html`.
+ * Partagé par les pages de corps et d'éclipse : les quatre contraintes de l'en-tête (fichier
+ * statique, pas de script en ligne, contenu réel, repère absent = build cassé) valent pour les
+ * deux, et une seule implémentation les tient.
+ */
+export function renderLandingPage(
+  baseHtml: string,
+  page: LandingPage,
+  block: string,
+  structuredData: object,
+  /**
+   * La langue de la page et ses variantes, quand elle en a.
+   *
+   * `alternates` porte l'URL ABSOLUE de chaque langue, `x-default` compris : un `hreflang` non
+   * RÉCIPROQUE est ignoré par Google, donc chaque page doit nommer toutes ses sœurs, elle-même
+   * incluse. Absent, rien n'est déclaré — c'était l'état des pages de corps avant le lot 20,
+   * quand elles n'existaient qu'en anglais.
+   */
+  locale: Locale = 'en',
+  alternates: Readonly<Partial<Record<Locale, string>>> = {}
+): string {
+  let html = baseHtml;
+  html = replaceAttrAfter(html, '<html', 'lang', HTML_LANG[locale]);
+  html = replaceBetween(html, '<title>', '</title>', escapeHtml(page.title));
+  html = replaceAttrAfter(
+    html,
+    'name="description"',
+    'content',
+    page.description
+  );
+  html = replaceAttrAfter(html, 'rel="canonical"', 'href', page.canonical);
+  const links = LOCALES.filter(
+    (candidate) => alternates[candidate] !== undefined
+  )
+    .map(
+      (candidate) =>
+        `<link rel="alternate" hreflang="${candidate}" href="${escapeHtml(alternates[candidate]!)}" />`
+    )
+    .join('\n    ');
+  if (links !== '') {
+    // Les variantes de l'ACCUEIL sont héritées d'`index.html` et pointent toutes vers `/` : les
+    // garder ferait déclarer à cette page huit variantes dont trois menant ailleurs, c'est-à-dire
+    // un ensemble contradictoire qu'un moteur ignore purement. On les RETIRE avant d'écrire les
+    // siennes. Même famille de piège que `og:image:width` documenté plus bas : une balise héritée
+    // est une balise qu'on n'a pas écrite, donc qu'on oublie de regarder.
+    html = html.replace(/\s*<link\s+rel="alternate"[\s\S]*?\/>/g, '');
+    html = html.replace(
+      `<link rel="canonical" href="${escapeHtml(page.canonical)}" />`,
+      `<link rel="canonical" href="${escapeHtml(page.canonical)}" />\n    ${links}\n    <link rel="alternate" hreflang="x-default" href="${escapeHtml(alternates.en ?? page.canonical)}" />`
+    );
+  }
+  html = replaceAttrAfter(html, 'property="og:title"', 'content', page.title);
+  html = replaceAttrAfter(
+    html,
+    'property="og:description"',
+    'content',
+    page.description
+  );
+  html = replaceAttrAfter(html, 'property="og:url"', 'content', page.canonical);
+  // L'ancre porte son guillemet fermant : sans lui `property="og:image` correspondrait aussi à
+  // `og:image:width`, et selon l'ordre des balises la vignette finirait écrite dans la largeur.
+  html = replaceAttrAfter(html, 'property="og:image"', 'content', page.image);
+  html = replaceAttrAfter(
+    html,
+    'property="og:image:alt"',
+    'content',
+    page.imageAlt
+  );
+  // Réécrites depuis les constantes de `socialCard.ts` plutôt que laissées telles quelles : ces
+  // deux nombres sont ce sur quoi un réseau social réserve sa place avant d'avoir téléchargé
+  // l'image. Les laisser en dur, c'est accepter qu'un jour on change le format de la carte et
+  // que cinquante et une pages annoncent des dimensions fausses sans que rien ne le dise.
+  html = replaceAttrAfter(
+    html,
+    'property="og:image:width"',
+    'content',
+    String(CARD_WIDTH)
+  );
+  html = replaceAttrAfter(
+    html,
+    'property="og:image:height"',
+    'content',
+    String(CARD_HEIGHT)
+  );
+  html = replaceAttrAfter(html, 'name="twitter:image"', 'content', page.image);
+  html = replaceAttrAfter(html, 'name="twitter:title"', 'content', page.title);
+  html = replaceAttrAfter(
+    html,
+    'name="twitter:description"',
+    'content',
+    page.description
+  );
+
+  html = replaceBetween(
+    html,
+    '<script type="application/ld+json">',
+    '</script>',
+    JSON.stringify(structuredData)
+  );
+
+  html = replaceBetween(
+    html,
+    '<h1 class="sr-only">',
+    '</h1>',
+    escapeHtml(page.heading)
+  );
+  html = replaceBetween(html, '<noscript>', '</noscript>', block);
+  // Le même contenu, cette fois hors de `<noscript>` : une page rendue par un crawler moderne
+  // (qui exécute donc le script) ne verrait sinon qu'un canevas WebGL et aucun mot à indexer.
+  //
+  // PAS de `aria-hidden` ici, et c'est délibéré. Masqué à l'œil ET aux lecteurs d'écran, ce
+  // bloc n'aurait servi qu'aux robots — c'est la forme même du cloaking, et le risque de
+  // sanction dépasse de loin le gain. Sans lui, il devient ce qu'il aurait toujours dû être :
+  // l'alternative textuelle d'un canevas WebGL, c'est-à-dire la seule description de la scène
+  // qu'un utilisateur de lecteur d'écran arrivant sur `/jupiter/` puisse entendre. Utile à
+  // quelqu'un, donc légitime pour un moteur.
+  html = html.replace(
+    '</noscript>',
+    `</noscript><section class="sr-only">${block}</section>`
+  );
+  return html;
+}
+
+/** Sitemap complet : accueil, confidentialité, puis un `url` par page (corps, éclipses). */
+export function renderSitemap(
+  pages: readonly Pick<LandingPage, 'canonical'>[],
+  origin: string,
+  lastmod: string
+): string {
+  const entry = (loc: string, priority: string, freq: string): string =>
+    `  <url>\n    <loc>${escapeHtml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n` +
+    `    <changefreq>${freq}</changefreq>\n    <priority>${priority}</priority>\n  </url>`;
+  const urls = [
+    entry(`${origin}/`, '1.0', 'monthly'),
+    entry(`${origin}/privacy.html`, '0.3', 'yearly'),
+    ...pages.map((page) => entry(page.canonical, '0.7', 'monthly')),
+  ];
+  return (
+    '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+    urls.join('\n') +
+    '\n</urlset>\n'
+  );
+}

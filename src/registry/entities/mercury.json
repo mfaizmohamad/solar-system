@@ -1,0 +1,105 @@
+{
+  "$schema": "../schema/entity.schema.json",
+  "id": "mercury",
+  "targetClass": "planet",
+  "source": "catalogue",
+  "config": {
+    "kind": "planet",
+    "displayName": {
+      "en": "Mercury",
+      "fr": "Mercure",
+      "es": "Mercurio",
+      "pt-BR": "Mercúrio"
+    },
+    "radius": 0.38,
+    "rotationSpeed": {
+      "$rotationHours": 1407.6
+    },
+    "orbitalColor": "0xb8b0a5",
+    "textureResolutions": {
+      "surface": [
+        "8k",
+        "4k",
+        "2k",
+        "1k"
+      ]
+    },
+    "realData": {
+      "orbitalInclination": {
+        "$deg": 7.005
+      },
+      "ascendingNode": {
+        "$deg": 48.331
+      },
+      "description": {
+        "en": "The smallest planet and the closest to the Sun. With no atmosphere, it swings from +430 °C by day to -180 °C at night.",
+        "fr": "La plus petite planète et la plus proche du Soleil. Sans atmosphère, elle passe de +430 °C le jour à -180 °C la nuit.",
+        "es": "El planeta más pequeño y el más cercano al Sol. Sin atmósfera, pasa de +430 °C de día a -180 °C de noche.",
+        "pt-BR": "O menor planeta e o mais próximo do Sol. Sem atmosfera, passa de +430 °C de dia para -180 °C de noite."
+      },
+      "wiki": {
+        "en": "https://en.wikipedia.org/wiki/Mercury_(planet)",
+        "fr": "https://fr.wikipedia.org/wiki/Mercure_(plan%C3%A8te)",
+        "es": "https://es.wikipedia.org/wiki/Mercurio_(planeta)",
+        "pt-BR": "https://pt.wikipedia.org/wiki/Merc%C3%BArio_(planeta)"
+      }
+    },
+    "astroBody": "Mercury",
+    "cameraDistance": {
+      "educ": 2,
+      "explo": {
+        "$cameraFromRadiusKm": 2440
+      }
+    },
+    "loadPriority": 8
+  },
+  "facts": {
+    "radiusKm": {
+      "value": 2439.7,
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "massKg": {
+      "value": 3.301e+23,
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "gravity": {
+      "value": 3.7,
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "meanTempC": {
+      "value": 167,
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "moonCount": {
+      "value": 0,
+      "source": "nssdca-fact-sheets",
+      "method": "measured",
+      "asOf": "2024-01-11"
+    },
+    "axialTilt": {
+      "value": {
+        "$deg": 0.034
+      },
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "distanceAU": {
+      "value": 0.38709893,
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "orbitPeriodDays": {
+      "value": 87.969,
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "rotationPeriod": {
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    }
+  }
+}

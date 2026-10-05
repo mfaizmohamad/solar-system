@@ -1,0 +1,569 @@
+import { describe, expect, it, vi } from 'vitest';
+import * as THREE from 'three';
+import { createDatedTextureLayer } from './datedTextureLayer';
+import { EmptyTileError } from '@/core/tileContent';
+import type { SourceCandidate } from '@/core/layerSource';
+import type { PublicAPI } from '@/SolarSystemApp';
+
+/** Fabrique un candidat de test (url = id pour tracer les chargements). */
+function cand(id: string, approx = false): SourceCandidate {
+  return { id, label: id, url: id, realDate: id, approx, product: null };
+}
+
+/**
+ * Faux `api` minimal : le socle n'utilise que `orbitalMechanics.simulationDate` et
+ * `animationSystem.onFrame`. `tick()` déclenche manuellement les callbacks de frame ;
+ * `date` est mutable pour simuler le time-travel.
+ */
+function makeApi(initialDate: Date) {
+  const frameCbs = new Set<() => void>();
+  const state = { date: initialDate };
+  const api = {
+    orbitalMechanics: {
+      get simulationDate() {
+        return state.date;
+      },
+    },
+    animationSystem: {
+      onFrame(cb: () => void) {
+        frameCbs.add(cb);
+        return () => frameCbs.delete(cb);
+      },
+    },
+  } as unknown as PublicAPI;
+  return {
+    api,
+    setDate: (d: Date) => {
+      state.date = d;
+    },
+    tick: () => frameCbs.forEach((cb) => cb()),
+    frameCount: () => frameCbs.size,
+  };
+}
+
+// Avance le throttle interne (checkIntervalMs) : performance.now est réel, donc on
+// utilise checkIntervalMs:0 dans les tests pour ne pas dépendre du temps.
+const flush = () => new Promise((r) => setTimeout(r, 0));
+
+describe('createDatedTextureLayer', () => {
+  it('is inert when disabled', () => {
+    const { api } = makeApi(new Date('2026-08-09T10:00:00Z'));
+    const apply = vi.fn();
+    const cleanup = createDatedTextureLayer(api, {
+      name: 'Test',
+      enabled: false,
+      keyForDate: () => 'k',
+      urlForKey: () => 'u',
+      apply,
+      loadTexture: async () => new THREE.Texture(),
+    });
+    expect(apply).not.toHaveBeenCalled();
+    cleanup();
+  });
+
+  it('loads and applies the image for the initial date', async () => {
+    const { api } = makeApi(new Date('2026-08-09T10:00:00Z'));
+    const apply = vi.fn();
+    const load = vi.fn(async () => new THREE.Texture());
+    const cleanup = createDatedTextureLayer(api, {
+      name: 'Test',
+      enabled: true,
+      keyForDate: (d) => d.toISOString().slice(0, 10),
+      urlForKey: (k) => `https://x/${k}`,
+      apply,
+      loadTexture: load,
+      checkIntervalMs: 0,
+    });
+    await flush();
+    expect(load).toHaveBeenCalledWith(
+      'https://x/2026-08-09',
+      expect.any(AbortSignal)
+    );
+    expect(apply).toHaveBeenCalledTimes(1);
+    cleanup();
+  });
+
+  it('does not refetch while the key is unchanged', async () => {
+    const ctrl = makeApi(new Date('2026-08-09T10:00:00Z'));
+    const load = vi.fn(async () => new THREE.Texture());
+    const cleanup = createDatedTextureLayer(ctrl.api, {
+      name: 'Test',
+      enabled: true,
+      keyForDate: (d) => d.toISOString().slice(0, 10), // clé = jour
+      urlForKey: (k) => k,
+      apply: vi.fn(),
+      loadTexture: load,
+      checkIntervalMs: 0,
+    });
+    await flush();
+    // Avance de quelques heures le MÊME jour → même clé → pas de nouveau fetch.
+    ctrl.setDate(new Date('2026-08-09T18:00:00Z'));
+    ctrl.tick();
+    await flush();
+    expect(load).toHaveBeenCalledTimes(1);
+    cleanup();
+  });
+
+  it('refetches and reapplies when the key changes (time-travel)', async () => {
+    const ctrl = makeApi(new Date('2026-08-09T10:00:00Z'));
+    const apply = vi.fn();
+    const load = vi.fn(async () => new THREE.Texture());
+    const cleanup = createDatedTextureLayer(ctrl.api, {
+      name: 'Test',
+      enabled: true,
+      keyForDate: (d) => d.toISOString().slice(0, 10),
+      urlForKey: (k) => k,
+      apply,
+      loadTexture: load,
+      checkIntervalMs: 0,
+    });
+    await flush();
+    ctrl.setDate(new Date('2021-01-15T10:00:00Z')); // autre jour
+    ctrl.tick();
+    await flush();
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(apply).toHaveBeenCalledTimes(2);
+    cleanup();
+  });
+
+  it('does nothing (no throw) when the key is out of range (null)', async () => {
+    const { api } = makeApi(new Date('1990-01-01T00:00:00Z'));
+    const apply = vi.fn();
+    const load = vi.fn(async () => new THREE.Texture());
+    const cleanup = createDatedTextureLayer(api, {
+      name: 'Test',
+      enabled: true,
+      keyForDate: () => null, // hors plage
+      urlForKey: (k) => k,
+      apply,
+      loadTexture: load,
+      checkIntervalMs: 0,
+    });
+    await flush();
+    expect(load).not.toHaveBeenCalled();
+    expect(apply).not.toHaveBeenCalled();
+    cleanup();
+  });
+
+  it('falls back silently on load error and retries on next key', async () => {
+    const ctrl = makeApi(new Date('2026-08-09T10:00:00Z'));
+    const apply = vi.fn();
+    const load = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValue(new THREE.Texture());
+    const cleanup = createDatedTextureLayer(ctrl.api, {
+      name: 'Test',
+      enabled: true,
+      keyForDate: (d) => d.toISOString().slice(0, 10),
+      urlForKey: (k) => k,
+      apply,
+      loadTexture: load,
+      checkIntervalMs: 0,
+    });
+    await flush();
+    expect(apply).not.toHaveBeenCalled(); // 1er échec → rien d'appliqué
+    // nouvelle date → nouvelle tentative qui réussit
+    ctrl.setDate(new Date('2021-01-15T10:00:00Z'));
+    ctrl.tick();
+    await flush();
+    expect(apply).toHaveBeenCalledTimes(1);
+    cleanup();
+  });
+
+  it('throttles retrying the SAME failed key via backoff', async () => {
+    const ctrl = makeApi(new Date('2026-08-09T10:00:00Z'));
+    const load = vi.fn().mockRejectedValue(new Error('offline'));
+    const cleanup = createDatedTextureLayer(ctrl.api, {
+      name: 'Test',
+      enabled: true,
+      keyForDate: (d) => d.toISOString().slice(0, 10), // clé = jour (inchangée ici)
+      urlForKey: (k) => k,
+      apply: vi.fn(),
+      loadTexture: load,
+      checkIntervalMs: 0,
+      // Backoff long : après le 1er échec, aucun ré-essai de la même clé pendant les ticks.
+      retry: { baseMs: 60_000, maxMs: 60_000 },
+    });
+    await flush();
+    expect(load).toHaveBeenCalledTimes(1); // 1er essai (échoue)
+    // Même jour → même clé qui a échoué → le backoff bloque les ré-essais immédiats.
+    ctrl.tick();
+    await flush();
+    ctrl.tick();
+    await flush();
+    expect(load).toHaveBeenCalledTimes(1);
+    cleanup();
+  });
+
+  it('still retries a DIFFERENT key immediately despite a pending backoff', async () => {
+    const ctrl = makeApi(new Date('2026-08-09T10:00:00Z'));
+    const apply = vi.fn();
+    const load = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('offline')) // 1re clé échoue
+      .mockResolvedValue(new THREE.Texture()); // clés suivantes OK
+    const cleanup = createDatedTextureLayer(ctrl.api, {
+      name: 'Test',
+      enabled: true,
+      keyForDate: (d) => d.toISOString().slice(0, 10),
+      urlForKey: (k) => k,
+      apply,
+      loadTexture: load,
+      checkIntervalMs: 0,
+      retry: { baseMs: 60_000, maxMs: 60_000 },
+    });
+    await flush();
+    expect(apply).not.toHaveBeenCalled();
+    // Time-travel vers un autre jour : nouvelle clé → passe malgré le backoff en cours.
+    ctrl.setDate(new Date('2021-01-15T10:00:00Z'));
+    ctrl.tick();
+    await flush();
+    expect(apply).toHaveBeenCalledTimes(1);
+    cleanup();
+  });
+
+  it('prefetches neighbour keys', async () => {
+    const { api } = makeApi(new Date('2026-08-09T10:00:00Z'));
+    const loaded: string[] = [];
+    const load = vi.fn(async (url: string) => {
+      loaded.push(url);
+      return new THREE.Texture();
+    });
+    const cleanup = createDatedTextureLayer(api, {
+      name: 'Test',
+      enabled: true,
+      keyForDate: () => 'A',
+      urlForKey: (k) => k,
+      apply: vi.fn(),
+      loadTexture: load,
+      prefetchKeys: () => ['B'],
+      checkIntervalMs: 0,
+    });
+    await flush();
+    expect(loaded).toContain('A');
+    expect(loaded).toContain('B');
+    cleanup();
+  });
+
+  it('aborts an obsolete request when the simulation date changes', async () => {
+    const ctrl = makeApi(new Date('2026-08-09T10:00:00Z'));
+    const apply = vi.fn();
+    const firstSignals: AbortSignal[] = [];
+    const secondTexture = new THREE.Texture();
+
+    const load = vi.fn((url: string, signal?: AbortSignal) => {
+      if (url === '2026-08-09') {
+        if (!signal) throw new Error('signal manquant');
+        firstSignals.push(signal);
+        return new Promise<THREE.Texture>((_resolve, reject) => {
+          signal.addEventListener(
+            'abort',
+            () => reject(new DOMException('aborted', 'AbortError')),
+            { once: true }
+          );
+        });
+      }
+      return Promise.resolve(secondTexture);
+    });
+
+    const cleanup = createDatedTextureLayer(ctrl.api, {
+      name: 'Test',
+      enabled: true,
+      keyForDate: (d) => d.toISOString().slice(0, 10),
+      urlForKey: (k) => k,
+      apply,
+      loadTexture: load,
+      checkIntervalMs: 0,
+    });
+
+    await flush();
+    ctrl.setDate(new Date('2021-01-15T10:00:00Z'));
+    ctrl.tick();
+    await flush();
+
+    expect(firstSignals).toHaveLength(1);
+    expect(firstSignals[0]?.aborted).toBe(true);
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(apply).toHaveBeenCalledWith(secondTexture);
+    cleanup();
+  });
+
+  it('bounds the cache without disposing either texture used by the current crossfade', async () => {
+    const ctrl = makeApi(new Date('2026-08-01T10:00:00Z'));
+    const records = new Map<
+      string,
+      { texture: THREE.Texture; dispose: ReturnType<typeof vi.spyOn> }
+    >();
+    const apply = vi.fn();
+    const load = vi.fn(async (url: string) => {
+      const texture = new THREE.Texture();
+      const dispose = vi.spyOn(texture, 'dispose');
+      records.set(url, { texture, dispose });
+      return texture;
+    });
+
+    const cleanup = createDatedTextureLayer(ctrl.api, {
+      name: 'Test',
+      enabled: true,
+      keyForDate: (d) => d.toISOString().slice(0, 10),
+      urlForKey: (k) => k,
+      apply,
+      loadTexture: load,
+      maxCachedTextures: 2,
+      checkIntervalMs: 0,
+    });
+
+    await flush();
+    for (const day of ['02', '03', '04']) {
+      ctrl.setDate(new Date(`2026-08-${day}T10:00:00Z`));
+      ctrl.tick();
+      await flush();
+    }
+
+    expect(records.get('2026-08-01')?.dispose).toHaveBeenCalledTimes(1);
+    expect(records.get('2026-08-02')?.dispose).toHaveBeenCalledTimes(1);
+    expect(records.get('2026-08-03')?.dispose).not.toHaveBeenCalled();
+    expect(records.get('2026-08-04')?.dispose).not.toHaveBeenCalled();
+    expect(apply).toHaveBeenCalledTimes(4);
+
+    cleanup();
+    expect(records.get('2026-08-03')?.dispose).toHaveBeenCalledTimes(1);
+    expect(records.get('2026-08-04')?.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it('aborts a prefetched request when it becomes the obsolete foreground request', async () => {
+    const ctrl = makeApi(new Date('2026-08-01T10:00:00Z'));
+    const apply = vi.fn();
+    const textureA = new THREE.Texture();
+    const textureC = new THREE.Texture();
+    let prefetchedSignal: AbortSignal | undefined;
+
+    const load = vi.fn((url: string, signal?: AbortSignal) => {
+      if (url === 'B') {
+        prefetchedSignal = signal;
+        return new Promise<THREE.Texture>((_resolve, reject) => {
+          signal?.addEventListener(
+            'abort',
+            () => reject(new DOMException('aborted', 'AbortError')),
+            { once: true }
+          );
+        });
+      }
+      return Promise.resolve(url === 'A' ? textureA : textureC);
+    });
+
+    const cleanup = createDatedTextureLayer(ctrl.api, {
+      name: 'Test',
+      enabled: true,
+      keyForDate: (d) => {
+        const day = d.toISOString().slice(8, 10);
+        return day === '01' ? 'A' : day === '02' ? 'B' : 'C';
+      },
+      urlForKey: (k) => k,
+      prefetchKeys: (key) => (key === 'A' ? ['B'] : []),
+      apply,
+      loadTexture: load,
+      checkIntervalMs: 0,
+    });
+
+    await flush();
+    expect(prefetchedSignal?.aborted).toBe(false);
+
+    ctrl.setDate(new Date('2026-08-02T10:00:00Z'));
+    ctrl.tick();
+    ctrl.setDate(new Date('2026-08-03T10:00:00Z'));
+    ctrl.tick();
+    await flush();
+
+    expect(prefetchedSignal?.aborted).toBe(true);
+    expect(apply).toHaveBeenCalledWith(textureA);
+    expect(apply).toHaveBeenLastCalledWith(textureC);
+    cleanup();
+  });
+
+  it('cleanup aborts an in-flight request without reporting an error', async () => {
+    const ctrl = makeApi(new Date('2026-08-09T10:00:00Z'));
+    const apply = vi.fn();
+    const onStateChange = vi.fn();
+    let requestSignal: AbortSignal | undefined;
+
+    const load = vi.fn((_url: string, signal?: AbortSignal) => {
+      requestSignal = signal;
+      return new Promise<THREE.Texture>((_resolve, reject) => {
+        signal?.addEventListener(
+          'abort',
+          () => reject(new DOMException('aborted', 'AbortError')),
+          { once: true }
+        );
+      });
+    });
+
+    const cleanup = createDatedTextureLayer(ctrl.api, {
+      name: 'Test',
+      enabled: true,
+      keyForDate: () => 'A',
+      urlForKey: (k) => k,
+      apply,
+      onStateChange,
+      loadTexture: load,
+      checkIntervalMs: 0,
+    });
+
+    await flush();
+    cleanup();
+    await flush();
+
+    expect(requestSignal?.aborted).toBe(true);
+    expect(apply).not.toHaveBeenCalled();
+    expect(onStateChange).toHaveBeenCalledWith('loading');
+    expect(onStateChange).not.toHaveBeenCalledWith('error');
+    expect(ctrl.frameCount()).toBe(0);
+  });
+
+  it('disposes a late texture when an injected loader ignores abort after cleanup', async () => {
+    const ctrl = makeApi(new Date('2026-08-09T10:00:00Z'));
+    const apply = vi.fn();
+    const texture = new THREE.Texture();
+    const dispose = vi.spyOn(texture, 'dispose');
+    let resolveLoad!: (texture: THREE.Texture) => void;
+
+    const load = vi.fn(
+      () =>
+        new Promise<THREE.Texture>((resolve) => {
+          resolveLoad = resolve;
+        })
+    );
+
+    const cleanup = createDatedTextureLayer(ctrl.api, {
+      name: 'Test',
+      enabled: true,
+      keyForDate: () => 'A',
+      urlForKey: (k) => k,
+      apply,
+      loadTexture: load,
+      checkIntervalMs: 0,
+    });
+
+    await flush();
+    cleanup();
+    resolveLoad(texture);
+    await flush();
+
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect(apply).not.toHaveBeenCalled();
+    expect(ctrl.frameCount()).toBe(0);
+  });
+
+  it('cleanup disposes cached textures and unsubscribes', async () => {
+    const ctrl = makeApi(new Date('2026-08-09T10:00:00Z'));
+    const tex = new THREE.Texture();
+    const dispose = vi.spyOn(tex, 'dispose');
+    const cleanup = createDatedTextureLayer(ctrl.api, {
+      name: 'Test',
+      enabled: true,
+      keyForDate: (d) => d.toISOString().slice(0, 10),
+      urlForKey: (k) => k,
+      apply: vi.fn(),
+      loadTexture: async () => tex,
+      checkIntervalMs: 0,
+    });
+    await flush();
+    expect(ctrl.frameCount()).toBe(1);
+    cleanup();
+    expect(dispose).toHaveBeenCalled();
+    expect(ctrl.frameCount()).toBe(0);
+  });
+});
+
+describe('createDatedTextureLayer — mode fallback (resolveSources)', () => {
+  it('falls back to the next candidate when the first is empty', async () => {
+    const { api } = makeApi(new Date('2010-06-15T00:00:00Z'));
+    const apply = vi.fn();
+    const onResolved = vi.fn();
+    const loaded: string[] = [];
+    const load = vi.fn(async (url: string) => {
+      loaded.push(url);
+      if (url === 'viirs') throw new EmptyTileError('viirs', 3000, 20000); // vide
+      return new THREE.Texture(); // modis OK
+    });
+    const cleanup = createDatedTextureLayer(api, {
+      name: 'Test',
+      enabled: true,
+      resolveSources: () => [cand('viirs'), cand('modis')],
+      apply,
+      onResolved,
+      loadTexture: load,
+      checkIntervalMs: 0,
+    });
+    await flush();
+    expect(loaded).toEqual(['viirs', 'modis']); // essaie viirs puis modis
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(onResolved).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'modis' })
+    );
+    cleanup();
+  });
+
+  it('applies the first candidate when it is non-empty', async () => {
+    const { api } = makeApi(new Date('2026-08-10T00:00:00Z'));
+    const onResolved = vi.fn();
+    const loaded: string[] = [];
+    const load = vi.fn(async (url: string) => {
+      loaded.push(url);
+      return new THREE.Texture();
+    });
+    const cleanup = createDatedTextureLayer(api, {
+      name: 'Test',
+      enabled: true,
+      resolveSources: () => [cand('viirs'), cand('modis')],
+      apply: vi.fn(),
+      onResolved,
+      loadTexture: load,
+      checkIntervalMs: 0,
+    });
+    await flush();
+    expect(loaded).toEqual(['viirs']); // pas de fallback si le 1er marche
+    expect(onResolved).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'viirs' })
+    );
+    cleanup();
+  });
+
+  it('does nothing when the resolver returns no candidate (out of range)', async () => {
+    const { api } = makeApi(new Date('1990-01-01T00:00:00Z'));
+    const apply = vi.fn();
+    const load = vi.fn(async () => new THREE.Texture());
+    const cleanup = createDatedTextureLayer(api, {
+      name: 'Test',
+      enabled: true,
+      resolveSources: () => [],
+      apply,
+      loadTexture: load,
+      checkIntervalMs: 0,
+    });
+    await flush();
+    expect(load).not.toHaveBeenCalled();
+    expect(apply).not.toHaveBeenCalled();
+    cleanup();
+  });
+
+  it('does not apply (fallback non destructif) when ALL candidates are empty', async () => {
+    const { api } = makeApi(new Date('2026-08-10T00:00:00Z'));
+    const apply = vi.fn();
+    const load = vi.fn(async (url: string) => {
+      throw new EmptyTileError(url, 1000, 20000);
+    });
+    const cleanup = createDatedTextureLayer(api, {
+      name: 'Test',
+      enabled: true,
+      resolveSources: () => [cand('a'), cand('b')],
+      apply,
+      loadTexture: load,
+      checkIntervalMs: 0,
+    });
+    await flush();
+    expect(apply).not.toHaveBeenCalled();
+    cleanup();
+  });
+});

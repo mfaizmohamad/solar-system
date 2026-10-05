@@ -1,0 +1,106 @@
+{
+  "$schema": "../schema/entity.schema.json",
+  "id": "sedna",
+  "targetClass": "dwarf_planet",
+  "source": "small-body",
+  "elements": {
+    "displayName": {
+      "en": "Sedna",
+      "fr": "Sedna",
+      "es": "Sedna",
+      "pt-BR": "Sedna"
+    },
+    "a": 506.4484207674334,
+    "e": 0.8495572493958709,
+    "iDeg": 11.92852404316633,
+    "omDeg": 144.401716933437,
+    "wDeg": 311.2846178310521,
+    "maDeg": 357.5940836366447,
+    "epoch": "2000-01-01T12:00:00Z",
+    "barycentric": true,
+    "kind": "dwarf",
+    "color": "0xb84a3a",
+    "surfaceResolutions": [
+      "2k",
+      "1k"
+    ],
+    "fallbackColor": "0xb84a3a",
+    "visualRadius": 0.078,
+    "description": {
+      "en": "One of the most distant and coldest known objects in the Solar System, journeying on an extremely elongated, multi-millennial orbit that carries it beyond the Kuiper Belt toward the inner edge of the hypothesized Oort Cloud.",
+      "fr": "L’un des objets connus les plus lointains et les plus froids du Système solaire, parcourant une orbite extrêmement allongée, longue de plusieurs millénaires, qui l’entraîne au-delà de la ceinture de Kuiper vers les abords du nuage d’Oort hypothétique.",
+      "es": "Uno de los objetos conocidos más lejanos y fríos del Sistema Solar, que recorre una órbita extremadamente alargada, de varios milenios, y que lo lleva más allá del cinturón de Kuiper hacia el borde interior de la hipotética nube de Oort.",
+      "pt-BR": "Um dos objetos conhecidos mais distantes e frios do Sistema Solar, percorrendo uma órbita extremamente alongada, de vários milênios, que o leva além do cinturão de Kuiper na direção da borda interna da hipotética nuvem de Oort."
+    },
+    "wiki": {
+      "en": "https://en.wikipedia.org/wiki/Sedna_(dwarf_planet)",
+      "fr": "https://fr.wikipedia.org/wiki/(90377)_Sedna",
+      "es": "https://es.wikipedia.org/wiki/(90377)_Sedna",
+      "pt-BR": "https://pt.wikipedia.org/wiki/Sedna_(planeta_an%C3%A3o)"
+    }
+  },
+  "facts": {
+    "radiusKm": {
+      "value": {
+        "$diameterKm": 995
+      },
+      "source": "pal-2012-sedna",
+      "method": "derived",
+      "uncertainty": 40,
+      "detail": "radiusFromDiameter"
+    },
+    "massKg": {
+      "published": false,
+      "reason": {
+        "en": "Sedna has no known satellite, so no mass has been measured: the JPL Small-Body Database publishes no GM for it.",
+        "fr": "Sedna n'a aucun satellite connu, donc aucune masse n'a été mesurée : la base des petits corps de JPL ne publie aucun GM pour ce corps.",
+        "es": "Sedna no tiene ningún satélite conocido, así que no se ha medido ninguna masa: la base de datos de cuerpos menores del JPL no publica ningún GM para este cuerpo.",
+        "pt-BR": "Sedna não tem nenhum satélite conhecido, portanto nenhuma massa foi medida: a base de pequenos corpos do JPL não publica nenhum GM para este corpo."
+      }
+    },
+    "gravity": {
+      "published": false,
+      "reason": {
+        "en": "Surface gravity is derived from a mass, and none is published for Sedna.",
+        "fr": "La gravité de surface se dérive d'une masse, et aucune n'est publiée pour Sedna.",
+        "es": "La gravedad en la superficie se deriva de una masa, y ninguna se publica para Sedna.",
+        "pt-BR": "A gravidade à superfície deriva de uma massa, e nenhuma é publicada para Sedna."
+      }
+    },
+    "meanTempC": {
+      "published": false,
+      "reason": {
+        "en": "The JPL Small-Body Database, the source of its other figures, publishes no temperature among its physical parameters.",
+        "fr": "La base des petits corps de JPL, d'où viennent ses autres chiffres, ne publie aucune température parmi ses paramètres physiques.",
+        "es": "La base de datos de cuerpos menores del JPL, de donde proceden sus demás cifras, no publica ninguna temperatura entre sus parámetros físicos.",
+        "pt-BR": "A base de pequenos corpos do JPL, de onde vêm os seus outros números, não publica nenhuma temperatura entre os seus parâmetros físicos."
+      }
+    },
+    "moonCount": {
+      "value": 0,
+      "source": "jpl-sbdb",
+      "method": "measured",
+      "asOf": "2026-09-28",
+      "detail": "confirmedSatellites"
+    },
+    "rotationPeriod": {
+      "value": 10.273,
+      "source": "jpl-sbdb",
+      "method": "measured",
+      "detail": "partialLightcurve",
+      "citation": "LCDB (Rev. 2023-October); Warner et al., 2009"
+    },
+    "axialTilt": {
+      "published": false,
+      "reason": {
+        "en": "The JPL Small-Body Database publishes no spin-axis solution for this body, and an axial tilt cannot be derived without one.",
+        "fr": "La base des petits corps de JPL ne publie aucune solution de pôle pour ce corps, et une inclinaison axiale ne se dérive pas sans elle.",
+        "es": "La base de datos de cuerpos menores del JPL no publica ninguna solución de polo para este cuerpo, y una inclinación axial no puede derivarse sin ella.",
+        "pt-BR": "A base de pequenos corpos do JPL não publica nenhuma solução de polo para este corpo, e uma inclinação axial não se deriva sem ela."
+      }
+    }
+  },
+  "notes": {
+    "a": "Éléments osculateurs JPL Horizons BARYCENTRIQUES exactement à cette époque (COMMAND '90377;', CENTER=500@0, TLIST=2451545.0), par `pnpm ephemeris:small-body --center 500@0`. Barycentriques car mesuré meilleur au-delà de Neptune (cf. `OrbitalElements.barycentric`)."
+  }
+}

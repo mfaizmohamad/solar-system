@@ -1,0 +1,147 @@
+{
+  "$schema": "../schema/entity.schema.json",
+  "id": "iapetus",
+  "targetClass": "satellite",
+  "source": "catalogue",
+  "config": {
+    "kind": "moon",
+    "displayName": {
+      "en": "Iapetus",
+      "fr": "Japet",
+      "es": "Jápeto",
+      "pt-BR": "Jápeto"
+    },
+    "radius": 0.18,
+    "rotationSpeed": {
+      "$rotationHours": {
+        "$days": 79.33010433489734
+      }
+    },
+    "orbitalColor": "0x9b8d79",
+    "fallbackColor": "0x756e62",
+    "frame": "parentRelative",
+    "relativeEphemeris": {
+      "kind": "horizonsParentRelative"
+    },
+    "rotationBody": "Saturn",
+    "relativeOrbitalElements": {
+      "semiMajorAxisAU": 0.02378693598,
+      "eccentricity": 0.0289728,
+      "inclinationRad": {
+        "$deg": 16.9971
+      },
+      "ascendingNodeRad": {
+        "$deg": 138.8929
+      },
+      "argPerihelionRad": {
+        "$deg": 230.7372
+      },
+      "meanAnomalyAtEpochRad": {
+        "$deg": 97.8466
+      },
+      "epoch": {
+        "$date": "2025-12-31T00:00:00.000Z"
+      }
+    },
+    "textureResolutions": {
+      "surface": [
+        "4k",
+        "2k",
+        "1k"
+      ]
+    },
+    "realData": {
+      "orbitalInclination": {
+        "$deg": 7.6
+      },
+      "ascendingNode": {
+        "$deg": 86.5
+      },
+      "description": {
+        "en": "A two-toned outer moon known for its dark leading hemisphere and equatorial ridge.",
+        "fr": "Une lune extérieure bicolore, connue pour son hémisphère avant sombre et sa crête équatoriale.",
+        "es": "Una luna externa de dos tonos, conocida por su hemisferio delantero oscuro y su cresta ecuatorial.",
+        "pt-BR": "Uma lua externa de dois tons, conhecida pelo seu hemisfério dianteiro escuro e pela sua crista equatorial."
+      },
+      "wiki": {
+        "en": "https://en.wikipedia.org/wiki/Iapetus_(moon)",
+        "fr": "https://fr.wikipedia.org/wiki/Japet_(lune)",
+        "es": "https://es.wikipedia.org/wiki/J%C3%A1peto_(sat%C3%A9lite)",
+        "pt-BR": "https://pt.wikipedia.org/wiki/J%C3%A1peto_(sat%C3%A9lite)"
+      }
+    },
+    "cameraDistance": {
+      "educ": 1.2,
+      "explo": {
+        "$cameraFromRadiusKm": 734.3
+      }
+    },
+    "loadPriority": 8
+  },
+  "facts": {
+    "radiusKm": {
+      "value": 734.3,
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "measured",
+      "uncertainty": 2.8
+    },
+    "massKg": {
+      "value": {
+        "$gm": 120.51511
+      },
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "derived",
+      "uncertainty": {
+        "$gm": 0.00242
+      },
+      "detail": "massFromGM"
+    },
+    "gravity": {
+      "value": {
+        "$gm": 120.51511,
+        "$radiusKm": 734.3
+      },
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "derived",
+      "detail": "gravityFromGM"
+    },
+    "meanTempC": {
+      "published": false,
+      "reason": {
+        "en": "No temperature is published where its other figures come from: neither NASA's satellite fact sheets nor JPL's satellite tables carry one.",
+        "fr": "Aucune température n'est publiée là où viennent ses autres chiffres : ni les fiches des satellites de la NASA, ni les tables des satellites de JPL n'en portent.",
+        "es": "No se publica ninguna temperatura allí donde se obtienen sus demás cifras: ni las hojas de datos de satélites de la NASA ni las tablas de satélites del JPL la incluyen.",
+        "pt-BR": "Nenhuma temperatura é publicada onde vêm os seus outros números: nem as fichas dos satélites da NASA nem as tabelas de satélites do JPL a trazem."
+      }
+    },
+    "axialTilt": {
+      "value": {
+        "$deg": 0.07
+      },
+      "source": "naif-pck",
+      "method": "derived",
+      "detail": "obliquityFromPole",
+      "citation": "pck00011.tpc, BODY608"
+    },
+    "distanceAU": {
+      "value": {
+        "$km": 3560850
+      },
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "orbitPeriodDays": {
+      "value": 79.33010433489734,
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "rotationPeriod": {
+      "source": "nssdca-fact-sheets",
+      "method": "derived",
+      "detail": "synchronousRotation"
+    }
+  },
+  "notes": {
+    "relativeOrbitalElements": "JPL SAT441 mean elements, epoch 2000-01-01.5 TDB."
+  }
+}

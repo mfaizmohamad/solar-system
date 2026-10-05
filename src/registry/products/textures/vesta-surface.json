@@ -1,0 +1,35 @@
+{
+  "$schema": "../../schema/product.schema.json",
+  "id": "vesta-surface",
+  "type": "texture",
+  "body": "vesta",
+  "layer": "surface",
+  "shipped": true,
+  "license": "other",
+  "rights": "public-domain",
+  "links": [
+    {
+      "rel": "license",
+      "href": "https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits"
+    }
+  ],
+  "providers": [
+    {
+      "name": "USGS Astrogeology / NASA Dawn FC HAMO",
+      "roles": [
+        "producer"
+      ]
+    }
+  ],
+  "tier": "free",
+  "review": {
+    "status": "ready",
+    "sourcePage": "https://astrogeology.usgs.gov/search/map/vesta_dawn_fc_hamo_global_mosaic_60m",
+    "sourceResolution": "60 m/pixel",
+    "sourcePixelWidth": 26704,
+    "projection": "equirectangular",
+    "qualityClass": "native-candidate",
+    "note": "Largeur lue a l'etiquette PDS3 (LINE_SAMPLES = 26704). Provenance CONFIRMEE au lot 16 : reimporter cette mosaique reproduit les quatre paliers livres octet pour octet. Le lot 13 ne l'avait etablie que par correlation (0,971) et sa fiche la disait « non confirmee ».",
+    "downloadUrl": "https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/Vesta_Dawn_FC_HAMO_Mosaic_Global_74ppd.tif"
+  }
+}

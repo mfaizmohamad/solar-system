@@ -1,0 +1,150 @@
+import { describe, expect, it } from 'vitest';
+import { isLocalizedText } from '@/i18n/localizedOrKey';
+import { CELESTIAL_CONFIG } from './bodies';
+import { forEachBody } from './catalog';
+import type { CelestialBodyConfig, FactField, UnknownableField } from '@/types';
+import { SIMULATION_ONLY_FACTS, notApplicableFacts } from '@/core/bodyFacts';
+
+/**
+ * COMPLÉTUDE DU CATALOGUE — chaque corps porte-t-il ce que l'application promet d'afficher ?
+ *
+ * La fiche d'information affiche ces champs pour n'importe quel corps sélectionnable. Un champ
+ * simplement absent ne casse rien : la ligne disparaît, silencieusement. C'est le mode de
+ * défaut habituel de ce projet — pas d'erreur, pas de log, juste une information qui n'est
+ * plus là. Audit du 2026-09-08 : 45 corps sur 51 complets, les 6 autres par oubli.
+ *
+ * Trois états possibles pour un champ, et un seul est un défaut :
+ *
+ *   1. **renseigné** — la valeur est là, sourcée ;
+ *   2. **déclaré inconnu** — `realData.unknown[champ]` porte la raison, et la fiche affiche
+ *      un tiret cadratin avec cette raison en infobulle plutôt que de masquer la ligne ;
+ *   3. **oublié** — rien de tout cela : c'est ce que ce test fait échouer.
+ *
+ * Le NON APPLICABLE est un quatrième cas, volontairement absent de la donnée : le Soleil n'a
+ * pas de période orbitale parce qu'il est l'origine du repère, pas parce qu'on l'ignore. Cela
+ * se déduit du `kind`, ça ne se déclare pas corps par corps — sinon on maintiendrait à la main
+ * une évidence structurelle.
+ *
+ * La raison des inconnues vit dans le CATALOGUE, pas ici. C'est la règle du projet (« config
+ * is the single source of truth ») et c'est surtout ce qui permet à la fiche d'information de
+ * l'afficher à l'utilisateur : une raison enfermée dans un fichier de test ne sert personne.
+ */
+
+/** Champs que la fiche d'information affiche, et que tout corps devrait donc porter. */
+const DOCUMENTED_FIELDS: UnknownableField[] = [
+  'radiusKm',
+  'massKg',
+  'gravity',
+  'meanTempC',
+  'orbitPeriodDays',
+  'distanceAU',
+  'axialTilt',
+  'moonCount',
+];
+
+/**
+ * Champs structurellement hors sujet pour un `kind` : la règle vit dans `core/bodyFacts.ts`,
+ * partagée avec la fiche et les pages publiques. Une étoile centrale n'orbite rien et n'a pas de
+ * lunes ; une lune n'a pas de lune connue (« Lunes connues : 0 » sur Titan ne se source nulle part).
+ */
+const notApplicable = (cfg: CelestialBodyConfig): Set<UnknownableField> =>
+  notApplicableFacts(cfg);
+
+const bodies: { name: string; cfg: CelestialBodyConfig }[] = [];
+forEachBody(CELESTIAL_CONFIG, ({ name, config }) => {
+  if (config.kind === 'skybox') return;
+  bodies.push({ name, cfg: config });
+});
+
+describe('complétude documentaire du catalogue', () => {
+  it('couvre bien tout le catalogue', () => {
+    expect(bodies.length).toBeGreaterThanOrEqual(50);
+  });
+
+  for (const { name, cfg } of bodies) {
+    it(`${name} : chaque champ est renseigné, déclaré inconnu, ou hors sujet`, () => {
+      const realData = (cfg.realData ?? {}) as Record<string, unknown>;
+      const skip = notApplicable(cfg);
+
+      const forgotten = DOCUMENTED_FIELDS.filter(
+        (field) =>
+          !skip.has(field) &&
+          realData[field] === undefined &&
+          cfg.realData?.unknown?.[field] === undefined
+      );
+
+      expect(
+        forgotten,
+        `${name} : champ(s) ni renseigné(s) ni déclaré(s) inconnu(s). Soit fournir la ` +
+          `valeur avec sa source, soit ajouter realData.unknown.<champ> avec la raison — ` +
+          `la fiche d'information l'affichera à l'utilisateur.`
+      ).toEqual([]);
+    });
+  }
+
+  /**
+   * Une déclaration d'inconnue qui ne correspond plus à rien est un mensonge qui dort : elle
+   * ferait afficher « non publié » sur une donnée présente. Ce cas garde la table honnête
+   * dans l'autre sens.
+   */
+  it('ne déclare inconnu aucun champ pourtant renseigné', () => {
+    const contradictions: string[] = [];
+    for (const { name, cfg } of bodies) {
+      const realData = (cfg.realData ?? {}) as Record<string, unknown>;
+      for (const [field, reason] of Object.entries(
+        cfg.realData?.unknown ?? {}
+      )) {
+        // Exception DÉCLARÉE, et par champ plutôt que par raison : la scène lit l'obliquité,
+        // le rayon et la masse même quand aucune source ne les publie (voir
+        // `SIMULATION_ONLY_FACTS`). Tout autre champ portant à la fois une valeur et une
+        // raison de ne pas l'afficher est un chiffre que plus personne ne lit.
+        void reason;
+        if (
+          realData[field] !== undefined &&
+          !SIMULATION_ONLY_FACTS.has(field as FactField)
+        )
+          contradictions.push(`${name}.${field}`);
+      }
+    }
+    expect(
+      contradictions,
+      'ces champs ont une valeur : retirer leur déclaration d’inconnue'
+    ).toEqual([]);
+  });
+
+  /**
+   * Symétrique de l'exemption : un champ hors sujet ne doit pas non plus être RENSEIGNÉ. Sans ce
+   * cas, remettre `moonCount: 8` au Soleil passerait le test ci-dessus sans un bruit.
+   */
+  it('ne renseigne aucun champ hors sujet pour son kind', () => {
+    const misplaced: string[] = [];
+    for (const { name, cfg } of bodies) {
+      const realData = (cfg.realData ?? {}) as Record<string, unknown>;
+      for (const field of notApplicable(cfg)) {
+        if (realData[field] !== undefined) misplaced.push(`${name}.${field}`);
+      }
+    }
+    expect(misplaced).toEqual([]);
+  });
+
+  /**
+   * Une raison doit être lisible par un utilisateur, dans les deux langues — elle finit en
+   * infobulle sur sa fiche, pas dans un log de développeur.
+   */
+  it('justifie chaque inconnue dans les deux langues', () => {
+    for (const { name, cfg } of bodies) {
+      for (const [field, reason] of Object.entries(
+        cfg.realData?.unknown ?? {}
+      )) {
+        if (!isLocalizedText(reason)) continue;
+        for (const locale of ['en', 'fr'] as const) {
+          expect(
+            reason[locale]?.length ?? 0,
+            `${name}.${field} (${locale}) : raison absente ou trop courte pour expliquer ` +
+              `une absence à un utilisateur`
+          ).toBeGreaterThan(30);
+        }
+      }
+    }
+  });
+});

@@ -1,0 +1,37 @@
+{
+  "$schema": "../../schema/product.schema.json",
+  "id": "mimas-surface",
+  "type": "texture",
+  "body": "mimas",
+  "layer": "surface",
+  "shipped": true,
+  "license": "other",
+  "rights": "public-domain",
+  "links": [
+    {
+      "rel": "license",
+      "href": "https://www.nasa.gov/nasa-brand-center/images-and-media/"
+    }
+  ],
+  "providers": [
+    {
+      "name": "NASA/JPL/SSI Cassini ISS, DLR global mosaic (Roatsch et al.), NASA PDS CO-S-ISSNA/ISSWA-5-MIDR-V1.0",
+      "roles": [
+        "producer"
+      ]
+    }
+  ],
+  "tier": "free",
+  "filled": true,
+  "review": {
+    "status": "ready",
+    "processing": "import-textures",
+    "downloadUrl": "https://planetarydata.jpl.nasa.gov/img/data/cassini/cassini_orbiter/coiss_3006/data/images/SM_1M_0_0_SIMP.IMG",
+    "sourcePage": "https://planetarydata.jpl.nasa.gov/img/data/cassini/cassini_orbiter/coiss_3006/",
+    "sourceResolution": "16 pixel/degree (216 m/pixel) global Cassini ISS mosaic, simple cylindrical",
+    "sourcePixelWidth": 5760,
+    "projection": "equirectangular",
+    "qualityClass": "native",
+    "note": "Remplace le 2026-10-04 la texture procedurale. La recherche du 2026-08-26 n'avait regarde que le catalogue de l'USGS, qui n'a pour Mimas que des cartes a l'aerographe ; la mosaique photographique est dans le PDS (volume coiss_3006, version 4 du 2017-10-24), lue telle quelle par scripts/import-textures.mjs, etiquette comprise. Longitudes OUEST a l'etiquette, bord gauche a 180 : verifie sur le cratere Herschel, present a sa longitude du gazetteer de l'UAI et absent a son miroir. Identique au pixel pres au zip DLR que l'USGS sert (MI_170630_DLR_basemap_degrees.tif). 0,01 % de pixels nuls, combles."
+  }
+}

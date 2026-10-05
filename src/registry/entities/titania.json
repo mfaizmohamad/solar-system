@@ -1,0 +1,146 @@
+{
+  "$schema": "../schema/entity.schema.json",
+  "id": "titania",
+  "targetClass": "satellite",
+  "source": "catalogue",
+  "config": {
+    "kind": "moon",
+    "displayName": {
+      "en": "Titania",
+      "fr": "Titania",
+      "es": "Titania",
+      "pt-BR": "Titânia"
+    },
+    "radius": 0.21,
+    "rotationSpeed": {
+      "$rotationHours": {
+        "$days": 8.705870132517225
+      }
+    },
+    "orbitalColor": "0xaba89f",
+    "fallbackColor": "0x9a9893",
+    "frame": "parentRelative",
+    "rotationBody": "Uranus",
+    "relativeEphemeris": {
+      "kind": "horizonsParentRelative"
+    },
+    "relativeOrbitalElements": {
+      "semiMajorAxisAU": 0.002916024747,
+      "eccentricity": 0.00242536,
+      "inclinationRad": {
+        "$deg": 97.7633
+      },
+      "ascendingNodeRad": {
+        "$deg": 167.6422
+      },
+      "argPerihelionRad": {
+        "$deg": 263.5451
+      },
+      "meanAnomalyAtEpochRad": {
+        "$deg": 265.2945
+      },
+      "epoch": {
+        "$date": "2025-12-31T00:00:00.000Z"
+      }
+    },
+    "textureResolutions": {
+      "surface": [
+        "2k",
+        "1k"
+      ]
+    },
+    "realData": {
+      "orbitalInclination": {
+        "$deg": 97.818368383812
+      },
+      "ascendingNode": {
+        "$deg": 167.6178145945835
+      },
+      "description": {
+        "en": "Uranus's largest moon, featuring one of the solar system's biggest known fault canyons, Messina Chasma.",
+        "fr": "La plus grande lune d’Uranus, avec l’un des plus grands canyons de faille connus du système solaire, Messina Chasma.",
+        "es": "La luna más grande de Urano, con uno de los mayores cañones de falla conocidos del sistema solar, Messina Chasma.",
+        "pt-BR": "A maior lua de Urano, com um dos maiores cânions de falha conhecidos do sistema solar, Messina Chasma."
+      },
+      "wiki": {
+        "en": "https://en.wikipedia.org/wiki/Titania_(moon)",
+        "fr": "https://fr.wikipedia.org/wiki/Titania_(lune)",
+        "es": "https://es.wikipedia.org/wiki/Titania_(sat%C3%A9lite)",
+        "pt-BR": "https://pt.wikipedia.org/wiki/Tit%C3%A2nia_(sat%C3%A9lite)"
+      }
+    },
+    "cameraDistance": {
+      "educ": 1.2,
+      "explo": {
+        "$cameraFromRadiusKm": 788.4
+      }
+    },
+    "loadPriority": 27
+  },
+  "facts": {
+    "radiusKm": {
+      "value": 788.9,
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "measured",
+      "uncertainty": 1.8
+    },
+    "massKg": {
+      "value": {
+        "$gm": 226.9
+      },
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "derived",
+      "uncertainty": {
+        "$gm": 4.1
+      },
+      "detail": "massFromGM"
+    },
+    "gravity": {
+      "value": {
+        "$gm": 226.9,
+        "$radiusKm": 788.9
+      },
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "derived",
+      "detail": "gravityFromGM"
+    },
+    "meanTempC": {
+      "published": false,
+      "reason": {
+        "en": "No temperature is published where its other figures come from: neither NASA's satellite fact sheets nor JPL's satellite tables carry one.",
+        "fr": "Aucune température n'est publiée là où viennent ses autres chiffres : ni les fiches des satellites de la NASA, ni les tables des satellites de JPL n'en portent.",
+        "es": "No se publica ninguna temperatura allí donde se obtienen sus demás cifras: ni las hojas de datos de satélites de la NASA ni las tablas de satélites del JPL la incluyen.",
+        "pt-BR": "Nenhuma temperatura é publicada onde vêm os seus outros números: nem as fichas dos satélites da NASA nem as tabelas de satélites do JPL a trazem."
+      }
+    },
+    "axialTilt": {
+      "value": {
+        "$deg": 0.26
+      },
+      "source": "naif-pck",
+      "method": "derived",
+      "detail": "obliquityFromPole",
+      "citation": "pck00011.tpc, BODY703"
+    },
+    "distanceAU": {
+      "value": {
+        "$km": 436300
+      },
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "orbitPeriodDays": {
+      "value": 8.705870132517225,
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "rotationPeriod": {
+      "source": "nssdca-fact-sheets",
+      "method": "derived",
+      "detail": "synchronousRotation"
+    }
+  },
+  "notes": {
+    "textureResolutions": "Aucune mosaïque globale contrôlée n'existe côté USGS pour Titania — vérifié en direct (2026-08-26, voir registry/products/textures). Texture procédurale générée (cratérisation modérée seule — le générateur ne modélise pas les réseaux de canyons comme Messina Chasma, voir le commentaire sur cette limite dans scripts/generate-procedural-textures.mjs)."
+  }
+}

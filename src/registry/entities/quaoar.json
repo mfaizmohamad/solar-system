@@ -1,0 +1,114 @@
+{
+  "$schema": "../schema/entity.schema.json",
+  "id": "quaoar",
+  "targetClass": "dwarf_planet",
+  "source": "small-body",
+  "elements": {
+    "displayName": {
+      "en": "Quaoar",
+      "fr": "Quaoar",
+      "es": "Quaoar",
+      "pt-BR": "Quaoar"
+    },
+    "a": 43.33509246671098,
+    "e": 0.03694225430757929,
+    "iDeg": 7.990872930653528,
+    "omDeg": 188.9142102666829,
+    "wDeg": 157.5498851270579,
+    "maDeg": 265.1482774560987,
+    "epoch": "2000-01-01T12:00:00Z",
+    "barycentric": true,
+    "kind": "dwarf",
+    "color": "0x9c8873",
+    "surfaceResolutions": [
+      "2k",
+      "1k"
+    ],
+    "fallbackColor": "0x9c8873",
+    "visualRadius": 0.086,
+    "description": {
+      "en": "A large Kuiper Belt object that surprised astronomers in 2023 with a system of rings orbiting far beyond the distance where rings should be stable; its moon Weywot may be responsible for keeping them from collapsing.",
+      "fr": "Un grand objet de la ceinture de Kuiper qui a surpris les astronomes en 2023 : un système d’anneaux en orbite bien au-delà de la distance où des anneaux sont censés rester stables ; sa lune Weywot pourrait les empêcher de s’effondrer.",
+      "es": "Un gran objeto del cinturón de Kuiper que sorprendió a los astrónomos en 2023: un sistema de anillos en órbita mucho más allá de la distancia donde los anillos deberían ser estables; su luna Weywot podría impedir que se desplomen.",
+      "pt-BR": "Um grande objeto do cinturão de Kuiper que surpreendeu os astrônomos em 2023: um sistema de anéis em órbita bem além da distância onde anéis deveriam ser estáveis; a sua lua Weywot pode impedir que eles desmoronem."
+    },
+    "wiki": {
+      "en": "https://en.wikipedia.org/wiki/Quaoar",
+      "fr": "https://fr.wikipedia.org/wiki/(50000)_Quaoar",
+      "es": "https://es.wikipedia.org/wiki/(50000)_Quaoar",
+      "pt-BR": "https://pt.wikipedia.org/wiki/Quaoar"
+    }
+  },
+  "facts": {
+    "radiusKm": {
+      "value": {
+        "$diameterKm": 1094.4
+      },
+      "source": "margoti-2026-quaoar",
+      "method": "derived",
+      "uncertainty": 2.3,
+      "detail": "volumetricRadiusFromDiameter"
+    },
+    "massKg": {
+      "value": {
+        "$density": 1.76,
+        "$radiusKm": {
+          "$diameterKm": 1094.4
+        }
+      },
+      "source": "margoti-2026-quaoar",
+      "method": "derived",
+      "detail": "massFromDensity"
+    },
+    "gravity": {
+      "value": {
+        "$massKg": {
+          "$density": 1.76,
+          "$radiusKm": {
+            "$diameterKm": 1094.4
+          }
+        },
+        "$radiusKm": {
+          "$diameterKm": 1094.4
+        }
+      },
+      "source": "margoti-2026-quaoar",
+      "method": "derived",
+      "detail": "gravityFromMass"
+    },
+    "meanTempC": {
+      "published": false,
+      "reason": {
+        "en": "The JPL Small-Body Database, the source of its other figures, publishes no temperature among its physical parameters.",
+        "fr": "La base des petits corps de JPL, d'où viennent ses autres chiffres, ne publie aucune température parmi ses paramètres physiques.",
+        "es": "La base de datos de cuerpos menores del JPL, de donde proceden sus demás cifras, no publica ninguna temperatura entre sus parámetros físicos.",
+        "pt-BR": "A base de pequenos corpos do JPL, de onde vêm os seus outros números, não publica nenhuma temperatura entre os seus parâmetros físicos."
+      }
+    },
+    "moonCount": {
+      "value": 1,
+      "source": "jpl-sbdb",
+      "method": "measured",
+      "asOf": "2026-09-28",
+      "detail": "confirmedSatellites"
+    },
+    "rotationPeriod": {
+      "value": 8.8394,
+      "source": "margoti-2026-quaoar",
+      "method": "measured",
+      "uncertainty": 0.0002
+    },
+    "axialTilt": {
+      "published": false,
+      "reason": {
+        "en": "The JPL Small-Body Database publishes no spin-axis solution for this body, and an axial tilt cannot be derived without one.",
+        "fr": "La base des petits corps de JPL ne publie aucune solution de pôle pour ce corps, et une inclinaison axiale ne se dérive pas sans elle.",
+        "es": "La base de datos de cuerpos menores del JPL no publica ninguna solución de polo para este cuerpo, y una inclinación axial no puede derivarse sin ella.",
+        "pt-BR": "A base de pequenos corpos do JPL não publica nenhuma solução de polo para este corpo, e uma inclinação axial não se deriva sem ela."
+      }
+    }
+  },
+  "notes": {
+    "a": "Éléments osculateurs JPL Horizons BARYCENTRIQUES exactement à cette époque (COMMAND '50000;', CENTER=500@0, TLIST=2451545.0), par `pnpm ephemeris:small-body --center 500@0`. Barycentriques car mesuré meilleur au-delà de Neptune (cf. `OrbitalElements.barycentric`)."
+  }
+}

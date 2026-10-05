@@ -1,0 +1,162 @@
+{
+  "$schema": "../schema/entity.schema.json",
+  "id": "mimas",
+  "targetClass": "satellite",
+  "source": "catalogue",
+  "config": {
+    "kind": "moon",
+    "displayName": {
+      "en": "Mimas",
+      "fr": "Mimas",
+      "es": "Mimas",
+      "pt-BR": "Mimas"
+    },
+    "radius": 0.09,
+    "rotationSpeed": {
+      "$rotationHours": {
+        "$days": 0.9424243752169399
+      }
+    },
+    "orbitalColor": "0xd9d6cd",
+    "fallbackColor": "0xcac8c2",
+    "frame": "parentRelative",
+    "rotationBody": "Saturn",
+    "relativeEphemeris": {
+      "kind": "horizonsParentRelative"
+    },
+    "relativeOrbitalElements": {
+      "semiMajorAxisAU": 0.001243567234,
+      "eccentricity": 0.0212823,
+      "inclinationRad": {
+        "$deg": 29.6251
+      },
+      "ascendingNodeRad": {
+        "$deg": 169.6602
+      },
+      "argPerihelionRad": {
+        "$deg": 256.0964
+      },
+      "meanAnomalyAtEpochRad": {
+        "$deg": 50.0846
+      },
+      "epoch": {
+        "$date": "2025-12-31T00:00:00.000Z"
+      }
+    },
+    "model": {
+      "resolutions": [
+        "1k",
+        "2k",
+        "4k"
+      ],
+      "extentRatio": 1.09,
+      "credit": {
+        "en": "Cassini ISS narrow-angle and Voyager 1 images, shape model by R. W. Gaskell, NASA PDS Gaskell Mimas Shape Model V2.0 (CO-SA-ISSNA-5-MIMASSHAPE-V2.0), decimated for the web.",
+        "fr": "Images Cassini ISS à champ étroit et Voyager 1, modèle de forme de R. W. Gaskell, NASA PDS Gaskell Mimas Shape Model V2.0 (CO-SA-ISSNA-5-MIMASSHAPE-V2.0), décimé pour le web.",
+        "es": "Imágenes de Cassini ISS de ángulo estrecho y Voyager 1, modelo de forma de R. W. Gaskell, NASA PDS Gaskell Mimas Shape Model V2.0 (CO-SA-ISSNA-5-MIMASSHAPE-V2.0), diezmado para la web.",
+        "pt-BR": "Imagens da Cassini ISS de ângulo estreito e da Voyager 1, modelo de forma de R. W. Gaskell, NASA PDS Gaskell Mimas Shape Model V2.0 (CO-SA-ISSNA-5-MIMASSHAPE-V2.0), decimado para a web."
+      }
+    },
+    "textureResolutions": {
+      "surface": [
+        "4k",
+        "2k",
+        "1k"
+      ]
+    },
+    "realData": {
+      "orbitalInclination": {
+        "$deg": 27.00265761372071
+      },
+      "ascendingNode": {
+        "$deg": 172.0569449519339
+      },
+      "description": {
+        "en": "Saturn's closest major moon, dominated by the giant Herschel crater that gives it a Death-Star silhouette.",
+        "fr": "La lune majeure la plus proche de Saturne, dominée par le cratère géant Herschel qui lui donne une silhouette d’Étoile Noire.",
+        "es": "La luna mayor más cercana a Saturno, dominada por el cráter gigante Herschel, que le da una silueta de Estrella de la Muerte.",
+        "pt-BR": "A maior lua mais próxima de Saturno, dominada pela cratera gigante Herschel, que lhe dá uma silhueta de Estrela da Morte."
+      },
+      "wiki": {
+        "en": "https://en.wikipedia.org/wiki/Mimas_(moon)",
+        "fr": "https://fr.wikipedia.org/wiki/Mimas_(lune)",
+        "es": "https://es.wikipedia.org/wiki/Mimas_(sat%C3%A9lite)",
+        "pt-BR": "https://pt.wikipedia.org/wiki/Mimas_(sat%C3%A9lite)"
+      }
+    },
+    "cameraDistance": {
+      "educ": 0.6,
+      "explo": {
+        "$cameraFromRadiusKm": 198.2
+      }
+    },
+    "loadPriority": 20
+  },
+  "facts": {
+    "radiusKm": {
+      "value": 198.2,
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "measured",
+      "uncertainty": 0.4
+    },
+    "massKg": {
+      "value": {
+        "$gm": 2.50349
+      },
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "derived",
+      "uncertainty": {
+        "$gm": 0.00014
+      },
+      "detail": "massFromGM"
+    },
+    "gravity": {
+      "value": {
+        "$gm": 2.50349,
+        "$radiusKm": 198.2
+      },
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "derived",
+      "detail": "gravityFromGM"
+    },
+    "meanTempC": {
+      "published": false,
+      "reason": {
+        "en": "No temperature is published where its other figures come from: neither NASA's satellite fact sheets nor JPL's satellite tables carry one.",
+        "fr": "Aucune température n'est publiée là où viennent ses autres chiffres : ni les fiches des satellites de la NASA, ni les tables des satellites de JPL n'en portent.",
+        "es": "No se publica ninguna temperatura allí donde se obtienen sus demás cifras: ni las hojas de datos de satélites de la NASA ni las tablas de satélites del JPL la incluyen.",
+        "pt-BR": "Nenhuma temperatura é publicada onde vêm os seus outros números: nem as fichas dos satélites da NASA nem as tabelas de satélites do JPL a trazem."
+      }
+    },
+    "axialTilt": {
+      "value": {
+        "$deg": 0.32
+      },
+      "source": "naif-pck",
+      "method": "derived",
+      "detail": "obliquityFromPole",
+      "citation": "pck00011.tpc, BODY601"
+    },
+    "distanceAU": {
+      "value": {
+        "$km": 185520
+      },
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "orbitPeriodDays": {
+      "value": 0.9424243752169399,
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "rotationPeriod": {
+      "source": "nssdca-fact-sheets",
+      "method": "derived",
+      "detail": "synchronousRotation"
+    }
+  },
+  "notes": {
+    "relativeOrbitalElements": "JPL Horizons osculating elements, epoch 2000-01-01.5 TDB (EPHEM_TYPE=ELEMENTS, TLIST=2451545.0) — même méthode que pour les autres lunes de ce fichier.",
+    "textureResolutions": "Mosaïque Cassini ISS du PDS (volume coiss_3006, 5 760 px), d’où le plafond à 4k : la source ne permet pas le 8k. Elle remplace le 2026-10-04 une texture procédurale ; voir src/registry/products/textures/mimas-surface.json."
+  }
+}

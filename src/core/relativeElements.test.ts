@@ -1,0 +1,253 @@
+import { describe, expect, it } from 'vitest';
+import { CELESTIAL_CONFIG } from '@/config/bodies';
+import { forEachBody } from '@/config/catalog';
+import {
+  horizonsManifest,
+  horizonsServiceFromDisk,
+} from './horizonsTestFixture';
+import { OrbitalElementsService } from './OrbitalElementsService';
+
+/**
+ * LE REPLI KÉPLÉRIEN DÉCRIT-IL LA MÊME ORBITE QUE LE FICHIER HORIZONS ?
+ *
+ * `relativeOrbitalElements` sert quand un binaire est absent, hors couverture ou invalidé —
+ * en particulier si les assets ne se chargent pas, auquel cas le repli travaille AUX DATES
+ * COURANTES, sous les yeux de l'utilisateur. Rien ne le vérifiait, et ces éléments avaient
+ * été saisis à la main depuis des sources hétérogènes.
+ *
+ * Défaut réellement livré, et plus large que soupçonné : HUIT jeux sur vingt étaient dans un
+ * repère qui n'est pas celui du moteur. `kepler.ts` attend des angles ÉCLIPTIQUES ; les
+ * valeurs saisies étaient souvent celles publiées par rapport à l'ÉQUATEUR de la planète —
+ * les deux conventions coexistent dans la littérature et rien ne les distingue à l'œil dans
+ * un fichier de config. Inclinaison catalogue puis vraie valeur écliptique :
+ *
+ *     Charon      0,0°  ->  112,9°      Titan       0,3°  ->  27,7°
+ *     Encelade    0,0°  ->   28,1°      Rhéa        0,3°  ->  28,2°
+ *     Phobos      1,1°  ->   27,4°      Japet       7,6°  ->  17,0°
+ *     Deimos      1,8°  ->   24,2°      Triton    157,3°  ->  129,1°
+ *
+ * Un satellite serait donc parti dans un plan orbital visiblement faux dès que le repli
+ * aurait pris la main. Les vingt jeux sont maintenant dérivés des ÉTATS EXACTS des binaires
+ * (`scripts/derive-relative-elements.mjs`), donc du même repère par construction.
+ *
+ * Ce que ce test compare est non circulaire : d'un côté une propagation képlérienne pure à
+ * partir de six nombres du catalogue, de l'autre l'interpolation d'un fichier de 18 354
+ * états Horizons. Les deux chemins ne partagent aucune ligne de code.
+ *
+ * Ce que le test NE promet PAS : une égalité. Les éléments sont OSCULATEURS — ils décrivent
+ * la conique tangente à l'époque, sans les perturbations qui font ensuite précesser le nœud.
+ * L'écart croît donc avec le temps, et c'est normal. On borne ici ce à quoi un repli doit
+ * servir : rester sur la bonne orbite, dans le bon plan, à la bonne cadence.
+ */
+
+/** Époque des éléments dérivés — le repli est à son meilleur ici. */
+const EPOCH = new Date('2025-12-31T00:00:00Z');
+
+const satellites: {
+  name: string;
+  parent: string;
+  elements: NonNullable<
+    (typeof CELESTIAL_CONFIG.bodies)[string]['relativeOrbitalElements']
+  >;
+  period: number;
+}[] = [];
+forEachBody(CELESTIAL_CONFIG, ({ name, config, parentName }) => {
+  const elements = config.relativeOrbitalElements;
+  const period = config.realData?.orbitPeriodDays;
+  if (!elements || parentName === null || !period) return;
+  if (!(name in horizonsManifest.bodies)) return;
+  satellites.push({ name, parent: parentName, elements, period });
+});
+
+/**
+ * Amplitude du BALLANT du parent autour du barycentre de son systeme, rapportee au rayon
+ * orbital du satellite considere.
+ *
+ * Un satellite mesure depuis le CENTRE de sa planete voit sa distance osciller si la planete
+ * elle-meme tourne autour d'un barycentre deporte. Ce n'est pas une erreur du repli, c'est un
+ * fait geometrique : dans le systeme de Pluton, Charon pese 12,2 % du couple et deplace Pluton
+ * de ~2 100 km, soit 5 % du rayon orbital de Styx. Un repli keplerien, qui suppose un centre
+ * fixe, ne peut pas reproduire cela — et n'a pas a le faire.
+ *
+ * La tolerance est donc DERIVEE de la donnee plutot que relachee au jugé : elle vaut zero pour
+ * une planete dont aucune lune n'est massive, et grandit exactement de ce que la physique
+ * impose ailleurs.
+ */
+function barycentreWobbleRatio(
+  satellite: string,
+  parent: string,
+  satelliteAxisAU: number
+): number {
+  const parentCfg = CELESTIAL_CONFIG.bodies[parent];
+  const parentMass = parentCfg?.realData?.massKg;
+  if (!parentCfg?.satellites || !parentMass || satelliteAxisAU <= 0) return 0;
+
+  let displacementAU = 0;
+  for (const [companionName, companion] of Object.entries(
+    parentCfg.satellites
+  )) {
+    // Un satellite ne subit PAS son propre ballant : lui et sa planete tournent autour de
+    // leur barycentre commun, mais leur SEPARATION reste constante. Sans cette exclusion,
+    // Charon — qui pese 12,2 % du couple — s'accordait a lui-meme 16 % de tolerance, soit
+    // trois fois ce que la garde doit laisser passer.
+    if (companionName === satellite) continue;
+    const mass = companion.realData?.massKg;
+    const axis = companion.realData?.distanceAU;
+    if (!mass || !axis) continue;
+    displacementAU = Math.max(
+      displacementAU,
+      axis * (mass / (parentMass + mass))
+    );
+  }
+  return displacementAU / satelliteAxisAU;
+}
+
+const elementsService = new OrbitalElementsService();
+const horizons = horizonsServiceFromDisk();
+
+/** Écart angulaire et radial entre les deux sources, sur une fenêtre autour de l'époque. */
+function compare(
+  name: string,
+  parent: string,
+  elements: (typeof satellites)[number]['elements'],
+  period: number,
+  spanDays: number
+): { maxAngleDeg: number; maxRadiusRatio: number } {
+  let maxAngleDeg = 0;
+  let maxRadiusRatio = 1;
+  const steps = 60;
+
+  for (let i = 0; i <= steps; i++) {
+    const date = new Date(
+      EPOCH.getTime() + (i / steps) * spanDays * 86_400_000
+    );
+    const fromHorizons = horizons.getParentRelativeAU(name, parent, date);
+    if (!fromHorizons) continue;
+    const fromElements = elementsService.getHeliocentricAU(
+      { ...elements, periodDays: period },
+      date
+    );
+
+    maxAngleDeg = Math.max(
+      maxAngleDeg,
+      fromHorizons.angleTo(fromElements) * (180 / Math.PI)
+    );
+    const ratio = fromElements.length() / fromHorizons.length();
+    maxRadiusRatio = Math.max(maxRadiusRatio, ratio, 1 / ratio);
+  }
+
+  return { maxAngleDeg, maxRadiusRatio };
+}
+
+describe('repli képlérien confronté aux binaires Horizons', () => {
+  it('couvre bien les satellites du catalogue', () => {
+    expect(satellites.length).toBeGreaterThanOrEqual(18);
+  });
+
+  for (const { name, parent, elements, period } of satellites) {
+    /**
+     * Une période autour de l'époque : c'est la fenêtre où le repli doit être bon, puisque
+     * c'est celle où il sert (assets absents = date courante).
+     */
+    it(`${name} suit son fichier Horizons sur une période`, () => {
+      const { maxAngleDeg, maxRadiusRatio } = compare(
+        name,
+        parent,
+        elements,
+        period,
+        period
+      );
+      // La DISTANCE au parent est la propriété la plus robuste : elle ne dépend ni de la
+      // phase ni de l'orientation, seulement de a et e. 5 % de marge absorbe les
+      // perturbations à court terme, plus le ballant du parent quand son système en a un.
+      const wobble = barycentreWobbleRatio(
+        name,
+        parent,
+        elements.semiMajorAxisAU
+      );
+      expect(
+        maxRadiusRatio,
+        `${name} : rayon (tolérance ${(1.05 + wobble).toFixed(3)}, dont ${(wobble * 100).toFixed(1)} % de ballant du parent)`
+      ).toBeLessThan(1.05 + wobble);
+      // La POSITION doit rester du bon côté de la planète. Un mauvais repère donnait des
+      // dizaines de degrés en permanence — Charon aurait été à 113° de son plan.
+      expect(maxAngleDeg, `${name} : position`).toBeLessThan(20);
+    });
+  }
+
+  /**
+   * Vieillissement : au-delà de l'époque, l'écart croît (précession du nœud, non modélisée
+   * par des éléments figés). On ne l'interdit pas — on vérifie qu'il reste borné, pour que
+   * le repli reste un repli utilisable et non une trajectoire fantaisiste.
+   */
+  /**
+   * PHASE, pas seulement rayon. Le test du rayon ci-dessous est aveugle à la phase : un
+   * satellite peut rester à la bonne distance de sa planète en étant de l'autre côté. C'est
+   * exactement ce qui était livré — les périodes du catalogue de Mimas, Téthys, Dioné,
+   * Hypérion, des lunes d'Uranus, de Protée, d'Amalthée et de Phobos étaient des périodes
+   * OSCULATRICES 2π√(a³/μ), fausses de 47 à 6 957 ppm autour d'une planète aplatie : leur
+   * phase devenait aléatoire en quelques semaines (Mimas à 194 % de son rayon orbital à
+   * 100 jours). Elles viennent maintenant de `derive-relative-elements.mjs --mean-motion`.
+   *
+   * Distance à la vérité rapportée au demi-grand axe, pire cas sur 24 dates à ±1 an et
+   * ±10 ans. Mesuré : ≤ 8 % pour 21 satellites (Nix 8 %, dont ~5 % de ballant de Pluton
+   * autour du barycentre ; Phobos 7 %), d'où 12 %. Au-delà, la limite est physique et
+   * déclarée corps par corps plutôt que noyée dans une tolérance commune :
+   *   - Mimas (9 % / 38 %) : résonance 4:2 avec Téthys, libration de 70 ans, ±44° ;
+   *   - Hypérion (22 % / 54 %) : résonance 4:3 avec Titan, orbite chaotique ;
+   *   - Miranda (3 % / 15 %) : orbite inclinée de 4,3° sur l'équateur d'Uranus, dont le
+   *     nœud précesse ; des éléments figés gardent le plan de l'époque.
+   *   - Dimorphos (2026-10-04) : sa phase N'EST PAS tenue, et la borne le dit (2,1, soit
+   *     « n'importe où sur son orbite »). La période affichée est publiée à ± 2 min (NASA), un
+   *     tour d'incertitude par an pour une orbite de 11 h ; et la limite est aussi physique :
+   *     Scheirich et al. 2024 (arXiv 2403.02804) mesurent une période qui change encore des
+   *     semaines après l'impact, et une orbite peut-être chaotique 70 jours après. Le repli ne
+   *     sert que hors de 2000-2030, où le binaire couvre tout ; le RAYON, lui, reste tenu.
+   * Hors de la couverture des binaires (avant 1900, après 2100), le repli est donc sur la
+   * bonne orbite mais sa phase n'est garantie que dans ces bornes. On ne le coupe pas :
+   * `null` gèlerait le corps en Éduc et le cacherait au centre de sa planète en Explo, ce
+   * qui n'est pas plus vrai. Afficher cette incertitude relève du modèle temporel (lot 6).
+   */
+  const PHASE_BOUNDS: Record<string, readonly [number, number]> = {
+    mimas: [0.12, 0.55],
+    hyperion: [0.32, 0.8],
+    miranda: [0.12, 0.22],
+    dimorphos: [2.1, 2.1],
+  };
+  const DEFAULT_PHASE_BOUNDS = [0.12, 0.12] as const;
+
+  for (const { name, parent, elements, period } of satellites) {
+    it(`${name} garde sa phase à 1 et 10 ans de l’époque`, () => {
+      const [oneYear, tenYears] = PHASE_BOUNDS[name] ?? DEFAULT_PHASE_BOUNDS;
+      const worst = (years: number): number => {
+        let max = 0;
+        for (let k = 0; k < 24; k++) {
+          const u = 0.3 + (0.7 * k) / 23;
+          const date = new Date(
+            EPOCH.getTime() + (k % 2 ? 1 : -1) * u * years * 365.25 * 86_400_000
+          );
+          const truth = horizons.getParentRelativeAU(name, parent, date);
+          if (!truth) continue;
+          const model = elementsService.getHeliocentricAU(
+            { ...elements, periodDays: period },
+            date
+          );
+          max = Math.max(
+            max,
+            model.distanceTo(truth) / elements.semiMajorAxisAU
+          );
+        }
+        return max;
+      };
+      expect(worst(1), `${name} : phase à 1 an`).toBeLessThan(oneYear);
+      expect(worst(10), `${name} : phase à 10 ans`).toBeLessThan(tenYears);
+    });
+  }
+
+  it('reste sur la bonne orbite un an après l’époque', () => {
+    for (const { name, parent, elements, period } of satellites) {
+      const { maxRadiusRatio } = compare(name, parent, elements, period, 365);
+      expect(maxRadiusRatio, `${name} : rayon à un an`).toBeLessThan(1.15);
+    }
+  });
+});

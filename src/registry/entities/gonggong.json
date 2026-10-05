@@ -1,0 +1,105 @@
+{
+  "$schema": "../schema/entity.schema.json",
+  "id": "gonggong",
+  "targetClass": "dwarf_planet",
+  "source": "small-body",
+  "elements": {
+    "displayName": {
+      "en": "Gonggong",
+      "fr": "Gonggong",
+      "es": "Gonggong",
+      "pt-BR": "Gonggong"
+    },
+    "a": 67.06649002606795,
+    "e": 0.5034146432904725,
+    "iDeg": 30.80268415463649,
+    "omDeg": 336.8395088422051,
+    "wDeg": 206.9906512032046,
+    "maDeg": 93.65145846699514,
+    "epoch": "2000-01-01T12:00:00Z",
+    "barycentric": true,
+    "kind": "dwarf",
+    "color": "0xc25a3f",
+    "surfaceResolutions": [
+      "2k",
+      "1k"
+    ],
+    "fallbackColor": "0xc25a3f",
+    "visualRadius": 0.097,
+    "description": {
+      "en": "Named after the Chinese god of water and chaos, this reddish, methane-frosted world spins nearly on its side and shares a steeply tilted, eccentric orbit with its lone moon Xiangliu.",
+      "fr": "Nommée d’après le dieu chinois de l’eau et du chaos, ce monde rougeâtre couvert de givre de méthane tourne presque couché sur le côté et partage une orbite très inclinée et excentrique avec son unique lune Xiangliu.",
+      "es": "Nombrado por el dios chino del agua y del caos, este mundo rojizo cubierto de escarcha de metano gira casi tumbado de lado y comparte una órbita muy inclinada y excéntrica con su única luna, Xiangliu.",
+      "pt-BR": "Nomeado a partir do deus chinês da água e do caos, este mundo avermelhado coberto de geada de metano gira quase deitado de lado e compartilha uma órbita muito inclinada e excêntrica com a sua única lua, Xiangliu."
+    },
+    "wiki": {
+      "en": "https://en.wikipedia.org/wiki/Gonggong_(dwarf_planet)",
+      "fr": "https://fr.wikipedia.org/wiki/(225088)_Gonggong",
+      "es": "https://es.wikipedia.org/wiki/(225088)_Gonggong",
+      "pt-BR": "https://pt.wikipedia.org/wiki/Gonggong"
+    }
+  },
+  "facts": {
+    "radiusKm": {
+      "value": {
+        "$diameterKm": 1230
+      },
+      "source": "kiss-2019-gonggong",
+      "method": "derived",
+      "uncertainty": 25,
+      "detail": "radiusFromDiameter"
+    },
+    "massKg": {
+      "value": 1.75e+21,
+      "source": "kiss-2019-gonggong",
+      "method": "measured",
+      "detail": "systemMass"
+    },
+    "gravity": {
+      "value": {
+        "$massKg": 1.75e+21,
+        "$radiusKm": {
+          "$diameterKm": 1230
+        }
+      },
+      "source": "kiss-2019-gonggong",
+      "method": "derived",
+      "detail": "gravityFromSystemMass"
+    },
+    "meanTempC": {
+      "published": false,
+      "reason": {
+        "en": "The JPL Small-Body Database, the source of its other figures, publishes no temperature among its physical parameters.",
+        "fr": "La base des petits corps de JPL, d'où viennent ses autres chiffres, ne publie aucune température parmi ses paramètres physiques.",
+        "es": "La base de datos de cuerpos menores del JPL, de donde proceden sus demás cifras, no publica ninguna temperatura entre sus parámetros físicos.",
+        "pt-BR": "A base de pequenos corpos do JPL, de onde vêm os seus outros números, não publica nenhuma temperatura entre os seus parâmetros físicos."
+      }
+    },
+    "moonCount": {
+      "value": 1,
+      "source": "jpl-sbdb",
+      "method": "measured",
+      "asOf": "2026-09-28",
+      "detail": "confirmedSatellites"
+    },
+    "rotationPeriod": {
+      "value": 22.4,
+      "source": "jpl-sbdb",
+      "method": "measured",
+      "detail": "partialLightcurve",
+      "citation": "LCDB (Rev. 2023-October); Warner et al., 2009"
+    },
+    "axialTilt": {
+      "published": false,
+      "reason": {
+        "en": "The JPL Small-Body Database publishes no spin-axis solution for this body, and an axial tilt cannot be derived without one.",
+        "fr": "La base des petits corps de JPL ne publie aucune solution de pôle pour ce corps, et une inclinaison axiale ne se dérive pas sans elle.",
+        "es": "La base de datos de cuerpos menores del JPL no publica ninguna solución de polo para este cuerpo, y una inclinación axial no puede derivarse sin ella.",
+        "pt-BR": "A base de pequenos corpos do JPL não publica nenhuma solução de polo para este corpo, e uma inclinação axial não se deriva sem ela."
+      }
+    }
+  },
+  "notes": {
+    "a": "Éléments osculateurs JPL Horizons BARYCENTRIQUES exactement à cette époque (COMMAND '225088;', CENTER=500@0, TLIST=2451545.0), par `pnpm ephemeris:small-body --center 500@0`. Barycentriques car mesuré meilleur au-delà de Neptune (cf. `OrbitalElements.barycentric`)."
+  }
+}

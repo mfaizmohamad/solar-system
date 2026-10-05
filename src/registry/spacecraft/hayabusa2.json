@@ -1,0 +1,65 @@
+{
+  "$schema": "../schema/spacecraft.schema.json",
+  "id": "hayabusa2",
+  "targetClass": "spacecraft",
+  "displayName": {
+    "en": "Hayabusa2",
+    "fr": "Hayabusa2",
+    "es": "Hayabusa2",
+    "pt-BR": "Hayabusa2"
+  },
+  "description": {
+    "en": "Launched in 2014, sampled asteroid Ryugu and returned the capsule to Earth in 2020.",
+    "fr": "Lancée en 2014, elle a prélevé l’astéroïde Ryugu et rapporté sa capsule sur Terre en 2020.",
+    "es": "Lanzada en 2014, tomó muestras del asteroide Ryugu y devolvió la cápsula a la Tierra en 2020.",
+    "pt-BR": "Lançada em 2014, coletou amostras do asteroide Ryugu e devolveu a cápsula à Terra em 2020."
+  },
+  "launchDate": "2014-12-03",
+  "color": "0xff8a4d",
+  "identifiers": {
+    "naif": -37
+  },
+  "facts": {
+    "launchDate": {
+      "source": "nssdca-master-catalog",
+      "method": "measured",
+      "citation": "NSSDCA/COSPAR 2014-076A"
+    },
+    "launchVehicle": {
+      "value": "H-2A",
+      "source": "nssdca-master-catalog",
+      "method": "measured",
+      "citation": "NSSDCA/COSPAR 2014-076A"
+    },
+    "launchSite": {
+      "value": "Tanegashima, Japan",
+      "source": "nssdca-master-catalog",
+      "method": "measured",
+      "citation": "NSSDCA/COSPAR 2014-076A"
+    },
+    "massKg": {
+      "value": 600,
+      "source": "nssdca-master-catalog",
+      "method": "measured",
+      "detail": "nssdcaFactsInBrief",
+      "citation": "NSSDCA/COSPAR 2014-076A"
+    }
+  },
+  "satelliteOf": [
+    {
+      "body": "ryugu",
+      "from": "2018-06-22T00:00:00Z",
+      "to": "2019-11-20T00:00:00Z"
+    }
+  ],
+  "coverage": {
+    "temporal": {
+      "interval": [
+        [
+          "2014-12-05T00:00:00Z",
+          "2026-11-24T00:00:00Z"
+        ]
+      ]
+    }
+  }
+}

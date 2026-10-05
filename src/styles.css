@@ -1,0 +1,3407 @@
+/* ============================================================================
+   GALAXY — OVERLAY SYSTEM
+   Conçu d'un seul bloc : un jeu de tokens unique, une seule surface de base,
+   trois docks fixes autour de la scène, des surfaces contextuelles mutuellement
+   exclusives. La scène 3D reste toujours l'élément dominant.
+   ============================================================================ */
+
+:root {
+  /* ── Échelle d'espacement (base 4px) ── */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
+
+  /* ── Rayons ── */
+  --r-sm: 0.5rem;
+  --r-md: 0.75rem;
+  --r-lg: 1rem;
+  --r-pill: 999px;
+
+  /* ── Marge des docks au bord de l'écran (respecte les encoches mobiles) ── */
+  --edge: 0.75rem;
+  --edge-x: max(var(--edge), env(safe-area-inset-left));
+  --edge-b: max(var(--edge), env(safe-area-inset-bottom));
+
+  /* ── Surface unique (une seule densité, un seul contraste, une seule profondeur) ── */
+  --surface: rgba(9, 13, 26, 0.82);
+  --surface-solid: rgba(9, 13, 26, 0.96);
+  --hairline: rgba(150, 185, 255, 0.14);
+  --hairline-strong: rgba(150, 185, 255, 0.24);
+  --blur: blur(20px);
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+
+  /* ── Contrôles (chips, tools) ── */
+  --control-h: 2.25rem;
+  --control-bg: rgba(255, 255, 255, 0.04);
+  --control-bg-hover: rgba(150, 185, 255, 0.12);
+
+  /* ── Texte ── */
+  --ink: rgba(224, 236, 255, 0.95);
+  --ink-dim: rgba(200, 218, 255, 0.62);
+  --ink-faint: rgba(200, 218, 255, 0.4);
+
+  /* ── Accents fonctionnels ── */
+  --accent: 96, 165, 255; /* bleu — sélection, actions primaires, Éducatif */
+  --explo: 74, 210, 140; /* vert — Exploration, "temps réel / présent" */
+
+  /* ── Empilement (z-index) — hiérarchie unique et documentée ── */
+  --z-scene-canvas: 1;
+  --z-smallbody: 19;
+  --z-labels: 20;
+  --z-scrim: 60;
+  --z-dock: 70;
+  --z-surface: 80;
+  --z-loader: 1000;
+}
+
+html,
+body {
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #000;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    Arial,
+    sans-serif;
+  color: var(--ink);
+}
+
+canvas {
+  touch-action: none;
+  display: block;
+}
+
+/* La scene se manipule comme une camera orbitale : le curseur doit suggerer le glissement,
+   sans transformer les corps 3D en boutons classiques. */
+canvas[data-engine] {
+  cursor: grab;
+}
+
+canvas[data-engine]:active {
+  cursor: grabbing;
+}
+
+button,
+input,
+summary {
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  cursor: pointer;
+}
+
+:where(button, input, summary, a):focus-visible {
+  outline: 2px solid rgba(var(--accent), 0.95);
+  outline-offset: 2px;
+}
+
+/* Le FPS n'appartient plus à l'overlay permanent (diagnostic uniquement). */
+#fps-counter {
+  display: none !important;
+}
+
+/* ============================================================================
+   DOCKS — trois ancres fixes autour de la scène.
+   pointer-events neutralisé sur le conteneur (les clics passent vers la 3D
+   entre les contrôles), réactivé sur chaque enfant interactif.
+   ============================================================================ */
+
+.dock {
+  position: fixed;
+  z-index: var(--z-dock);
+  display: flex;
+  gap: var(--sp-2);
+  pointer-events: none;
+}
+.dock > * {
+  pointer-events: auto;
+}
+
+.dock--top-left {
+  top: var(--edge);
+  left: var(--edge-x);
+  align-items: center;
+}
+
+.dock--top-right {
+  top: var(--edge);
+  right: var(--edge-x);
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.dock--bottom {
+  bottom: var(--edge-b);
+  /* Pleine largeur : toggle à gauche · barre temps centrée · plein écran à droite. Les deux
+     zones latérales ont le même flex → la barre temps reste centrée sur l'écran, pas seulement
+     entre les deux voisins. */
+  left: var(--edge-x);
+  right: var(--edge-x);
+  align-items: flex-end;
+  gap: var(--sp-2);
+}
+
+.dock-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+/* Zones latérales du dock bas : même largeur → centrage vrai de la barre temps. */
+.dock-actions--start,
+.dock-actions--end {
+  flex: 1 1 0;
+  align-items: flex-end;
+}
+.dock-actions--start {
+  justify-content: flex-start;
+}
+.dock-actions--end {
+  justify-content: flex-end;
+}
+
+/* ── Chip (dock haut-gauche : Vue globale, recherche) ── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--control-h);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  backdrop-filter: var(--blur);
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background 0.18s,
+    border-color 0.18s,
+    color 0.18s;
+}
+.chip svg {
+  flex: 0 0 auto;
+  opacity: 0.85;
+}
+.chip-label {
+  line-height: 1;
+}
+.chip:hover {
+  border-color: var(--hairline-strong);
+  background: var(--control-bg-hover);
+}
+.chip--overview.is-active {
+  border-color: rgba(var(--accent), 0.7);
+  background: rgba(var(--accent), 0.16);
+  color: rgb(var(--accent));
+}
+.chip--search .chip-label--current {
+  color: var(--ink-dim);
+  font-weight: 500;
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chip--search[aria-expanded='true'] {
+  border-color: rgba(var(--accent), 0.6);
+  background: rgba(var(--accent), 0.12);
+}
+
+/* ── Tool (icône carrée : info, réglages, événements, aide, plein écran) ── */
+.tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h);
+  height: var(--control-h);
+  padding: 0;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  backdrop-filter: var(--blur);
+  color: var(--ink-dim);
+  transition:
+    background 0.18s,
+    border-color 0.18s,
+    color 0.18s;
+}
+.tool:hover,
+.tool[aria-expanded='true'] {
+  color: var(--ink);
+  border-color: var(--hairline-strong);
+  background: var(--control-bg-hover);
+}
+.tool[aria-expanded='true'] {
+  color: rgb(var(--accent));
+  border-color: rgba(var(--accent), 0.55);
+}
+.tool[hidden] {
+  display: none;
+}
+/* Les tools du dock bas partagent la hauteur du groupe de modes. */
+.tool--dock {
+  width: var(--control-h);
+  height: var(--control-h);
+}
+
+/* Lien Ko-fi : teinté en permanence (pas seulement au survol comme les autres .tool) pour
+   rester repérable au milieu d'icônes neutres — le but même de ce bouton est d'être vu. */
+.tool--kofi {
+  color: rgba(255, 129, 100, 0.85);
+  border-color: rgba(255, 129, 100, 0.35);
+}
+.tool--kofi:hover {
+  color: rgb(255, 129, 100);
+  border-color: rgba(255, 129, 100, 0.6);
+  background: rgba(255, 129, 100, 0.12);
+}
+
+/* ============================================================================
+   MODE SEGMENT — Éducatif ↔ Exploration (dock bas droit)
+   ============================================================================ */
+
+.mode-seg {
+  display: inline-flex;
+  height: var(--control-h);
+  padding: 0.15rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  backdrop-filter: var(--blur);
+}
+.mode-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--sp-3);
+  border: none;
+  border-radius: calc(var(--r-md) - 0.15rem);
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  transition:
+    background 0.18s,
+    color 0.18s;
+}
+.mode-btn:hover:not(.is-active):not(:disabled) {
+  color: var(--ink-dim);
+}
+.mode-btn:disabled {
+  color: var(--ink-faint);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.mode-btn.is-active[data-mode='educ'] {
+  background: rgba(var(--accent), 0.2);
+  color: rgb(var(--accent));
+}
+.mode-btn.is-active[data-mode='explo'] {
+  background: rgba(var(--explo), 0.2);
+  color: rgb(var(--explo));
+}
+
+/* ============================================================================
+   TIME BAR — une seule surface, style lecteur multimédia (dock bas centre).
+   Compact = play + horloge/vitesse + présent. S'étend EN PLACE (le contenu
+   avancé pousse la barre vers le haut) : aucune largeur ni hauteur ne saute
+   pendant l'usage du slider.
+   ============================================================================ */
+
+.time-bar {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  backdrop-filter: var(--blur);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.time-bar-primary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-2);
+  /* Plancher et non hauteur fixe : le libellé de vitesse peut passer à trois lignes au pire
+     (temps qui recule, débit limité, police large, 390 px), et la barre grandit alors de
+     quelques pixels au lieu de le couper (2026-10-03). */
+  min-height: var(--control-h);
+  box-sizing: content-box;
+}
+
+/* Play / pause — pastille ronde, verte en lecture, rouge en pause. */
+.tb-play {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid rgba(var(--explo), 0.4);
+  border-radius: 50%;
+  background: rgba(var(--explo), 0.14);
+  color: rgb(var(--explo));
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+.tb-play:hover {
+  background: rgba(var(--explo), 0.24);
+}
+.tb-play.is-paused {
+  border-color: rgba(240, 110, 110, 0.42);
+  background: rgba(240, 90, 90, 0.14);
+  color: rgba(255, 138, 138, 0.95);
+}
+.tb-play.is-paused:hover {
+  background: rgba(240, 90, 90, 0.24);
+}
+
+/* Lecture centrale : horloge (grande) + vitesse (petite). Clic = étend. */
+.tb-readout {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.05rem;
+  padding: 0.1rem var(--sp-2);
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  transition: background 0.15s;
+}
+.tb-readout:hover {
+  background: var(--control-bg);
+}
+.tb-clock-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.tb-live-dot {
+  align-self: center;
+  width: 0.4rem;
+  height: 0.4rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: rgba(var(--explo), 0.9);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.tb-live-dot.is-live {
+  opacity: 1;
+  animation: tb-pulse 2s ease-in-out infinite;
+}
+.tb-live-dot.is-off-time {
+  opacity: 0.5;
+  background: rgba(170, 170, 180, 0.6);
+  animation: none;
+}
+@keyframes tb-pulse {
+  0%,
+  100% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.25;
+    transform: scale(0.6);
+  }
+}
+.tb-clock {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.02rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.tb-clock.is-ticking {
+  animation: tb-tick 0.5s ease-out;
+}
+@keyframes tb-tick {
+  0% {
+    color: rgb(var(--accent));
+  }
+  100% {
+    color: var(--ink);
+  }
+}
+.tb-utc {
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--ink-faint);
+}
+/* La vitesse PASSE À LA LIGNE plutôt que d'être tronquée (2026-10-03). L'ellipsis d'avant
+   coupait, à 390 px, chaque libellé « limité par votre connexion » de 33 à 100 px : le visiteur
+   au réseau lent, celui que ce libellé concerne, lisait « … limité par vo… ». Et sous une police
+   plus large (DejaVu Sans, celle des postes Linux), même le libellé par défaut perdait 5 à 17 px.
+   Deux lignes au pire, mesuré ; `balance` les égalise au lieu de laisser un mot seul. */
+.tb-speed {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  color: rgba(var(--accent), 0.9);
+  max-width: 100%;
+  overflow-wrap: break-word;
+  text-wrap: balance;
+}
+
+/* Retour au présent — discret, vert. */
+.tb-now {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid rgba(var(--explo), 0.22);
+  border-radius: 50%;
+  background: rgba(var(--explo), 0.06);
+  color: rgba(var(--explo), 0.75);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.tb-now:hover {
+  background: rgba(var(--explo), 0.18);
+  color: rgb(var(--explo));
+}
+
+/* ── Zone étendue : slider de vitesse + date/heure ── */
+.time-bar-advanced {
+  display: grid;
+  grid-template-rows: 0fr;
+  overflow: hidden;
+  transition: grid-template-rows 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.time-bar.is-expanded .time-bar-advanced {
+  grid-template-rows: 1fr;
+}
+/* Un unique enfant occupe la piste 0fr↔1fr : tout son contenu est masqué d'un bloc
+   à l'état compact (pas de ligne résiduelle visible). */
+.tb-advanced-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+.tb-speed-control {
+  padding: var(--sp-2) var(--sp-3) var(--sp-1);
+  border-top: 1px solid var(--hairline);
+  display: grid;
+  gap: 0.2rem;
+}
+.tb-speed-range {
+  width: 100%;
+  height: 1rem;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+}
+.tb-speed-range::-webkit-slider-runnable-track {
+  height: 0.25rem;
+  border-radius: var(--r-pill);
+  background: rgba(150, 190, 255, 0.2);
+}
+.tb-speed-range::-moz-range-track {
+  height: 0.25rem;
+  border-radius: var(--r-pill);
+  background: rgba(150, 190, 255, 0.2);
+}
+/* Slider bidirectionnel : repère central (le 1:1 temps réel) = trait vertical lumineux au
+   milieu de la piste. Purement visuel, aide à retrouver le neutre. */
+.tb-speed-range.is-bidirectional::-webkit-slider-runnable-track {
+  background:
+    linear-gradient(rgba(210, 232, 255, 0.85), rgba(210, 232, 255, 0.85))
+      no-repeat 50% / 2px 100%,
+    rgba(150, 190, 255, 0.2);
+}
+.tb-speed-range.is-bidirectional::-moz-range-track {
+  background:
+    linear-gradient(rgba(210, 232, 255, 0.85), rgba(210, 232, 255, 0.85))
+      no-repeat 50% / 2px 100%,
+    rgba(150, 190, 255, 0.2);
+}
+.tb-speed-range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 0.85rem;
+  height: 0.85rem;
+  margin-top: -0.3rem;
+  border: 2px solid rgba(210, 232, 255, 0.95);
+  border-radius: 50%;
+  background: rgb(var(--accent));
+  box-shadow: 0 0 0 0.18rem rgba(var(--accent), 0.16);
+}
+.tb-speed-range::-moz-range-thumb {
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 2px solid rgba(210, 232, 255, 0.95);
+  border-radius: 50%;
+  background: rgb(var(--accent));
+}
+.tb-speed-ticks {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 0.1rem;
+  color: var(--ink-faint);
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.tb-datetime {
+  display: flex;
+  /* Le groupe julien (ligne 22.10) est plus long que le champ de date : il passe à la ligne
+     plutôt que d'être rogné quand la police est plus large (mesuré avec une police élargie). */
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-3) var(--sp-2);
+}
+.tb-datetime-sep {
+  color: var(--ink-faint);
+}
+.tb-input {
+  color-scheme: dark;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  font-family: 'SF Mono', 'Cascadia Code', ui-monospace, 'Fira Mono', monospace;
+  padding: 0.18rem 0.4rem;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.tb-input::-webkit-calendar-picker-indicator {
+  display: none;
+}
+.tb-input:hover {
+  background: rgba(var(--accent), 0.08);
+}
+.tb-input:focus {
+  outline: none;
+  background: rgba(var(--accent), 0.12);
+  border-color: rgba(var(--accent), 0.4);
+}
+.tb-input--time {
+  font-size: 0.92rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+.tb-input--date {
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+  letter-spacing: 0.06em;
+}
+.tb-input.is-ticking {
+  animation: tb-tick 0.5s ease-out;
+}
+/* Avant 1582 : jour, mois, année, ère, et le calendrier nommé (ligne 22.10). */
+.tb-historic {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  min-width: 0;
+  max-width: 100%;
+}
+.tb-historic[hidden] {
+  display: none;
+}
+.tb-input--hist {
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+  padding: 0.18rem 0.25rem;
+}
+/* Les flèches d'un champ numérique prennent de la place : sans elles comptées, « 30 » était rogné
+   de 6 px (mesuré par l'audit à 390 px). */
+.tb-input--hist-day {
+  width: 5ch;
+}
+.tb-input--hist-year {
+  width: 7ch;
+}
+.tb-input--hist option {
+  background: var(--surface-solid, #111);
+  color: var(--ink);
+}
+.tb-calendar {
+  font-size: 0.62rem;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+}
+
+/* ============================================================================
+   SURFACES CONTEXTUELLES — un seul style, une seule à la fois.
+   Ancrées près de leur déclencheur sur desktop ; deviennent des feuilles
+   ancrées en bas sur mobile (voir media query). Le scrim gère la fermeture.
+   ============================================================================ */
+
+.surface {
+  position: fixed;
+  z-index: var(--z-surface);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  background: var(--surface-solid);
+  backdrop-filter: var(--blur);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  animation: surface-in 0.16s ease-out;
+}
+.surface[hidden] {
+  display: none;
+}
+@keyframes surface-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.surface-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-3) var(--sp-2);
+}
+.surface-title {
+  flex: 1;
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.surface-close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin: -0.25rem -0.25rem -0.25rem 0;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink-faint);
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+.surface-close:hover {
+  color: var(--ink);
+  background: var(--control-bg);
+}
+.surface-body {
+  padding: 0 var(--sp-3) var(--sp-3);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+/* Positions d'ancrage (desktop). */
+.surface--palette {
+  top: calc(var(--edge) + var(--control-h) + var(--sp-2));
+  left: var(--edge-x);
+  width: min(22rem, calc(100vw - 2 * var(--edge)));
+  max-height: min(70vh, 34rem);
+  padding: var(--sp-2);
+  gap: var(--sp-2);
+}
+.surface--info,
+.surface--settings,
+.surface--events,
+.surface--help {
+  top: calc(var(--edge) + var(--control-h) + var(--sp-2));
+  right: var(--edge-x);
+  width: min(20rem, calc(100vw - 2 * var(--edge)));
+  max-height: calc(100vh - var(--control-h) - 4 * var(--edge));
+}
+
+/* Le corps de la surface Réglages est son SEUL défileur (cf. `.oo-table`) : ses sections
+   s'empilent dans le flux et il défile quand l'ensemble dépasse la hauteur du panneau. */
+.surface--settings > .surface-body {
+  min-height: 0;
+  overflow-y: auto;
+}
+.surface--events > .surface-body {
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+.surface--events .events-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+
+/* ── Scrim ── */
+/* Scrim : sur desktop il ne DOIT PAS bloquer les gestes sur la scène (molette/zoom,
+   rotation) — les surfaces sont de petits panneaux de coin, la fermeture au clic extérieur
+   passe par un écouteur document. Il devient une couche tactile (tap = fermer) uniquement
+   sur mobile, où les surfaces sont des feuilles plein largeur. */
+#surface-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-scrim);
+  background: transparent;
+  pointer-events: none;
+}
+#surface-scrim[hidden] {
+  display: none;
+}
+
+/* ============================================================================
+   PALETTE DE CORPS — recherche + liste groupée (remplace la barre horizontale)
+   ============================================================================ */
+
+.palette-search {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-2);
+  height: 2.4rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  background: var(--control-bg);
+  color: var(--ink-dim);
+  flex: 0 0 auto;
+}
+.palette-search:focus-within {
+  border-color: rgba(var(--accent), 0.5);
+  color: rgb(var(--accent));
+}
+.palette-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.9rem;
+  outline: none;
+}
+.palette-input::placeholder {
+  color: var(--ink-faint);
+}
+.palette-results {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.palette-group-title {
+  padding: var(--sp-2) var(--sp-2) 0.2rem;
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.palette-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: 0.5rem var(--sp-2);
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.86rem;
+  text-align: left;
+  transition: background 0.12s;
+}
+/*
+ * `hidden` DOIT gagner sur `display: flex`.
+ *
+ * `ui/bodyPalette` filtre en posant l'attribut `hidden` sur les entrées qui ne correspondent
+ * pas. Mais une règle d'auteur qui fixe `display` l'emporte sur `[hidden] { display: none }`
+ * de la feuille du navigateur : le filtre ne masquait donc RIEN. Mesuré au lot 19 en tapant
+ * « mars » : 70 entrées sur 71 portaient `hidden`, et les 71 restaient affichées. Le clavier,
+ * lui, sautait bien à Mars, ce qui rendait le défaut discret — et NVDA annonçait « Mars, 5 sur
+ * 71 » au lieu de « 1 sur 1 ».
+ *
+ * C'est le seul défaut de cette passe qui gênait TOUT LE MONDE, pas seulement qui écoute.
+ */
+.palette-item[hidden],
+.palette-group-title[hidden] {
+  display: none;
+}
+.palette-item:hover,
+.palette-item.is-highlighted {
+  background: var(--control-bg-hover);
+}
+.palette-item.is-active {
+  background: rgba(var(--accent), 0.16);
+  color: rgb(var(--accent));
+}
+/* Objet sans position à la date courante : une sonde avant son lancement ou après la fin de
+   sa solution de trajectoire, un objet interstellaire hors de sa fenêtre. L'entrée reste
+   listée, lisible et annoncée (aria-disabled, pas disabled) : son absence dit quelque chose
+   de la DATE affichée. Le contraste du nom reste au-dessus du seuil AA. */
+.palette-item[aria-disabled='true'] {
+  cursor: default;
+}
+.palette-item[aria-disabled='true'] .palette-item-name,
+.palette-item[aria-disabled='true'] .palette-item-kind {
+  color: var(--ink-faint);
+}
+.palette-item[aria-disabled='true'] .palette-item-dot {
+  opacity: 0.35;
+  box-shadow: none;
+}
+.palette-item[aria-disabled='true']:hover {
+  background: transparent;
+}
+.palette-item-dot {
+  flex: 0 0 auto;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: rgb(var(--body-rgb, 150, 185, 255));
+  box-shadow: 0 0 8px rgba(var(--body-rgb, 150, 185, 255), 0.6);
+}
+.palette-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.palette-item-kind {
+  flex: 0 0 auto;
+  font-size: 0.6rem;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.palette-empty {
+  padding: var(--sp-3) var(--sp-2);
+  color: var(--ink-faint);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+/* ============================================================================
+   BODY INFO — fiche d'un corps
+   ============================================================================ */
+
+.surface--info {
+  --planet-rgb: 120, 160, 255;
+  border-color: rgba(var(--planet-rgb), 0.35);
+  overflow: hidden;
+}
+.bi-header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  /* Aligné en haut : la pastille et la croix suivent la 1re ligne (le nom), pas le centre
+     d'un bloc titre qui peut faire 2-3 lignes (sous-titre + badge « surface fictive »). */
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-3) var(--sp-2);
+}
+/* Pastille et croix cadrées sur la hauteur de ligne du nom (1.1rem). */
+.bi-header .bi-dot {
+  margin-top: 0.42rem;
+}
+.bi-header .bi-close {
+  margin-top: -0.15rem;
+}
+/* Titre + croix restent ancrés en haut ; le hero est une bannière en fond, derrière
+   l'en-tête, avec un dégradé qui garantit la lisibilité du titre par-dessus. */
+.surface--info.has-hero .bi-header {
+  padding-bottom: 2.6rem;
+}
+.surface--info.has-hero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6rem;
+  z-index: 0;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(9, 13, 26, 0.28) 0%,
+      rgba(9, 13, 26, 0.55) 60%,
+      var(--surface-solid) 100%
+    ),
+    var(--bi-hero) center 38% / cover no-repeat;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  pointer-events: none;
+}
+.bi-dot {
+  flex: 0 0 auto;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(var(--planet-rgb), 0.85);
+}
+/* Bloc titre : nom puis sous-titre empilés verticalement, entre la pastille et la croix. */
+.bi-heading {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.bi-name {
+  min-width: 0;
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+}
+.surface--info.has-hero .bi-name {
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
+}
+.bi-close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+.bi-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+.bi-body {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 var(--sp-3) var(--sp-3);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+.bi-subtitle {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(var(--planet-rgb), 0.95);
+}
+/* Sous-titre lisible par-dessus le hero, comme le nom. */
+.surface--info.has-hero .bi-subtitle {
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.85);
+}
+/* Badge « surface fictive » : pastille ambrée discrète, sous le sous-titre. */
+.bi-fictional-badge {
+  align-self: flex-start;
+  margin-top: 0.15rem;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid rgba(230, 170, 70, 0.45);
+  border-radius: var(--r-sm);
+  background: rgba(230, 170, 70, 0.15);
+  color: rgb(240, 190, 110);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: help;
+}
+.bi-fictional-badge[hidden] {
+  display: none;
+}
+.bi-live {
+  margin: 0 0 var(--sp-2);
+  padding: var(--sp-2) 0.65rem;
+  border-radius: var(--r-sm);
+  background: rgba(var(--planet-rgb), 0.1);
+  border: 1px solid rgba(var(--planet-rgb), 0.25);
+  display: grid;
+  gap: 0.1rem;
+}
+.bi-live[hidden] {
+  display: none;
+}
+.bi-live-label {
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(var(--planet-rgb), 0.85);
+}
+.bi-live-dist {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #eaf3ff;
+  font-variant-numeric: tabular-nums;
+}
+.bi-live-lt {
+  font-size: 0.7rem;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+.bi-position {
+  /* Séparée de la liste des faits : elle décrit la POSITION à la date de la scène, pas une
+     propriété du corps. */
+  margin: var(--sp-2) 0;
+  padding-top: var(--sp-2);
+  border-top: 1px solid rgba(var(--planet-rgb), 0.18);
+  display: grid;
+  gap: 0.1rem;
+}
+.bi-position[hidden] {
+  display: none;
+}
+.bi-position-label {
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(var(--planet-rgb), 0.85);
+}
+.bi-position-source {
+  font-size: 0.75rem;
+  color: #eaf3ff;
+}
+.bi-position-error,
+.bi-position-offset {
+  font-size: 0.7rem;
+  color: var(--ink-dim);
+}
+.bi-position-offset[hidden] {
+  display: none;
+}
+.bi-stats {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.32rem 0.75rem;
+  margin: 0;
+  font-size: 0.8rem;
+}
+.bi-stats dt {
+  color: var(--ink-faint);
+}
+.bi-stats dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: rgba(235, 244, 255, 0.95);
+}
+/* Valeur non publiée : le tiret reste lisible mais s'efface visuellement, et le curseur
+   d'aide signale qu'une explication est disponible en infobulle. */
+.bi-stats dd.is-unknown {
+  color: var(--ink-faint);
+  cursor: help;
+  text-decoration: underline dotted rgba(235, 244, 255, 0.35);
+  text-underline-offset: 0.2em;
+}
+.bi-desc {
+  margin: var(--sp-3) 0 0;
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--hairline);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--ink-dim);
+}
+.bi-desc[hidden] {
+  display: none;
+}
+/* Renvoi numéroté vers la source, date de validité d'un fait qui évolue. */
+.bi-stats .bi-ref {
+  margin-left: 0.15em;
+  font-size: 0.62em;
+  color: var(--ink-faint);
+}
+.bi-stats .bi-asof {
+  font-size: 0.85em;
+  color: var(--ink-faint);
+}
+/* La découverte (lot 44) : même séparation que la position, dont elle est la voisine, parce
+   qu'elle dépend elle aussi de la date de la scène. Une affirmation par ligne, avec sa source,
+   et deux affirmations qui divergent (Pluton) restent côte à côte : la fiche ne tranche pas. */
+.bi-discovery {
+  margin: var(--sp-2) 0;
+  padding-top: var(--sp-2);
+  border-top: 1px solid rgba(var(--planet-rgb), 0.18);
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: var(--ink-dim);
+}
+.bi-discovery[hidden],
+.bi-discovery p[hidden] {
+  display: none;
+}
+.bi-discovery-label {
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(var(--planet-rgb), 0.85);
+}
+.bi-discovery-claims {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.bi-discovery-claims li + li {
+  margin-top: var(--sp-1);
+}
+.bi-discovery-when {
+  font-size: 0.75rem;
+  color: #eaf3ff;
+  font-variant-numeric: tabular-nums;
+}
+.bi-discovery-who {
+  overflow-wrap: anywhere;
+}
+.bi-discovery-source {
+  display: block;
+  color: var(--ink-faint);
+  overflow-wrap: anywhere;
+}
+.bi-discovery p {
+  margin: 0;
+}
+.bi-discovery-standing,
+.bi-discovery-moons {
+  color: rgba(235, 244, 255, 0.95);
+}
+.bi-discovery-note {
+  color: var(--ink-faint);
+}
+/* Missions déclarées sur ce corps : même typographie que le bloc des sources, dont il est le
+   voisin immédiat, et même repli en `<details>` pour qu'une fiche à trente missions (la Lune)
+   n'écrase pas le reste. La puce d'une mission commencée à la date de la scène est une COULEUR
+   plus vive et un `::before`, jamais la couleur seule : le mode daltonien ne repeint pas ce
+   bloc, et une information portée par la seule teinte serait perdue. */
+.bi-missions,
+.bi-instruments,
+.bi-places {
+  margin: var(--sp-2) 0 0;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: var(--ink-dim);
+}
+.bi-missions[hidden],
+.bi-instruments[hidden],
+.bi-places[hidden] {
+  display: none;
+}
+.bi-missions summary,
+.bi-instruments summary,
+.bi-places summary {
+  cursor: pointer;
+  color: var(--ink-faint);
+}
+.bi-missions-count,
+.bi-instruments-count,
+.bi-places-count {
+  margin-left: 0.35em;
+  font-variant-numeric: tabular-nums;
+}
+.bi-missions ul,
+.bi-instruments ul,
+.bi-places ul {
+  margin: var(--sp-1) 0 0;
+  padding-left: 1.1em;
+  list-style: none;
+}
+.bi-missions li + li,
+.bi-instruments li + li,
+.bi-places li + li {
+  margin-top: var(--sp-1);
+}
+.bi-missions li::before,
+.bi-instruments li::before,
+.bi-places li::before {
+  content: '·';
+  display: inline-block;
+  width: 1.1em;
+  margin-left: -1.1em;
+  color: var(--ink-faint);
+}
+.bi-missions li.is-at-date,
+.bi-instruments li.is-at-date {
+  color: rgba(235, 244, 255, 0.95);
+}
+.bi-missions li.is-at-date::before,
+.bi-instruments li.is-at-date::before {
+  content: '▸';
+  color: rgba(var(--planet-rgb), 0.95);
+}
+.bi-missions-span {
+  display: block;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+/* Le bloc des formations observees (ligne 40.3) : un champ natif, et des etiquettes PDS dont
+   l'adresse peut etre longue, donc coupees plutot que debordantes (le lot 42 a mesure un
+   debordement ROGNE de 70 px sur un identifiant). */
+.bi-places-form {
+  margin: var(--sp-1) 0 0;
+}
+.bi-places-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.3em 0.5em;
+  font: inherit;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+}
+.bi-places-intro,
+.bi-places-title {
+  margin: var(--sp-1) 0 0;
+}
+.bi-places-title {
+  color: rgba(235, 244, 255, 0.95);
+}
+.bi-places li {
+  overflow-wrap: anywhere;
+}
+.bi-places-label {
+  display: block;
+  color: rgba(var(--planet-rgb), 0.95);
+}
+.bi-missions-note,
+.bi-instruments-note,
+.bi-places-note {
+  margin: var(--sp-2) 0 0;
+  color: var(--ink-faint);
+}
+/* Le nom du porteur, montre SEULEMENT quand une sonde en a plusieurs : BepiColombo est trois
+   engins sous une seule investigation, et repeter « Cassini Orbiter » au-dessus de ses dix-huit
+   instruments serait du bruit. */
+.bi-instruments-host,
+.bi-instruments-caption {
+  margin: var(--sp-2) 0 0;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.62rem;
+}
+.bi-instruments-host:first-child,
+.bi-instruments-caption:first-child {
+  margin-top: var(--sp-1);
+}
+.bi-instruments-empty {
+  text-transform: none;
+  letter-spacing: 0;
+}
+/* L'identifiant logique PDS EST la citation de la source. Il peut etre long : il doit donc pouvoir
+   se couper, sinon il deborde la fiche a 390 px — exactement le defaut que la garde du lot 41 a
+   trouve sur un DOI de huit caracteres de trop. */
+.bi-instruments-lid {
+  display: block;
+  color: var(--ink-faint);
+  font-family: 'SF Mono', 'Cascadia Code', ui-monospace, 'Fira Mono', monospace;
+  font-size: 0.6rem;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+.bi-sources {
+  margin: var(--sp-2) 0 0;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: var(--ink-dim);
+}
+.bi-sources[hidden] {
+  display: none;
+}
+.bi-sources summary {
+  cursor: pointer;
+  color: var(--ink-faint);
+}
+.bi-sources ol {
+  margin: var(--sp-1) 0 0;
+  padding-left: 1.4em;
+}
+.bi-sources li + li {
+  margin-top: var(--sp-1);
+}
+.bi-sources a {
+  color: rgba(var(--planet-rgb), 0.95);
+  overflow-wrap: anywhere;
+}
+.bi-source-ref,
+.bi-source-supports {
+  display: block;
+  color: var(--ink-faint);
+}
+.bi-credit {
+  margin: var(--sp-2) 0 0;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: var(--ink-dim);
+  opacity: 0.85;
+}
+.bi-credit[hidden] {
+  display: none;
+}
+.bi-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: var(--sp-3);
+  padding: 0.32rem 0.68rem;
+  font-size: 0.72rem;
+  color: rgba(var(--planet-rgb), 0.95);
+  text-decoration: none;
+  background: rgba(var(--planet-rgb), 0.1);
+  border: 1px solid rgba(var(--planet-rgb), 0.35);
+  border-radius: var(--r-sm);
+  transition:
+    background 0.18s,
+    border-color 0.18s;
+}
+.bi-more::after {
+  content: '↗';
+  font-size: 0.8em;
+}
+.bi-more:hover {
+  background: rgba(var(--planet-rgb), 0.2);
+  border-color: rgb(var(--planet-rgb));
+}
+.bi-more[hidden] {
+  display: none;
+}
+
+/* Contenu réservé aux lecteurs d'écran (en-têtes de colonne/légendes de tableau sans
+   doublon visuel — le contexte est déjà porté par la mise en page). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ============================================================================
+   SETTINGS — noms & orbites (+ FOV en Explo, injecté par ui/opticalZoom)
+   ============================================================================ */
+
+.settings-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+  background: var(--control-bg);
+  cursor: pointer;
+}
+.settings-switch:hover {
+  border-color: var(--hairline-strong);
+  background: var(--control-bg-hover);
+}
+.settings-switch-label {
+  flex: 1;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+.wl-loading {
+  flex: 0 0 auto;
+  color: var(--ink-faint);
+  font-size: 0.64rem;
+  white-space: nowrap;
+}
+.settings-switch:has(.settings-checkbox:disabled) {
+  cursor: wait;
+  opacity: 0.76;
+}
+.settings-checkbox,
+.oo-checkbox {
+  flex: 0 0 auto;
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.settings-checkbox:checked,
+.oo-checkbox:checked {
+  background: rgba(var(--accent), 0.28);
+  border-color: rgba(var(--accent), 0.75);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2 5 L4.5 7.5 L8 3' fill='none' stroke='rgba(190%2C218%2C255%2C0.98)' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 82%;
+}
+/* En-tête de colonne « tout cocher » quand seuls certains corps sont cochés (voir
+   ui/orbitOptions.ts::syncHeader) : un tiret plutôt qu'une coche, comme toute case « tout
+   sélectionner » d'un tableau — sans quoi une coche pleine mentirait sur l'état réel des lignes. */
+.settings-checkbox:indeterminate,
+.oo-checkbox:indeterminate {
+  background: rgba(var(--accent), 0.2);
+  border-color: rgba(var(--accent), 0.6);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 10 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2.5 5 L7.5 5' fill='none' stroke='rgba(190%2C218%2C255%2C0.98)' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 82%;
+}
+/* Tableau réglages unifié (index.html #orbit-options) : un corps par ligne, une bascule
+   par colonne. L'en-tête (<th>) porte la bascule maître de sa colonne ; chaque <td> une
+   bascule individuelle. Remplace les 3 dépliants « Choisir… » qui répétaient la même
+   liste de corps trois fois. */
+.oo-table-hint {
+  margin: 0 0 var(--sp-2);
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: var(--ink-faint);
+}
+/* Le tableau n'a plus son propre défilement : c'est le corps de la surface qui défile, seul.
+   Deux défileurs imbriqués (la boîte du tableau dans le panneau) laissaient huit lignes
+   visibles sur un téléphone et une molette qui ne savait pas lequel faire bouger. Les groupes
+   repliés gardent le tableau court ; l'en-tête reste collé en haut du corps qui défile. */
+.oo-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm);
+}
+/* Ligne de groupe : son nom déplie le groupe, ses cases règlent tout le groupe. */
+.oo-group-row > * {
+  padding: 0.3rem 0.3rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-top: 1px solid var(--hairline);
+}
+.oo-group-name {
+  text-align: left;
+}
+.oo-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: 0.1rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.oo-group-toggle::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+  opacity: 0.7;
+}
+.oo-group-toggle[aria-expanded='true']::before {
+  transform: rotate(45deg);
+}
+.oo-group-toggle:hover {
+  color: rgb(var(--accent));
+}
+.oo-group-count {
+  color: var(--ink-dim);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.oo-tr[hidden] {
+  display: none;
+}
+
+/* Sections de la surface Réglages d'affichage : un titre, puis ses réglages. Les blocs qu'on
+   y range (exposition, qualité, zoom optique) perdent leur propre séparateur : c'est la
+   section qui sépare, une seule fois. */
+.settings-section + .settings-section {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--hairline);
+}
+.settings-section[hidden] {
+  display: none;
+}
+.settings-section-title {
+  margin: 0 0 var(--sp-2);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.settings-section .render-exposure,
+.settings-section .quality-group,
+.settings-section .optical-zoom {
+  margin-top: 0;
+  margin-bottom: var(--sp-2);
+  padding-top: 0;
+  border-top: 0;
+}
+/* Section « Utilisation hors ligne » (lot 17E). Elle ne règle rien : elle DIT ce que
+   l'appareil tient et porte l'action qui le complète. Les boutons reprennent la géométrie de
+   ceux du bandeau d'éphémérides, pas un nouveau style. */
+.offline-status {
+  margin: 0 0 var(--sp-2);
+  color: var(--ink-dim);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.offline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+}
+
+.offline-btn {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-sm, 0.4rem);
+  background: var(--control-bg);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+}
+
+.offline-btn:hover:not(:disabled) {
+  background: var(--control-bg-hover);
+}
+
+.offline-btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.offline-btn[hidden] {
+  display: none;
+}
+
+.offline-btn--quiet {
+  color: var(--ink-dim);
+}
+
+.settings-section .oo-body {
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+  border-top: 0;
+}
+.oo-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.4rem 0.3rem;
+  /* Opaque : collé en haut du corps qui défile, un fond à 96 % laissait lire les lignes
+     passées dessous. */
+  background: rgb(9, 13, 26);
+  border-bottom: 1px solid var(--hairline);
+  font-weight: 600;
+  text-align: center;
+}
+.oo-th-name {
+  width: 100%;
+}
+.oo-th-toggle {
+  width: 2.7rem;
+}
+.oo-th-toggle label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  cursor: pointer;
+  font-size: 0.6rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  /* `--ink-dim` et non `--ink-faint` : sur le fond désormais opaque de l'en-tête collé, le
+     second tombait à 3,02:1 (axe), sous les 4,5:1 exigés pour un texte de cette taille. */
+  color: var(--ink-dim);
+}
+.oo-th-toggle label:hover {
+  color: var(--ink);
+}
+.oo-tr td {
+  padding: 0.28rem 0.3rem;
+  border-bottom: 1px solid var(--hairline);
+}
+.oo-tr:last-child td {
+  border-bottom: none;
+}
+.oo-tr:hover td {
+  background: var(--control-bg);
+}
+.oo-td-name {
+  vertical-align: middle;
+}
+.oo-td-name-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.oo-td-toggle {
+  vertical-align: middle;
+  text-align: center;
+}
+.oo-body,
+.wl-body {
+  max-height: min(42vh, 16rem);
+  padding: 0.35rem 0.45rem 0.45rem;
+  border-top: 1px solid var(--hairline);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.wl-body {
+  border-top: none;
+}
+.wl-item {
+  display: flex;
+  flex-direction: column;
+}
+.wl-detail {
+  padding: 0.15rem 0.2rem 0.5rem 1.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.wl-detail[hidden] {
+  display: none;
+}
+/* Légende en barre de dégradé : barre colorée + libellés min/max. C'est la SEULE forme de
+   légende depuis le lot 8b ; la règle `.wl-legend`, qui habillait une image SVG distante que
+   notre propre `img-src` bloquait, est partie avec elle. */
+.wl-legend-grad {
+  width: 100%;
+  max-width: 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wl-legend-bar {
+  height: 10px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.wl-legend-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.66rem;
+  color: var(--text-dim, rgba(255, 255, 255, 0.62));
+}
+.wl-note {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--text-dim, rgba(255, 255, 255, 0.62));
+}
+/* Attribution des sources météo, sous la liste des couches (licence CC BY 4.0 d'Open-Meteo).
+   Le panneau reste à UN seul défileur (`e2e/modes.spec.ts`) : la liste prend la place restante
+   et défile seule, l'attribution reste fixe dessous. Sans ce flex, sur mobile (panneau borné à
+   46vh), la liste ET le corps du panneau défilaient tous les deux. */
+#weather-layers > .surface-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+#weather-layers .wl-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.wl-attribution {
+  flex: none;
+  margin-top: var(--sp-3, 0.75rem);
+  padding-top: var(--sp-2, 0.5rem);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.wl-attribution a {
+  color: rgba(var(--accent), 0.95);
+  text-decoration: none;
+}
+.wl-attribution a:hover {
+  text-decoration: underline;
+}
+/* Badge de traçabilité (étape B) : source · date réelle · approché. Discret, monospace léger. */
+.wl-source {
+  margin: 0;
+  font-size: 0.66rem;
+  line-height: 1.3;
+  color: var(--text-dim, rgba(255, 255, 255, 0.5));
+  font-variant-numeric: tabular-nums;
+}
+
+/* PETITS CORPS — provenance et date du relevé, sous les quatre catégories. Même discrétion
+   que le badge de traçabilité météo : c'est une mention, pas un réglage. */
+.sb-source {
+  margin: 0;
+  padding: 0.45rem 0.55rem 0.15rem;
+  font-size: 0.66rem;
+  line-height: 1.3;
+  color: var(--text-dim, rgba(255, 255, 255, 0.5));
+  font-variant-numeric: tabular-nums;
+}
+
+/* ÉVÉNEMENTS TERRESTRES — même habillage que le panneau météo, dont il reprend la structure
+   (interrupteur, note, badge de traçabilité). Seule la liste des événements est nouvelle. */
+.ee-body {
+  max-height: min(42vh, 16rem);
+  padding: 0.35rem 0.45rem 0.45rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.ee-item {
+  display: flex;
+  flex-direction: column;
+}
+.ee-detail {
+  padding: 0.15rem 0.2rem 0.5rem 1.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.ee-detail[hidden] {
+  display: none;
+}
+.ee-note {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--text-dim, rgba(255, 255, 255, 0.62));
+}
+.ee-note[hidden] {
+  display: none;
+}
+.ee-source {
+  margin: 0;
+  font-size: 0.66rem;
+  line-height: 1.3;
+  color: var(--text-dim, rgba(255, 255, 255, 0.5));
+  font-variant-numeric: tabular-nums;
+}
+.ee-loading {
+  flex: 0 0 auto;
+  color: var(--ink-faint);
+  font-size: 0.64rem;
+  white-space: nowrap;
+}
+.ee-list {
+  margin: 0;
+  padding-left: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.68rem;
+  line-height: 1.3;
+  color: var(--text-dim, rgba(255, 255, 255, 0.58));
+  font-variant-numeric: tabular-nums;
+}
+/* Un seul défileur, comme pour la météo : la liste prend la place restante, l'attribution
+   reste fixe dessous (cf. la régression de double défilement corrigée au lot 3). */
+#earth-events > .surface-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+#earth-events .ee-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.ee-attribution {
+  flex: none;
+  margin-top: var(--sp-3, 0.75rem);
+  padding-top: var(--sp-2, 0.5rem);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.ee-attribution a {
+  color: rgba(var(--accent), 0.95);
+  text-decoration: none;
+}
+.ee-attribution a:hover {
+  text-decoration: underline;
+}
+.oo-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0.3rem 0.35rem;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.oo-row:hover {
+  background: var(--control-bg);
+}
+.oo-dot {
+  flex: 0 0 auto;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: rgb(var(--orbit-rgb));
+  transition: opacity 0.2s;
+}
+.oo-row:has(.oo-checkbox:not(:checked)) .oo-dot {
+  opacity: 0.35;
+}
+.oo-name {
+  flex: 1;
+  font-size: 0.78rem;
+  color: var(--ink);
+  transition: color 0.2s;
+}
+.oo-row:has(.oo-checkbox:not(:checked)) .oo-name {
+  color: var(--ink-faint);
+}
+/* FOV (optical zoom) — injecté dans la surface réglages, visible en Explo. */
+.optical-zoom {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--hairline);
+  display: grid;
+  gap: 0.3rem;
+}
+.optical-zoom[hidden] {
+  display: none;
+}
+.optical-zoom-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.optical-zoom-value {
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--accent));
+}
+.optical-zoom-range {
+  width: 100%;
+  height: 1rem;
+  margin: 0;
+  accent-color: rgb(var(--accent));
+  cursor: pointer;
+}
+
+/* Exposition du rendu (tone mapping) — même schéma visuel que le FOV ci-dessus, mais
+   toujours visible (Éduc + Explo) : c'est un réglage d'affichage général, pas propre à
+   l'échelle réelle. */
+.render-exposure {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--hairline);
+  display: grid;
+  gap: 0.3rem;
+}
+.render-exposure-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.render-exposure-value {
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--accent));
+}
+.render-exposure-range {
+  width: 100%;
+  height: 1rem;
+  margin: 0;
+  accent-color: rgb(var(--accent));
+  cursor: pointer;
+}
+
+/* Qualité graphique — fusionnée depuis l'ancien popover dédié #quality-btn/#quality-menu
+   directement dans le corps des Réglages (voir ui/qualitySection.ts) : même schéma visuel
+   que l'exposition ci-dessus (bloc en flux, séparateur du haut), plus de position fixe. */
+.quality-group {
+  margin: var(--sp-3) 0 0;
+  padding: var(--sp-3) 0 0;
+  border: 0;
+  border-top: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.quality-group-title {
+  padding: 0;
+  margin: 0 0 0.3rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.quality-opt {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 0.4rem 0.55rem;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.quality-opt:hover {
+  background: var(--control-bg-hover);
+}
+.quality-opt:has(.quality-radio:checked) {
+  border-color: var(--hairline-strong);
+  background: var(--control-bg-hover);
+}
+.quality-radio {
+  flex: 0 0 auto;
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.quality-radio:checked {
+  border-color: rgba(var(--accent), 0.85);
+  background: radial-gradient(
+    circle,
+    rgb(var(--accent)) 0 40%,
+    transparent 44%
+  );
+}
+.quality-opt-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+.quality-opt-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.quality-opt-hint {
+  font-size: 0.66rem;
+  color: var(--ink-faint);
+}
+.quality-menu-note {
+  margin: 0.3rem 0.1rem 0;
+  font-size: 0.64rem;
+  line-height: 1.3;
+  color: var(--ink-faint);
+}
+.quality-menu-note[hidden] {
+  display: none;
+}
+
+/* ============================================================================
+   EVENTS — panneau des événements astronomiques
+   ============================================================================ */
+
+.events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-height: min(60vh, 26rem);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+.event-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.1rem var(--sp-2);
+  padding: 0.5rem var(--sp-2);
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  transition: background 0.12s;
+}
+.event-row:hover {
+  background: var(--control-bg-hover);
+}
+.event-row-label {
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+.event-row-go {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  color: var(--ink-faint);
+  font-size: 1rem;
+}
+.event-row-date {
+  grid-column: 1;
+  font-size: 0.66rem;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+.events-empty {
+  padding: var(--sp-3) var(--sp-2);
+  color: var(--ink-faint);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+/* ============================================================================
+   HELP — astuces + langue + crédits
+   ============================================================================ */
+
+.help-tips {
+  margin: 0 0 var(--sp-3);
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+}
+.help-tips li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+  line-height: 1.35;
+}
+.help-key {
+  flex: 0 0 auto;
+  padding: 0.08rem 0.42rem;
+  border-radius: var(--r-sm);
+  background: rgba(var(--accent), 0.14);
+  border: 1px solid rgba(var(--accent), 0.28);
+  color: rgba(var(--accent), 0.98);
+  font-size: 0.7rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.help-credits {
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--hairline);
+  font-size: 0.72rem;
+}
+#lang-switch {
+  display: flex;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-3);
+}
+.lang-btn {
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--r-sm);
+  background: rgba(var(--accent), 0.1);
+  border: 1px solid rgba(var(--accent), 0.24);
+  color: var(--ink-dim);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.lang-btn:hover {
+  background: rgba(var(--accent), 0.2);
+  color: var(--ink);
+}
+.lang-btn.is-active {
+  background: rgba(var(--accent), 0.4);
+  border-color: rgba(var(--accent), 0.7);
+  color: #fff;
+}
+.credits-copy {
+  margin: 0 0 var(--sp-2);
+  color: var(--ink-faint);
+}
+.credits-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.6rem;
+  margin: 0;
+}
+.credits-list dt {
+  color: var(--ink-faint);
+}
+.credits-list dd {
+  margin: 0;
+  color: var(--ink-dim);
+}
+.help-credits a {
+  color: rgba(var(--accent), 0.95);
+  text-decoration: none;
+}
+.help-credits a:hover {
+  text-decoration: underline;
+}
+/* Toast de confirmation « Lien copié » (partage de vue). Éphémère, centré en bas,
+   au-dessus des surfaces. N'intercepte pas les clics. */
+.share-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--edge-b) + 4.5rem);
+  transform: translate(-50%, 0.5rem);
+  z-index: var(--z-loader);
+  padding: 0.5rem 1rem;
+  border-radius: var(--r-pill);
+  background: var(--surface-solid);
+  border: 1px solid var(--hairline-strong);
+  box-shadow: var(--shadow);
+  backdrop-filter: var(--blur);
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 600;
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+.share-toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* Nudge « Essayer une visite guidée », premier passage en Explo uniquement (ui/exploTourNudge.ts).
+   Même ancrage que .share-toast, mais interactif (bouton d'action + fermeture) donc pas
+   pointer-events: none. */
+.explo-tour-nudge {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--edge-b) + 4.5rem);
+  transform: translate(-50%, 0.5rem);
+  z-index: var(--z-loader);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: min(24rem, calc(100vw - 2rem));
+  padding: 0.5rem 0.5rem 0.5rem 0.85rem;
+  border-radius: var(--r-lg, 1rem);
+  background: var(--surface-solid);
+  border: 1px solid var(--hairline-strong);
+  box-shadow: var(--shadow);
+  backdrop-filter: var(--blur);
+  color: var(--ink);
+  font-size: 0.8rem;
+  opacity: 0;
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
+}
+.explo-tour-nudge.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.explo-tour-nudge-text {
+  flex: 1 1 auto;
+  line-height: 1.35;
+}
+.explo-tour-nudge-action {
+  flex: 0 0 auto;
+  padding: 0.32rem 0.7rem;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(var(--accent), 0.5);
+  background: rgba(var(--accent), 0.18);
+  color: rgb(var(--accent));
+  font-weight: 700;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+.explo-tour-nudge-action:hover {
+  background: rgba(var(--accent), 0.28);
+}
+.explo-tour-nudge-close {
+  flex: 0 0 auto;
+  width: 1.3rem;
+  height: 1.3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--ink-faint);
+  font-size: 1rem;
+  line-height: 1;
+}
+.explo-tour-nudge-close:hover {
+  color: var(--ink);
+  background: var(--control-bg-hover);
+}
+
+/* Badge d'échelle permanent (ui/exploScaleBadge.ts) : repère de temps-lumière qui tourne,
+   visible en Explo tant qu'aucune cible n'est suivie. Juste au-dessus du toggle de mode, dans
+   la zone autrement vide du dock bas gauche — jamais superposé à un contrôle interactif. */
+.explo-scale-badge {
+  position: fixed;
+  left: var(--edge-x);
+  bottom: calc(var(--edge-b) + var(--control-h) + var(--sp-2));
+  z-index: 5;
+  max-width: min(20rem, calc(100vw - 2 * var(--edge-x)));
+  padding: 0.3rem 0.65rem;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--hairline);
+  color: var(--ink-dim);
+  font-size: 0.72rem;
+  line-height: 1.3;
+  opacity: 0;
+  transform: translateY(0.3rem);
+  pointer-events: none;
+  transition:
+    opacity 0.35s ease,
+    transform 0.35s ease;
+}
+.explo-scale-badge.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Bandeau de provenance de l'imagerie de surface streamée (lot 9, phase 9C). Il n'apparaît
+   que lorsqu'au moins un carreau est PEINT : une provenance sans image serait un mensonge. */
+.surface-imagery-badge {
+  position: fixed;
+  right: var(--edge-x);
+  bottom: calc(var(--edge-b) + var(--control-h) + var(--sp-2));
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  max-width: min(22rem, calc(100vw - 2 * var(--edge-x)));
+  padding: 0.35rem 0.7rem;
+  border-radius: var(--r-md, 0.5rem);
+  background: var(--surface);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--hairline);
+  color: var(--ink-dim);
+  font-size: 0.7rem;
+  line-height: 1.3;
+  pointer-events: none;
+}
+/* `display: flex` écrase le `display: none` que l'attribut `hidden` tient de la feuille de
+   style du navigateur : sans cette ligne, le bandeau resterait affiché en permanence, même
+   sans un seul carreau peint. */
+.surface-imagery-badge[hidden] {
+  display: none;
+}
+.surface-imagery-badge .si-headline {
+  color: var(--ink);
+  font-weight: 600;
+}
+.surface-imagery-badge .si-credit {
+  opacity: 0.8;
+}
+@media (max-width: 40rem) {
+  .surface-imagery-badge {
+    left: var(--edge-x);
+    right: var(--edge-x);
+    max-width: none;
+  }
+}
+
+/* Mode capture/planétarium : masquage instantané du chrome, sans transition — l'image exportée
+   ne vient que du canvas WebGL, pas d'une capture DOM plein écran, donc rien à attendre. */
+body.is-capturing .dock,
+body.is-capturing .surface,
+body.is-capturing #surface-scrim,
+body.is-capturing #explo-labels,
+body.is-capturing #smallbody-overlay,
+body.is-capturing #spacecraft-overlay,
+body.is-capturing #interstellar-overlay,
+body.is-capturing #earth-events-overlay,
+body.is-capturing #gazetteer-overlay,
+body.is-capturing #surface-imagery,
+body.is-capturing #loader {
+  display: none;
+}
+
+/* ============================================================================
+   RESPONSIVE — les composants reflowent ; pas de DOM par breakpoint.
+   Les surfaces contextuelles deviennent des feuilles ancrées en bas.
+   ============================================================================ */
+
+@media (max-width: 640px) {
+  :root {
+    --edge: 0.5rem;
+    --control-h: 2.5rem;
+  }
+
+  /* La barre temps prend la largeur du dock ; les actions (mode + plein écran) passent
+     au-dessus, réparties aux deux bords sur une seule rangée. */
+  .dock--bottom {
+    left: var(--edge-x);
+    right: var(--edge-x);
+    transform: none;
+    flex-direction: column-reverse;
+    align-items: stretch;
+    max-width: none;
+    gap: var(--sp-2);
+  }
+  /* Empilé en colonne (column-reverse) : mode en haut, barre temps au milieu, plein écran
+     en bas — chaque zone sur sa rangée. Les zones latérales ne s'étirent plus horizontalement. */
+  .dock-actions--start,
+  .dock-actions--end {
+    flex: initial;
+  }
+  .dock-actions {
+    justify-content: space-between;
+  }
+  .dock-actions--start {
+    justify-content: flex-start;
+  }
+  .dock-actions--end {
+    justify-content: flex-end;
+  }
+  .mode-seg {
+    flex: 1;
+  }
+  .mode-btn {
+    flex: 1;
+  }
+  .time-bar {
+    width: 100%;
+  }
+
+  /* Chip recherche : garde l'icône, masque son libellé courant pour rester compact. */
+  .chip--search .chip-label--current {
+    display: none;
+  }
+
+  /* Surfaces = feuilles ancrées en bas, largeur pleine, coins hauts arrondis. */
+  .surface {
+    top: auto !important;
+    left: var(--edge-x) !important;
+    right: var(--edge-x) !important;
+    bottom: calc(var(--edge-b) + 10rem);
+    width: auto !important;
+    max-height: 60vh !important;
+    animation: sheet-in 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  @keyframes sheet-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  /* Le scrim s'assombrit sur mobile (les feuilles doivent se détacher du fond). */
+  #surface-scrim:not([hidden]) {
+    background: rgba(0, 0, 0, 0.35);
+  }
+
+  /* backdrop-filter re-rend la scène WebGL à chaque frame — coûteux sur mobile.
+     Les fonds sont assez opaques pour rester lisibles sans flou. */
+  .chip,
+  .tool,
+  .mode-seg,
+  .time-bar,
+  .surface {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* Hauteur réduite (mobile paysage, fenêtres basses) : la barre temps reste compacte,
+   les surfaces se limitent en hauteur. */
+@media (max-width: 520px) {
+  .dock--top-right {
+    top: calc(var(--edge) + var(--control-h) + var(--sp-2));
+    right: var(--edge-x);
+    width: 8rem;
+    max-width: calc(100vw - 2 * var(--edge-x));
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--sp-1);
+  }
+  .dock--top-right > .tool {
+    flex: 0 0 var(--control-h);
+  }
+}
+
+/* Petits écrans et tablettes compactes : conserver la géométrie desktop du dock bas
+   (gauche / centre / droite) tout en empilant les contrôles qui manquent de largeur. */
+@media (max-width: 768px) {
+  .dock--top-right {
+    top: var(--edge);
+    right: var(--edge-x);
+    width: auto;
+    max-width: none;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    justify-content: flex-start;
+    gap: var(--sp-1);
+  }
+  .dock--top-right > .tool {
+    flex: 0 0 var(--control-h);
+  }
+
+  .dock--bottom {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: end;
+    flex-direction: initial;
+    gap: var(--sp-2);
+  }
+  .dock-actions--start,
+  .dock-actions--end {
+    flex: 0 0 auto;
+    align-items: flex-end;
+  }
+  .dock-actions--start {
+    grid-column: 1;
+    justify-content: flex-start;
+  }
+  .dock-actions--end {
+    grid-column: 3;
+    justify-content: flex-end;
+  }
+  .time-bar {
+    grid-column: 2;
+    justify-self: center;
+    width: min(15rem, calc(100vw - 7rem));
+  }
+  .mode-seg {
+    flex-direction: column;
+    height: auto;
+    align-items: stretch;
+  }
+  .mode-btn {
+    flex: 0 0 auto;
+    min-width: 3.5rem;
+    min-height: 2.25rem;
+    padding: var(--sp-2);
+  }
+
+  /* Chaque surface s’ouvre juste à gauche de son propre bouton. Les variables sont
+     renseignées par MainSolarSystemApp et le fallback garde un placement sûr. */
+  .surface--info,
+  .surface--settings,
+  .surface--events,
+  .surface--help {
+    /* Jamais plus haut que la DEUXIÈME place de la colonne d'outils, donc sous la rangée
+       « Vue globale / recherche » : ancrée au bouton ⓘ, tout en haut, la fiche recouvrait ces
+       deux boutons sur un téléphone. La borne suit l'écart de la colonne (`--sp-1`) pour que
+       toute autre surface reste alignée sur son propre bouton. */
+    top: max(
+      var(--surface-anchor-top, 0px),
+      calc(var(--edge) + var(--control-h) + var(--sp-1))
+    ) !important;
+    right: var(
+      --surface-anchor-right,
+      calc(var(--edge-x) + var(--control-h) + var(--sp-2))
+    ) !important;
+    bottom: auto !important;
+    left: auto !important;
+    width: min(18rem, calc(100vw - 4rem)) !important;
+    max-height: min(
+      46vh,
+      26rem,
+      var(--surface-anchor-max-height, 100vh)
+    ) !important;
+    overflow: hidden;
+    animation: surface-in 0.16s ease-out;
+  }
+  .surface--info .surface-body,
+  .surface--settings .surface-body,
+  .surface--events .surface-body,
+  .surface--help .surface-body {
+    min-height: 0;
+  }
+}
+
+/* Palette des corps sur téléphone : une feuille qui tombe SOUS le bouton de recherche qui
+   l'ouvre, et qui s'arrête avant la colonne d'outils de droite. En pleine largeur, elle
+   glissait sous cette colonne (ses icônes transparaissaient à travers la liste) et flottait
+   au milieu de l'écran. Déclarée après le bloc 768 px, qui fixe cette colonne. */
+@media (max-width: 640px) {
+  .surface--palette {
+    top: calc(var(--edge) + var(--control-h) + var(--sp-2)) !important;
+    right: calc(var(--edge-x) + var(--control-h) + var(--sp-2)) !important;
+    bottom: calc(var(--edge-b) + 10rem) !important;
+    max-height: none !important;
+  }
+}
+
+@media (max-height: 460px) {
+  .surface {
+    max-height: calc(100vh - 2 * var(--edge)) !important;
+  }
+  .dock--top-left,
+  .dock--top-right {
+    top: var(--edge);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface,
+  .time-bar-advanced,
+  .tb-live-dot.is-live {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* ============================================================================
+   LOADER
+   ============================================================================ */
+
+#loader {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(
+      circle at 50% 45%,
+      rgba(245, 186, 84, 0.16),
+      transparent 22rem
+    ),
+    radial-gradient(
+      circle at 20% 20%,
+      rgba(68, 137, 255, 0.14),
+      transparent 18rem
+    ),
+    #02030a;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  z-index: 1000;
+  transition: opacity 0.5s;
+}
+
+.loader-content {
+  position: relative;
+  width: min(28rem, calc(100vw - 1.25rem));
+  text-align: center;
+  padding: clamp(1rem, 3.5vh, 2rem) clamp(0.85rem, 4vw, 1.4rem);
+}
+
+.loader-orbit {
+  position: relative;
+  width: clamp(7.6rem, 26vh, 10rem);
+  height: clamp(7.6rem, 26vh, 10rem);
+  margin: 0 auto clamp(0.7rem, 2vh, 1.2rem);
+}
+
+.loader-sun,
+.loader-path,
+.loader-planet {
+  position: absolute;
+  display: block;
+}
+
+.loader-sun {
+  left: 50%;
+  top: 50%;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff5b6, #ffae32 52%, #9e3b11);
+  box-shadow:
+    0 0 1.8rem rgba(255, 184, 64, 0.9),
+    0 0 4.5rem rgba(255, 112, 48, 0.35);
+  transform: translate(-50%, -50%);
+}
+
+.loader-path {
+  left: 50%;
+  top: 50%;
+  border: 1px solid rgba(158, 199, 255, 0.26);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.loader-path--inner {
+  width: 58%;
+  height: 58%;
+  animation: loader-orbit 3.2s linear infinite;
+}
+
+.loader-path--outer {
+  width: 90%;
+  height: 90%;
+  animation: loader-orbit 6s linear infinite;
+}
+
+.loader-planet {
+  left: 50%;
+  top: -0.28rem;
+  border-radius: 50%;
+  transform: translateX(-50%);
+}
+
+/* Les deux planètes en orbite cyclent à travers les 8 vraies couleurs du catalogue
+   (mêmes teintes que orbitalColor dans config/bodies.ts) via `color` + currentColor, en
+   contretemps (délai négatif) pour un effet ludique de « relais » plutôt qu'un clignotement
+   synchronisé. Remplace les deux couleurs fixes précédentes — c'est LE logo du chargement,
+   pas un détail : le voir changer de planète en planète donne le ton du reste de l'appli. */
+.loader-planet--inner,
+.loader-planet--outer {
+  background: currentColor;
+  box-shadow: 0 0 0.9rem currentColor;
+  animation: loader-planet-hue 1.6s steps(1, end) infinite;
+}
+
+.loader-planet--inner {
+  width: 0.56rem;
+  height: 0.56rem;
+}
+
+.loader-planet--outer {
+  width: 0.72rem;
+  height: 0.72rem;
+  animation-delay: -0.8s;
+}
+
+.loader-kicker {
+  margin: 0 0 0.45rem;
+  color: rgba(154, 202, 255, 0.82);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.loader-title {
+  margin: 0;
+  font-size: clamp(1.25rem, 5vw, 1.7rem);
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.load-meta {
+  width: min(24rem, 86vw);
+  margin: 0.8rem auto 0.45rem;
+  display: flex;
+  justify-content: center;
+  color: rgba(221, 235, 255, 0.72);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+#load-percent {
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.loader-bar {
+  width: min(24rem, 86vw);
+  height: 0.42rem;
+  margin: 0 auto 1.05rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(154, 202, 255, 0.12);
+  box-shadow:
+    inset 0 0 0 1px rgba(154, 202, 255, 0.16),
+    inset 0 0 1rem rgba(0, 0, 0, 0.55);
+}
+
+#load-progress-fill {
+  display: block;
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  /* Spectre des 8 planètes réelles (Mercure → Neptune, mêmes teintes qu'orbitalColor dans
+     config/bodies.ts) plutôt qu'un dégradé bleu/orange générique : la barre elle-même
+     raconte le système solaire, cohérente avec les points en orbite du logo au-dessus. */
+  background: linear-gradient(
+    90deg,
+    #b8b0a5 0%,
+    #e9a13b 14%,
+    #2f9dff 28%,
+    #e85d3f 42%,
+    #d89a5b 57%,
+    #e7d28d 71%,
+    #69d6d3 85%,
+    #647cff 100%
+  );
+  box-shadow: 0 0 1rem rgba(255, 255, 255, 0.35);
+}
+
+.loader-stages {
+  width: min(24rem, 86vw);
+  margin: 0 auto 0.8rem;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.loader-stage {
+  position: relative;
+  min-width: 0;
+  padding-top: 0.75rem;
+  color: rgba(220, 234, 255, 0.44);
+  font-size: clamp(0.52rem, 2.2vw, 0.62rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition:
+    color 0.25s,
+    text-shadow 0.25s;
+}
+
+.loader-stage::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 50%;
+  background: rgba(154, 202, 255, 0.26);
+  box-shadow: 0 0 0 1px rgba(154, 202, 255, 0.22);
+  transform: translateX(-50%);
+  transition:
+    background 0.25s,
+    box-shadow 0.25s,
+    transform 0.25s;
+}
+
+.loader-stage.is-complete,
+.loader-stage.is-active {
+  color: rgba(245, 249, 255, 0.9);
+}
+
+.loader-stage.is-complete::before {
+  background: #78d7ff;
+  box-shadow: 0 0 0.75rem rgba(120, 215, 255, 0.6);
+}
+
+.loader-stage.is-active {
+  text-shadow: 0 0 0.9rem rgba(244, 180, 83, 0.55);
+}
+
+.loader-stage.is-active::before {
+  background: #f4b453;
+  box-shadow:
+    0 0 0 0.24rem rgba(244, 180, 83, 0.14),
+    0 0 1rem rgba(244, 180, 83, 0.7);
+  transform: translateX(-50%) scale(1.15);
+}
+
+.loader-readout {
+  width: min(24rem, 86vw);
+  min-height: 2.5rem;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.7rem;
+}
+
+#load-step {
+  color: rgba(154, 202, 255, 0.72);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+#load-status {
+  min-width: 0;
+  color: rgba(230, 240, 255, 0.9);
+  font-size: clamp(0.78rem, 3.2vw, 0.92rem);
+  line-height: 1.35;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.loader-error {
+  width: min(28rem, calc(100vw - 2rem));
+  padding: 1.25rem;
+  text-align: center;
+}
+
+.loader-error h2 {
+  margin: 0 0 0.75rem;
+  color: #ff9d9d;
+}
+
+.loader-error p {
+  margin: 0;
+  color: rgba(230, 240, 255, 0.82);
+  overflow-wrap: anywhere;
+}
+
+.loader-error-retry {
+  margin-top: 1rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid rgba(120, 215, 255, 0.5);
+  border-radius: 0.5rem;
+  background: rgba(74, 143, 255, 0.2);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+
+/* Bandeau des éphémérides manquantes (lot 15) — il n'existe dans le DOM que lorsqu'un fichier
+   manque vraiment, donc aucune règle `[hidden]` n'est nécessaire ici. Il se pose au-dessus du
+   dock du bas, par mesure (cf. `ui/ephemerisNotice`), et le bandeau d'imagerie de surface
+   s'empile au-dessus de lui. Gauche, jamais centré : au centre il recouvrirait la barre de
+   temps sur un écran étroit. */
+#ephemeris-notice {
+  position: fixed;
+  left: var(--edge-x);
+  bottom: calc(var(--edge-b) + var(--control-h) + var(--sp-2));
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  max-width: min(26rem, calc(100vw - 2 * var(--edge-x)));
+  padding: var(--sp-2);
+  border-radius: var(--r-md, 0.5rem);
+  border: 1px solid rgba(255, 196, 120, 0.35);
+  background: var(--surface-solid);
+  backdrop-filter: var(--blur);
+  color: var(--ink-dim);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+#ephemeris-notice .en-title {
+  margin: 0;
+  color: rgb(255, 208, 150);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+#ephemeris-notice .en-detail {
+  margin: 0;
+}
+
+#ephemeris-notice .en-detail[hidden] {
+  display: none;
+}
+
+#ephemeris-notice .en-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+}
+
+#ephemeris-notice button {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--r-sm, 0.4rem);
+  background: var(--control-bg);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+}
+
+#ephemeris-notice button:hover:not(:disabled) {
+  background: var(--control-bg-hover);
+}
+
+#ephemeris-notice button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+#ephemeris-notice button[hidden] {
+  display: none;
+}
+
+#ephemeris-notice[data-state='recovered'] {
+  border-color: rgba(74, 210, 140, 0.4);
+}
+
+#ephemeris-notice[data-state='recovered'] .en-title {
+  color: rgb(var(--explo));
+}
+
+@media (max-width: 40rem) {
+  #ephemeris-notice {
+    right: var(--edge-x);
+    max-width: none;
+  }
+}
+
+/* Bannière de reconnexion WebGL (perte/restauration de contexte GPU) — non bloquante,
+   contrairement à l'écran d'erreur de démarrage, car la restauration est le cas courant. */
+#context-recovery-banner[hidden] {
+  display: none;
+}
+
+#context-recovery-banner {
+  position: fixed;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 215, 255, 0.4);
+  background: rgba(10, 16, 28, 0.88);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+#context-recovery-banner.is-timeout {
+  border-color: rgba(255, 120, 120, 0.5);
+  pointer-events: auto;
+}
+
+#context-recovery-banner button {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid rgba(120, 215, 255, 0.5);
+  border-radius: 0.5rem;
+  background: rgba(74, 143, 255, 0.2);
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+
+#context-recovery-banner .context-recovery-spinner {
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  animation: context-recovery-spin 0.8s linear infinite;
+}
+
+@keyframes context-recovery-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes loader-orbit {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+/* 8 planètes réelles, mêmes teintes que orbitalColor dans config/bodies.ts. `steps(1, end)`
+   sur l'animation (pas cette timing-function) donne le changement net d'une couleur à l'autre
+   plutôt qu'un fondu — l'effet « relais ludique » recherché sur le logo du chargement. */
+@keyframes loader-planet-hue {
+  0%,
+  11% {
+    color: #b8b0a5; /* Mercure */
+  }
+  12%,
+  23% {
+    color: #e9a13b; /* Vénus */
+  }
+  24%,
+  35% {
+    color: #2f9dff; /* Terre */
+  }
+  36%,
+  47% {
+    color: #e85d3f; /* Mars */
+  }
+  48%,
+  59% {
+    color: #d89a5b; /* Jupiter */
+  }
+  60%,
+  71% {
+    color: #e7d28d; /* Saturne */
+  }
+  72%,
+  83% {
+    color: #69d6d3; /* Uranus */
+  }
+  84%,
+  100% {
+    color: #647cff; /* Neptune */
+  }
+}
+
+@media (max-width: 520px) {
+  .loader-stages {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 0.9rem;
+  }
+
+  .loader-readout {
+    grid-template-columns: 1fr;
+    min-height: 3.1rem;
+    gap: 0.25rem;
+    text-align: center;
+  }
+
+  #load-status {
+    text-align: center;
+  }
+}
+
+@media (max-height: 620px) {
+  .loader-orbit {
+    width: 6.8rem;
+    height: 6.8rem;
+  }
+
+  .loader-content {
+    padding-block: 0.8rem;
+  }
+
+  .loader-stages {
+    margin-top: 0.85rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loader-path--inner,
+  .loader-path--outer {
+    animation: none;
+  }
+
+  .loader-planet--inner,
+  .loader-planet--outer {
+    animation: none;
+  }
+  .loader-planet--inner {
+    color: #2f9dff; /* Terre — repli statique, mêmes teintes qu'avant ce changement */
+  }
+  .loader-planet--outer {
+    color: #d89a5b; /* Jupiter */
+  }
+
+  .context-recovery-spinner {
+    animation: none;
+  }
+}
+/* ── HUD Exploration « Voyage spatial » ───────────────────────────────────── */
+
+/* La distance réelle + temps-lumière de la cible vivent désormais dans la fiche unique
+   (#body-info, bloc .bi-live). Il ne reste ici que la couche de labels projetés. */
+
+/* Couches instrument dessinées au canvas (petits corps, sondes, objets interstellaires).
+   `inset: 0` ne SUFFIT PAS : un <canvas> est un élément remplacé, qui garde sa taille
+   intrinsèque — celle de son tampon, fenêtre × densité de pixels. À 125 % (réglage Windows
+   courant) il s'affichait 1,25 fois trop grand, à 200 % deux fois : marqueurs, noms et
+   trajectoires glissaient loin du coin haut-gauche et ne tombaient plus sur les corps 3D.
+   D'où la taille CSS explicite ci-dessous (tenu par e2e/overlayCanvasSize.spec.ts). */
+#smallbody-overlay,
+#spacecraft-overlay,
+#interstellar-overlay,
+#earth-events-overlay,
+#gazetteer-overlay {
+  width: 100%;
+  height: 100%;
+}
+
+/* Noms de formations de l'UAI — la couche la moins urgente, donc sous les autres libellés. */
+#gazetteer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 18;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+#gazetteer-overlay.is-visible {
+  opacity: 1;
+}
+
+/* Champ des petits corps (SBDB) — canvas instrument sous les labels, non bloquant. */
+#smallbody-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 19;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+#smallbody-overlay.is-visible {
+  opacity: 1;
+}
+
+/* Couche instrument des sondes spatiales — au-dessus des labels de planètes (z-index 20). */
+#spacecraft-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 21;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+#spacecraft-overlay.is-visible {
+  opacity: 1;
+}
+
+/* Objets interstellaires — même couche que les sondes, mais active en Éducatif ET Explo. */
+#interstellar-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 21;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+#interstellar-overlay.is-visible {
+  opacity: 1;
+}
+
+/* Événements terrestres — au-dessus des corps, sous les libellés du HUD comme les sondes. */
+#earth-events-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 21;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+#earth-events-overlay.is-visible {
+  opacity: 1;
+}
+
+/* Couche de marqueurs projetés — un label par corps, positionné en translate(). */
+#explo-labels {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+#explo-labels.is-visible {
+  opacity: 1;
+}
+
+.explo-label {
+  --label-rgb: 154, 202, 255;
+  --label-offset-x: 0px;
+  --label-offset-y: -25px;
+  --leader-length: 25px;
+  --leader-angle: -1.5708rad;
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: none;
+  width: 28px;
+  height: 28px;
+  /* The transform contains the exact projected coordinates. This margin centers the
+     touch target without changing the transform matrix used by projection tests. */
+  margin: -14px 0 0 -14px;
+  white-space: nowrap;
+  pointer-events: auto;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.explo-label:focus-visible {
+  outline: 2px solid rgba(var(--label-rgb), 0.85);
+  outline-offset: -3px;
+  border-radius: 50%;
+}
+.explo-label:hover .explo-label-text {
+  color: rgb(var(--label-rgb));
+  border-color: rgba(var(--label-rgb), 0.38);
+  background: rgba(3, 7, 18, 0.84);
+}
+.explo-label-dot {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(var(--label-rgb), 0.96);
+  box-shadow:
+    0 0 0 2px rgba(2, 5, 14, 0.82),
+    0 0 9px rgba(var(--label-rgb), 0.78);
+  transform: translate(-50%, -50%);
+}
+.explo-label.is-major .explo-label-dot {
+  width: 9px;
+  height: 9px;
+  box-shadow:
+    0 0 0 2px rgba(2, 5, 14, 0.9),
+    0 0 13px rgba(var(--label-rgb), 0.92);
+}
+.explo-label.is-marker-only .explo-label-leader,
+.explo-label.is-marker-only .explo-label-text {
+  display: none;
+}
+#explo-labels.is-educ-mode .explo-label-dot {
+  width: 5px;
+  height: 5px;
+  box-shadow:
+    0 0 0 2px rgba(2, 5, 14, 0.82),
+    0 0 7px rgba(var(--label-rgb), 0.62);
+}
+#explo-labels.is-educ-mode .explo-label-leader {
+  opacity: 0.5;
+}
+.explo-label-leader {
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  left: 50%;
+  width: var(--leader-length);
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--label-rgb), 0.7),
+    rgba(var(--label-rgb), 0.2)
+  );
+  transform-origin: 0 50%;
+  transform: rotate(var(--leader-angle));
+  pointer-events: none;
+}
+.explo-label-text {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  font-family: Arial, sans-serif;
+  font-size: 0.66rem;
+  font-weight: 600;
+  line-height: 1.15;
+  color: rgba(var(--label-rgb), 0.92);
+  padding: 2px 5px;
+  background: rgba(3, 7, 18, 0.72);
+  border: 1px solid rgba(var(--label-rgb), 0.22);
+  border-radius: 5px;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.96);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(3px);
+  transform: translate(-50%, -50%)
+    translate(var(--label-offset-x), var(--label-offset-y));
+  transition:
+    color 0.16s ease,
+    border-color 0.16s ease,
+    background 0.16s ease;
+}
+.explo-label.is-target .explo-label-dot {
+  width: 18px;
+  height: 18px;
+  opacity: 0;
+  border: 1px solid rgba(var(--label-rgb), 0.95);
+  background: transparent;
+  box-shadow:
+    0 0 0 3px rgba(var(--label-rgb), 0.08),
+    0 0 14px rgba(var(--label-rgb), 0.68);
+}
+.explo-label.is-target .explo-label-leader,
+.explo-label.is-target .explo-label-text {
+  display: none;
+}
+.explo-label.is-acquiring .explo-label-dot {
+  animation: target-acquire 1.8s ease-out forwards;
+}
+@keyframes target-acquire {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.8);
+  }
+  25% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  70% {
+    opacity: 0.75;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+}
+
+/* Educational mode uses the same anchor language with slightly stronger names. */
+#explo-labels.is-educ-mode .explo-label {
+  pointer-events: auto;
+}
+#explo-labels.is-educ-mode .explo-label-text {
+  font-size: 0.7rem;
+  color: rgba(var(--label-rgb), 0.96);
+  background: rgba(3, 7, 18, 0.72);
+  border-color: rgba(var(--label-rgb), 0.28);
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.26),
+    inset 2px 0 0 rgba(var(--label-rgb), 0.62);
+}

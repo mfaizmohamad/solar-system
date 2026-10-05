@@ -1,0 +1,3 @@
+/* Le contrôle FOV vit désormais dans la surface Réglages (mode Exploration) :
+   styles unifiés dans src/styles.css (.optical-zoom, .optical-zoom-*).
+   Ce fichier est conservé pour l'import du module ; plus aucune règle locale. */

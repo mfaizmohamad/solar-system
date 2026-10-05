@@ -1,0 +1,1609 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Le pincer sur le CANVAS pilote la caméra 3D (OrbitControls), jamais le zoom de page :
+         géré par `touch-action: none` sur `canvas` (styles.css), pas ici. `user-scalable=no`
+         a été retiré (trouvé par un audit axe-core, WCAG 1.4.4) — il désactivait le zoom de
+         page PARTOUT, y compris sur les panneaux UI, pour un malvoyant qui en a besoin ; le
+         verrou canvas-only ci-dessus suffit à éviter le « coincé zoomé » que ce blocage
+         global visait à l'origine. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Galaxy: Real-Time Interactive 3D Solar System</title>
+    <meta
+      name="description"
+      content="Explore the solar system in 3D with real NASA/JPL ephemeris positions. Two modes: educational overview and true-scale space voyage. Time travel, real distances and light-time. Free, in your browser."
+    />
+    <meta
+      name="keywords"
+      content="solar system 3D, interactive planets, space visualizer, ephemeris, orbits, WebGL, astronomy, planets, moons, Three.js"
+    />
+    <meta name="author" content="Adrian Guichard" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="dark" />
+
+    <!-- Preuve de propriete Search Console. Ce jeton n'est pas un secret : il sert
+         uniquement a prouver qu'on controle le site, et il est lisible par quiconque
+         affiche la source. NE PAS LE RETIRER : Google revalide periodiquement, et son
+         absence fait perdre la propriete (donc l'acces aux donnees d'indexation). -->
+    <meta
+      name="google-site-verification"
+      content="EAqL2Yfi1ecoZZ_sUC3BZvDY5bfM34acLx605_-07tQ"
+    />
+
+    <!-- Canonical + langues (SPA bilingue FR/EN sur une seule URL). -->
+    <link rel="canonical" href="https://galaxy.adrianguichard.dev/" />
+    <!--
+      L'accueil sert les QUATRE langues depuis la MÊME adresse : l'application choisit la langue
+      du visiteur, il n'y a pas de `/es/`. Ces liens doivent donc tous pointer `/`. Les pages
+      d'atterrissage, elles, ont une adresse par langue et REMPLACENT ce bloc (cf.
+      `src/seo/bodyLandingPage.ts::renderLandingPage`) : l'hériter leur faisait déclarer huit
+      variantes dont trois menant à l'accueil, ce qui annule l'effet de `hreflang`.
+    -->
+    <link
+      rel="alternate"
+      hreflang="en"
+      href="https://galaxy.adrianguichard.dev/"
+    />
+    <link
+      rel="alternate"
+      hreflang="fr"
+      href="https://galaxy.adrianguichard.dev/"
+    />
+    <link
+      rel="alternate"
+      hreflang="es"
+      href="https://galaxy.adrianguichard.dev/"
+    />
+    <link
+      rel="alternate"
+      hreflang="pt-BR"
+      href="https://galaxy.adrianguichard.dev/"
+    />
+    <link
+      rel="alternate"
+      hreflang="x-default"
+      href="https://galaxy.adrianguichard.dev/"
+    />
+
+    <!-- Open Graph / Twitter : aperçu riche quand un lien est partagé. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Galaxy" />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:locale:alternate" content="fr_FR" />
+    <meta
+      property="og:title"
+      content="Galaxy: Real-Time Interactive 3D Solar System"
+    />
+    <meta
+      property="og:description"
+      content="Real NASA/JPL ephemeris positions, true-scale exploration mode, time travel. Free, in your browser. Built with Three.js."
+    />
+    <meta property="og:url" content="https://galaxy.adrianguichard.dev/" />
+    <meta
+      property="og:image"
+      content="https://galaxy.adrianguichard.dev/assets/social/og.jpg"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="A 3D view of the solar system with the Sun and planets in orbit"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Galaxy: Real-Time Interactive 3D Solar System"
+    />
+    <meta
+      name="twitter:description"
+      content="Real ephemeris positions, true-scale exploration, time travel. Free, in your browser."
+    />
+    <meta
+      name="twitter:image"
+      content="https://galaxy.adrianguichard.dev/assets/social/og.jpg"
+    />
+
+    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <!-- PWA : le <link rel="manifest"> est injecte automatiquement par vite-plugin-pwa.
+         apple-touch-icon reste explicite (iOS ne lit pas les icones du manifest). -->
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="Galaxy" />
+    <link rel="stylesheet" href="/src/styles.css" />
+
+    <!-- Données structurées (schema.org) : aide Google à comprendre le contenu. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Galaxy",
+        "alternateName": "3D Solar System",
+        "url": "https://galaxy.adrianguichard.dev/",
+        "description": "An interactive real-time 3D visualizer of the solar system, using real NASA/JPL ephemeris positions. Educational and true-scale exploration modes, time travel, real distances and light-time.",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Any (web browser)",
+        "browserRequirements": "Requires WebGL",
+        "inLanguage": ["en", "fr"],
+        "isAccessibleForFree": true,
+        "keywords": "Sun, Mercury, Venus, Earth, Moon, Mars, Phobos, Deimos, Jupiter, Io, Europa, Ganymede, Callisto, Amalthea, Saturn, Titan, Enceladus, Mimas, Tethys, Dione, Rhea, Iapetus, Hyperion, Uranus, Miranda, Ariel, Umbriel, Titania, Oberon, Neptune, Triton, Proteus, Nereid, Pluto, Ceres, Vesta, Pallas, Hygiea, Eris, Haumea, Makemake, Orcus, Quaoar, Gonggong, Sedna, Halley's Comet, 3D solar system",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "EUR"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "Adrian Guichard"
+        }
+      }
+    </script>
+
+    <!-- ANALYTICS : Cloudflare Web Analytics — sans cookie, sans fingerprinting, pas de
+         bandeau RGPD requis, aucune infra à gérer. Remplacer YOUR-BEACON-TOKEN par le token
+         du site une fois créé sur https://dash.cloudflare.com (Analytics & Logs → Web
+         Analytics → Add a site) ; le script ne s'active qu'avec un vrai token, celui-ci ne
+         collecte rien. -->
+    <script
+      type="module"
+      src="https://static.cloudflareinsights.com/beacon.min.js"
+      data-cf-beacon='{"token": "0e30fd8b340b406889644940b0fdfceb"}'
+    ></script>
+  </head>
+  <body>
+    <!-- Titre logique de la page : le rendu visuel (loader puis scène 3D) ne porte pas de
+         titre de premier niveau à l'écran, ce H1 sert le SEO/l'accessibilité sans dupliquer
+         visuellement le <title>. -->
+    <h1 class="sr-only">
+      Galaxy: Real-Time Interactive 3D Solar System. Explore the Planets, Moons and Dwarf Planets
+    </h1>
+    <!-- Repli sans JavaScript : la scène 3D exige WebGL + JS, mais un résumé du contenu reste
+         indexable même si un crawler n'exécute pas le script (budget de rendu dépassé, etc.). -->
+    <noscript>
+      <p>
+        Galaxy is an interactive, real-time visualizer of the solar system built
+        with WebGL, using real NASA/JPL ephemeris positions. It needs JavaScript
+        and a WebGL-capable browser to run. Explore the Sun, Mercury, Venus,
+        Earth, the Moon, Mars, Jupiter and its Galilean moons, Saturn and its
+        rings, Uranus, Neptune, the dwarf planets (Pluto, Ceres, Eris, Haumea,
+        Makemake) and other small bodies in an educational compressed-scale view
+        or a true-scale space voyage, with time travel.
+      </p>
+    </noscript>
+    <!-- ─── Loading screen ─────────────────────────────────────────────────── -->
+    <div id="loader">
+      <div class="loader-content">
+        <div class="loader-orbit" aria-hidden="true">
+          <span class="loader-sun"></span>
+          <span class="loader-path loader-path--inner">
+            <span class="loader-planet loader-planet--inner"></span>
+          </span>
+          <span class="loader-path loader-path--outer">
+            <span class="loader-planet loader-planet--outer"></span>
+          </span>
+        </div>
+        <p class="loader-kicker">3D Solar System</p>
+
+        <h2 class="loader-title">Galaxy</h2>
+        <div class="load-meta">
+          <span id="load-percent">0%</span>
+        </div>
+        <!-- UNE seule barre de progression exposée, et elle a enfin une VALEUR : elle portait
+             `role="progressbar"` sans jamais recevoir `aria-valuenow`. Mesuré au lot 19,
+             défaut D6 de `docs/private/LECTEUR_ECRAN_LOT19.md`. -->
+        <div
+          class="loader-bar"
+          role="progressbar"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="0"
+          aria-label="Loading progress"
+          data-i18n-aria="a11y.loadingProgress"
+        >
+          <span id="load-progress-fill"></span>
+        </div>
+        <!-- Le rail d'étapes répète en abrégé ce que `#load-status` dit en toutes lettres :
+             il est décoratif pour qui écoute. Il portait lui aussi `role="progressbar"`, ce
+             qui faisait DEUX barres de progression pour une seule progression. -->
+        <div class="loader-stages" aria-hidden="true">
+          <span
+            class="loader-stage"
+            data-loader-stage="core"
+            data-i18n="loader.stage.core"
+            >Core</span
+          >
+          <span
+            class="loader-stage"
+            data-loader-stage="data"
+            data-i18n="loader.stage.data"
+            >Data</span
+          >
+          <span
+            class="loader-stage"
+            data-loader-stage="scene"
+            data-i18n="loader.stage.scene"
+            >Scene</span
+          >
+          <span
+            class="loader-stage"
+            data-loader-stage="bodies"
+            data-i18n="loader.stage.bodies"
+            >Bodies</span
+          >
+          <span
+            class="loader-stage"
+            data-loader-stage="orbit"
+            data-i18n="loader.stage.orbit"
+            >Orbits</span
+          >
+          <span
+            class="loader-stage"
+            data-loader-stage="ready"
+            data-i18n="loader.stage.ready"
+            >Ready</span
+          >
+        </div>
+        <div class="loader-readout">
+          <span id="load-step">01 / 06</span>
+          <span id="load-status" data-i18n="loader.init">Initializing...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- =====================================================================
+         OVERLAY — conçu comme un tout unique. Trois docks fixes autour de la
+         scène (top-left, top-right, bottom) ; les surfaces contextuelles
+         (palette de corps, fiche, réglages, événements, aide) sont mutuellement
+         exclusives et pilotées par ui/overlayCoordinator.
+         La scène 3D reste toujours l'élément dominant.
+         ===================================================================== -->
+
+    <!-- ─── Dock haut-gauche : Vue globale + recherche de corps ─────────────── -->
+    <!-- `role="toolbar"` et non un simple div : un `aria-label` sur un élément SANS rôle
+         n'est exposé nulle part. Mesuré au lot 19, défaut D3. -->
+    <div
+      class="dock dock--top-left"
+      role="toolbar"
+      aria-label="Body navigation"
+      data-i18n-aria="a11y.navigation"
+    >
+      <button
+        id="orbit-overview"
+        class="chip chip--overview is-active"
+        type="button"
+        aria-label="Overview"
+        data-i18n-aria="nav.overview"
+      >
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+          <circle cx="8" cy="8" r="2.1" fill="currentColor" />
+          <ellipse
+            cx="8"
+            cy="8"
+            rx="6.2"
+            ry="2.6"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.1"
+          />
+        </svg>
+        <span class="chip-label" data-i18n="nav.overview">Overview</span>
+      </button>
+      <button
+        id="body-search-trigger"
+        class="chip chip--search"
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded="false"
+        aria-controls="body-palette"
+        aria-label="Search a body"
+        data-i18n-aria="nav.search"
+        data-i18n-title="nav.search"
+      >
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+          <circle
+            cx="7"
+            cy="7"
+            r="4.4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+          />
+          <path
+            d="M10.4 10.4L14 14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+            stroke-linecap="round"
+          />
+        </svg>
+        <span
+          class="chip-label chip-label--current"
+          data-i18n="nav.bodies"
+          data-body-current
+          >Bodies</span
+        >
+      </button>
+    </div>
+
+    <!-- ─── Dock haut-droit : outils occasionnels (une seule surface ouverte) ── -->
+    <div
+      class="dock dock--top-right"
+      role="toolbar"
+      aria-label="Tools"
+      data-i18n-aria="dock.tools.aria"
+    >
+      <button
+        id="info-trigger"
+        class="tool"
+        type="button"
+        title="Body information"
+        aria-label="Body information"
+        aria-expanded="false"
+        aria-controls="body-info"
+        data-i18n-title="bi.trigger.aria"
+        data-i18n-aria="bi.trigger.aria"
+        hidden
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <circle
+            cx="8"
+            cy="8"
+            r="6.25"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+          />
+          <path
+            d="M8 7.2v4M8 4.7h.01"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+      <!-- Ordre logique du dock : réglages d'affichage (UNE surface : contenu de la scène,
+           champ d'astéroïdes, rendu, lecture, vue ; le champ avait son propre bouton, qui
+           n'apparaissait qu'en Explo) → couches de la Terre (météo, événements terrestres) →
+           événements astronomiques, actions sur la vue (partage → capture → VR), méta (aide →
+           retour utilisateur), puis soutien (Ko-fi) tout à la fin, jamais au milieu des outils
+           de travail. -->
+      <button
+        id="settings-trigger"
+        class="tool"
+        type="button"
+        title="Display settings"
+        aria-label="Display settings"
+        aria-expanded="false"
+        aria-controls="orbit-options"
+        data-i18n-title="settings.trigger.aria"
+        data-i18n-aria="settings.trigger.aria"
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <path
+            d="M3 4.5h10M3 8h10M3 11.5h10"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+            stroke-linecap="round"
+          />
+          <circle cx="6" cy="4.5" r="1.5" fill="currentColor" />
+          <circle cx="10.5" cy="8" r="1.5" fill="currentColor" />
+          <circle cx="7.5" cy="11.5" r="1.5" fill="currentColor" />
+        </svg>
+      </button>
+      <button
+        id="weather-trigger"
+        class="tool"
+        type="button"
+        title="Weather layers"
+        aria-label="Weather layers"
+        aria-expanded="false"
+        aria-controls="weather-layers"
+        data-i18n-title="weather.trigger.aria"
+        data-i18n-aria="weather.trigger.aria"
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <path
+            d="M4.5 10.5a2.5 2.5 0 0 1 .2-4.98A3.2 3.2 0 0 1 11 5.6a2.2 2.2 0 0 1 .3 4.9z"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M6 12.5l-.6 1.4M8.2 12.5l-.6 1.4M10.4 12.5l-.6 1.4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+      <button
+        id="earth-events-trigger"
+        class="tool"
+        type="button"
+        title="Earth events"
+        aria-label="Earth events"
+        aria-expanded="false"
+        aria-controls="earth-events"
+        data-i18n-title="earthEvents.trigger.aria"
+        data-i18n-aria="earthEvents.trigger.aria"
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <circle
+            cx="8"
+            cy="8"
+            r="6.25"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+          />
+          <path
+            d="M1.9 6.3h12.2M1.9 9.7h12.2"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.1"
+          />
+          <path
+            d="M3.4 12.1l2.2-2.6 1.8 1.5 2.4-3.4 2.8 3.6"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
+      <button
+        id="events-trigger"
+        class="tool"
+        type="button"
+        title="Astronomical events"
+        aria-label="Astronomical events"
+        aria-expanded="false"
+        aria-controls="astronomical-events"
+        data-i18n-title="events.open"
+        data-i18n-aria="events.open"
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <circle
+            cx="8"
+            cy="8"
+            r="6.25"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+          />
+          <circle cx="12.2" cy="4.4" r="1.7" fill="currentColor" />
+        </svg>
+      </button>
+      <button
+        id="share-btn"
+        class="tool"
+        type="button"
+        title="Share this view"
+        aria-label="Share this view"
+        data-i18n-title="share.btn.title"
+        data-i18n-aria="share.btn.aria"
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <circle
+            cx="4"
+            cy="8"
+            r="1.9"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+          />
+          <circle
+            cx="11.5"
+            cy="3.6"
+            r="1.9"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+          />
+          <circle
+            cx="11.5"
+            cy="12.4"
+            r="1.9"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+          />
+          <path
+            d="M5.7 7.1l4.1-2.4M5.7 8.9l4.1 2.4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+      <button
+        id="capture-btn"
+        class="tool"
+        type="button"
+        title="Capture this view"
+        aria-label="Capture this view"
+        data-i18n-title="capture.btn.title"
+        data-i18n-aria="capture.btn.aria"
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <path
+            d="M2.5 5.5h2l1-1.5h5l1 1.5h2a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1z"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linejoin="round"
+          />
+          <circle
+            cx="8"
+            cy="9"
+            r="2.3"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+          />
+        </svg>
+      </button>
+      <button
+        id="webxr-btn"
+        class="tool"
+        type="button"
+        title="Enter VR"
+        aria-label="Enter virtual reality"
+        data-i18n-title="webxr.btn.enter.title"
+        data-i18n-aria="webxr.btn.enter.aria"
+        hidden
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <!-- Silhouette « lunettes VR » (bande + encoche nasale) : plus reconnaissable au
+               premier coup d'œil qu'un simple rectangle à deux points, sans ajouter de bruit
+               visuel à 16px (pas de sangle latérale). -->
+          <path
+            d="M2.2 5.2h11.6a1 1 0 0 1 1 1v3.6a1 1 0 0 1-1 1h-2.3a1 1 0 0 1-.9-.55l-.4-.8a1.15 1.15 0 0 0-2 0l-.4.8a1 1 0 0 1-.9.55H2.2a1 1 0 0 1-1-1V6.2a1 1 0 0 1 1-1z"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linejoin="round"
+          />
+          <circle cx="5.1" cy="7.4" r="1.05" fill="currentColor" />
+          <circle cx="10.9" cy="7.4" r="1.05" fill="currentColor" />
+        </svg>
+      </button>
+      <button
+        id="help-btn"
+        class="tool"
+        type="button"
+        title="Help, tips & credits"
+        aria-label="Help, tips and credits"
+        data-i18n-title="help.btn.title"
+        data-i18n-aria="help.btn.aria"
+        aria-haspopup="dialog"
+        aria-expanded="false"
+        aria-controls="help-popover"
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <circle
+            cx="8"
+            cy="8"
+            r="6.25"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+          />
+          <path
+            d="M6.2 6.1a1.9 1.9 0 1 1 2.4 2.2c-.5.2-.9.6-.9 1.2v.4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+            stroke-linecap="round"
+          />
+          <circle cx="7.7" cy="11.6" r="0.85" fill="currentColor" />
+        </svg>
+      </button>
+      <!-- Retour utilisateur : le tableau Fider (feedback.adrianguichard.dev) existait sans
+           AUCUN point d'entrée dans l'application — deux conteneurs et un quota SMTP pour une
+           page que personne ne pouvait trouver. Un seul lien, dans le dock et pas dans l'aide :
+           le dépôt a déjà retiré une carte « soutenir le projet » de l'aide parce que le bouton
+           Ko-fi la doublonnait. Groupe « méta » (avec l'aide), avant le soutien qui reste dernier.
+           Redirection directe : la CSP ne contraint pas la navigation, seulement les ressources. -->
+      <a
+        id="feedback-btn"
+        class="tool"
+        href="https://feedback.adrianguichard.dev"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Suggestions and bug reports"
+        aria-label="Suggestions and bug reports"
+        data-i18n-title="feedback.btn.title"
+        data-i18n-aria="feedback.btn.aria"
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <path
+            d="M13.2 9.4a1.6 1.6 0 0 1-1.6 1.6H6.2L3.4 13.2V4.2a1.6 1.6 0 0 1 1.6-1.6h6.6a1.6 1.6 0 0 1 1.6 1.6z"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M6.3 5.9h4.3M6.3 7.9h2.6"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linecap="round"
+          />
+        </svg>
+      </a>
+      <!-- Lien direct Ko-fi, seul point d'entrée pour le soutien (l'aide ne duplique plus ce
+           message) : icône teintée en permanence (pas juste au survol) pour rester repérable
+           au milieu d'icônes neutres. Tout à la fin du dock, jamais mêlé aux outils de travail.
+           Redirection directe (paiement toujours chez le prestataire, CSP intacte). -->
+      <a
+        id="kofi-btn"
+        class="tool tool--kofi"
+        href="https://ko-fi.com/adrian34"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Buy me a coffee"
+        aria-label="Support this project on Ko-fi"
+        data-i18n-title="kofi.btn.title"
+        data-i18n-aria="kofi.btn.aria"
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <path
+            d="M3 4.5h8v5.2a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V4.5z"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M11 5.6h.9a1.9 1.9 0 0 1 0 3.8H11"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+          />
+          <path
+            d="M5.4 2.3c-.4.5-.4.9 0 1.4M7.6 2.3c-.4.5-.4.9 0 1.4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.1"
+            stroke-linecap="round"
+          />
+        </svg>
+      </a>
+    </div>
+
+    <!-- ─── Dock bas : toggle mode (gauche) · barre temps (centre) · plein écran (droite) ── -->
+    <div class="dock dock--bottom">
+      <!-- Toggle mode Educ/Explo — action persistante, tout à gauche du dock bas. -->
+      <div class="dock-actions dock-actions--start">
+        <div
+          id="mode-controls"
+          class="mode-seg"
+          role="group"
+          aria-label="View mode"
+          data-i18n-aria="mode.group"
+        >
+          <button
+            class="mode-btn is-active"
+            type="button"
+            data-mode="educ"
+            data-i18n="mode.educ"
+            data-i18n-title="mode.educ.title"
+            title="Educational view, circular orbits"
+          >
+            Educ.
+          </button>
+          <button
+            class="mode-btn"
+            type="button"
+            data-mode="explo"
+            data-i18n="mode.explo"
+            data-i18n-title="mode.explo.title"
+            title="Exploration mode, true scale"
+          >
+            Explo.
+          </button>
+        </div>
+      </div>
+      <!-- Barre temps : une seule surface, style lecteur multimédia. État compact
+           = play + vitesse + horloge ; s'étend en place pour révéler le slider de
+           vitesse et l'édition date/heure. Aucune taille ne saute au drag. -->
+      <section
+        id="time-panel"
+        class="time-bar"
+        aria-label="Time controls"
+        data-i18n-aria="time.group"
+      >
+        <div class="time-bar-primary">
+          <button
+            id="play-pause-btn"
+            class="tb-play"
+            type="button"
+            data-i18n-title="playback.playpause"
+            title="Play / Pause"
+          >
+            <svg width="11" height="13" viewBox="0 0 11 13" fill="currentColor">
+              <rect x="0" y="0" width="3.8" height="13" rx="1.4" />
+              <rect x="7.2" y="0" width="3.8" height="13" rx="1.4" />
+            </svg>
+          </button>
+
+          <button
+            id="time-readout"
+            class="tb-readout"
+            type="button"
+            aria-expanded="false"
+            aria-controls="time-advanced"
+            data-i18n-title="time.expand"
+            title="Time settings"
+          >
+            <span class="tb-clock-line">
+              <span class="tb-live-dot" id="live-dot" aria-hidden="true"></span>
+              <span class="tb-clock" id="clock-display">00:00:00</span>
+              <span class="tb-utc">UTC</span>
+            </span>
+            <span class="tb-speed" id="speed-value">1:1 · Real time</span>
+          </button>
+
+          <button
+            id="time-today"
+            class="tb-now"
+            type="button"
+            data-i18n-title="time.today"
+            title="Back to now"
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <path
+                d="M13 8a5 5 0 1 1-1.5-3.6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
+              <path
+                d="M13 3v2.4h-2.4"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Zone étendue : slider de vitesse + inputs date/heure. Slide en place.
+             Un unique wrapper interne permet au collapse de grille (0fr↔1fr) de
+             masquer proprement l'ensemble, sans laisser filtrer une ligne. -->
+        <div id="time-advanced" class="time-bar-advanced">
+          <div class="tb-advanced-inner">
+            <div class="tb-speed-control">
+              <input
+                id="speed-range"
+                class="tb-speed-range is-bidirectional"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value="50"
+                aria-label="Simulation speed"
+                data-i18n-aria="speed.aria"
+              />
+              <div class="tb-speed-ticks" aria-hidden="true">
+                <span>◀ y</span>
+                <span>d</span>
+                <span>1:1</span>
+                <span>d</span>
+                <span>y ▶</span>
+              </div>
+            </div>
+            <div class="tb-datetime">
+              <input
+                type="time"
+                id="time-input"
+                class="tb-input tb-input--time"
+                step="1"
+                data-i18n-title="time.wheelTime"
+                title="Wheel: ±1 h  ·  Click: pick the time"
+              />
+              <span class="tb-datetime-sep" aria-hidden="true">·</span>
+              <input
+                type="date"
+                id="date-input"
+                class="tb-input tb-input--date"
+                data-i18n-title="time.wheelDate"
+                title="Wheel: ±1 day  ·  Click: pick the date"
+              />
+              <!-- Avant le 15 octobre 1582 : la date en calendrier JULIEN, comme les historiens
+                   l'écrivent (ui/timePanel.ts, core/calendar.ts). Un champ de date de
+                   navigateur est grégorien et ne sait écrire ni une année négative ni le
+                   29 février 1500 : il se viderait sans un mot. -->
+              <span
+                id="historic-date"
+                class="tb-historic"
+                role="group"
+                aria-label="Date in the Julian calendar"
+                data-i18n-aria="time.historicGroup"
+                hidden
+              >
+                <input
+                  type="number"
+                  id="hist-day"
+                  class="tb-input tb-input--hist tb-input--hist-day"
+                  min="1"
+                  max="31"
+                  aria-label="Day"
+                  data-i18n-aria="time.histDay"
+                />
+                <select
+                  id="hist-month"
+                  class="tb-input tb-input--hist"
+                  aria-label="Month"
+                  data-i18n-aria="time.histMonth"
+                ></select>
+                <input
+                  type="number"
+                  id="hist-year"
+                  class="tb-input tb-input--hist tb-input--hist-year"
+                  min="1"
+                  aria-label="Year"
+                  data-i18n-aria="time.histYear"
+                />
+                <select
+                  id="hist-era"
+                  class="tb-input tb-input--hist"
+                  aria-label="Era"
+                  data-i18n-aria="time.histEra"
+                >
+                  <option value="ad">AD</option>
+                  <option value="bc">BC</option>
+                </select>
+                <span class="tb-calendar" data-i18n="time.julianCalendar"
+                  >Julian calendar</span
+                >
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Plein écran — action persistante, tout à droite du dock bas. -->
+      <div class="dock-actions dock-actions--end">
+        <button
+          id="fullscreen-btn"
+          class="tool tool--dock"
+          type="button"
+          title="Fullscreen"
+          aria-label="Fullscreen"
+          data-i18n-title="fullscreen.title"
+          data-i18n-aria="fullscreen.title"
+        >
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+            <path
+              d="M2 5.5V2.5h3M14 5.5V2.5h-3M2 10.5v3h3M14 10.5v3h-3"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- =====================================================================
+         SURFACES CONTEXTUELLES — une seule ouverte à la fois (overlayCoordinator).
+         ===================================================================== -->
+
+    <!-- ─── Palette de corps (recherche + liste groupée depuis le catalogue) ── -->
+    <aside
+      id="body-palette"
+      class="surface surface--palette"
+      role="dialog"
+      aria-label="Search and select a body"
+      data-i18n-aria="nav.paletteAria"
+      hidden
+    >
+      <div class="palette-search">
+        <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+          <circle
+            cx="7"
+            cy="7"
+            r="4.4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+          />
+          <path
+            d="M10.4 10.4L14 14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+            stroke-linecap="round"
+          />
+        </svg>
+        <input
+          id="palette-input"
+          class="palette-input"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          data-i18n-placeholder="nav.searchPlaceholder"
+          placeholder="Search a body…"
+          aria-label="Search a body"
+          data-i18n-aria="nav.search"
+          role="combobox"
+          aria-expanded="false"
+          aria-autocomplete="list"
+          aria-controls="palette-results"
+        />
+      </div>
+      <!-- Résultats groupés, générés depuis CELESTIAL_CONFIG par ui/bodyPalette. -->
+      <div
+          id="palette-results"
+          class="palette-results"
+          role="listbox"
+          aria-label="Search results"
+          data-i18n-aria="a11y.paletteResults"
+        ></div>
+    </aside>
+
+    <!-- ─── Fiche d'un corps ───────────────────────────────────────────────── -->
+    <aside
+      id="body-info"
+      class="surface surface--info"
+      role="dialog"
+      aria-labelledby="bi-name"
+      hidden
+    >
+      <header class="bi-header">
+        <span class="bi-dot" aria-hidden="true"></span>
+        <div class="bi-heading">
+          <h2 class="bi-name" id="bi-name"></h2>
+          <p class="bi-subtitle"></p>
+          <span
+            class="bi-fictional-badge"
+            data-i18n="bi.fictional"
+            data-i18n-title="bi.fictional.hint"
+            hidden
+            >Illustrative surface</span
+          >
+        </div>
+        <button
+          class="bi-close surface-close"
+          type="button"
+          aria-label="Close"
+          data-i18n-aria="surface.close"
+        >
+          <svg viewBox="0 0 14 14" width="13" height="13" aria-hidden="true">
+            <path
+              d="M3.5 3.5l7 7M10.5 3.5l-7 7"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+      </header>
+      <div class="bi-body">
+        <!-- Bloc live (Explo uniquement) : distance réelle + temps-lumière. -->
+        <div class="bi-live" hidden>
+          <span class="bi-live-label" data-i18n="bi.live.label"
+            >Distance from you</span
+          >
+          <span class="bi-live-dist"></span>
+          <span class="bi-live-lt"></span>
+        </div>
+        <dl class="bi-stats"></dl>
+        <!-- Provenance temporelle de la position à la date de la scène : source, catégorie
+             (observé / reconstruit / prédit / extrapolé…) et écart mesuré à JPL Horizons.
+             Remplie par ui/positionProvenance.ts via ui/bodyInfo.ts. -->
+        <div class="bi-position" hidden>
+          <span class="bi-position-label" data-i18n="bi.position.label"
+            >Position at this date</span
+          >
+          <span class="bi-position-source"></span>
+          <span class="bi-position-error"></span>
+          <span class="bi-position-offset" hidden></span>
+        </div>
+        <!-- Ce que les sources primaires declarent de la decouverte de ce corps, ce qu'on en
+             savait a la date de la scene et, pour une planete qui en a, combien de ses lunes on
+             avait deja vues (lot 44). Rempli par ui/discoveryBlock.ts ; rien n'est demande au
+             demarrage. -->
+        <div class="bi-discovery" hidden>
+          <span class="bi-discovery-label" data-i18n="bi.discovery.label"
+            >Discovery</span
+          >
+          <ul class="bi-discovery-claims"></ul>
+          <p class="bi-discovery-standing" hidden></p>
+          <p class="bi-discovery-refuted" hidden></p>
+          <p class="bi-discovery-moons" hidden></p>
+          <p class="bi-discovery-next" hidden></p>
+          <p class="bi-discovery-note" hidden></p>
+          <p class="bi-discovery-names" hidden></p>
+          <p class="bi-discovery-lettered" hidden></p>
+          <p class="bi-discovery-names-next" hidden></p>
+          <p class="bi-discovery-names-note" hidden></p>
+        </div>
+        <!-- Missions que le registre de contexte du PDS déclare sur ce corps, leur intervalle
+             et leur état à la date de la scène. Remplie par ui/missionsBlock.ts, qui charge
+             l'index et la liste À LA DEMANDE : rien n'est demandé au démarrage. -->
+        <details class="bi-missions" hidden>
+          <summary>
+            <span data-i18n="bi.missions.label">Missions</span>
+            <span class="bi-missions-count"></span>
+          </summary>
+          <ul></ul>
+          <p class="bi-missions-note"></p>
+        </details>
+        <!-- Ce que le registre de contexte du PDS declare qu'une SONDE embarque, et les
+             investigations ou elle figure (lot 42). Rempli par ui/instrumentsBlock.ts ; rien n'est
+             demande au demarrage. Le bloc ne s'affiche que sur la fiche d'une sonde, et il DIT
+             l'absence plutot que de se masquer quand l'archive ne connait pas la mission. -->
+        <details class="bi-instruments" hidden>
+          <summary>
+            <span data-i18n="bi.instruments.label">Instruments</span>
+            <span class="bi-instruments-count"></span>
+          </summary>
+          <div class="bi-instruments-body"></div>
+          <p class="bi-instruments-note"></p>
+        </details>
+        <!-- Quels orbiteurs ont observe une formation nommee de ce corps (ligne 40.3), lu dans
+             les empreintes de l'Orbital Data Explorer. Rempli par ui/placesBlock.ts ; rien n'est
+             demande au demarrage, et les noms ne sont charges qu'a l'ouverture du bloc. Un champ
+             et non un clic sur la carte : les noms sont sur un canvas, qu'aucun clavier n'atteint. -->
+        <details class="bi-places" hidden>
+          <summary>
+            <span data-i18n="bi.places.label">Observed formations</span>
+            <span class="bi-places-count"></span>
+          </summary>
+          <p class="bi-places-intro"></p>
+          <form class="bi-places-form" role="search">
+            <input
+              class="bi-places-input"
+              type="search"
+              list="bi-places-names"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <datalist id="bi-places-names" class="bi-places-names"></datalist>
+          </form>
+          <div class="bi-places-result"></div>
+          <p class="bi-places-note"></p>
+        </details>
+        <!-- Sources des valeurs ci-dessus, numérotées comme les renvois. Remplies par
+             ui/bodyInfo.ts depuis le registre config/factSources.ts. -->
+        <details class="bi-sources" hidden>
+          <summary data-i18n="bi.sources">Sources</summary>
+          <ol></ol>
+        </details>
+        <p class="bi-desc"></p>
+        <!-- Crédit du modèle de forme : exigé par la politique de données ISAS/JAXA (Ryugu), et
+             dû à toutes les équipes dont le maillage est affiché. Rempli par ui/bodyInfo.ts. -->
+        <p class="bi-credit" hidden></p>
+        <a class="bi-more" target="_blank" rel="noopener noreferrer" hidden></a>
+      </div>
+    </aside>
+
+    <!-- ─── Réglages d'affichage (noms, orbites) ───────────────────────────── -->
+    <aside
+      id="orbit-options"
+      class="surface surface--settings"
+      role="dialog"
+      aria-label="Display settings"
+      data-i18n-aria="settings.trigger.aria"
+      hidden
+    >
+      <header class="surface-header">
+        <h3 class="surface-title" data-i18n="settings.title">Display settings</h3>
+        <button
+          class="surface-close"
+          type="button"
+          aria-label="Close"
+          data-i18n-aria="surface.close"
+        >
+          <svg viewBox="0 0 14 14" width="13" height="13" aria-hidden="true">
+            <path
+              d="M3.5 3.5l7 7M10.5 3.5l-7 7"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+      </header>
+      <div class="surface-body">
+        <!-- UNE surface pour tout ce qui règle l'affichage, en sections titrées dans un ordre
+             fixe (contenu de la scène, champ d'astéroïdes, rendu, lecture, vue). Chaque module
+             se range dans SA section par son id, au lieu de s'ajouter à la fin dans l'ordre
+             des appels : c'est ce qui avait rangé les trajectoires interstellaires sous les
+             quatre boutons de qualité graphique. -->
+        <section
+          class="settings-section"
+          aria-labelledby="settings-section-scene-title"
+        >
+          <h4
+            id="settings-section-scene-title"
+            class="settings-section-title"
+            data-i18n="settings.section.scene"
+          >
+            In the scene
+          </h4>
+          <!-- Tableau unifié : un objet par ligne, rangé par groupe (les mêmes que la
+               palette de recherche), une colonne par bascule (étiquette, objet, orbite).
+               L'en-tête de colonne bascule toute la colonne, la ligne de groupe tout le
+               groupe, chaque case un seul objet. Lignes construites par ui/orbitOptions.ts. -->
+          <p class="oo-table-hint" data-i18n="settings.tableHint">
+            A column header sets the whole column, a group row its group, a
+            row one object. Spacecraft and interstellar objects start hidden.
+          </p>
+          <table class="oo-table" id="settings-table">
+            <caption class="sr-only" data-i18n="settings.tableCaption">
+              What the scene shows, object by object
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col" class="oo-th oo-th-name">
+                  <span class="sr-only" data-i18n="settings.col.bodyName"
+                    >Object</span
+                  >
+                </th>
+                <th scope="col" class="oo-th oo-th-toggle">
+                  <label>
+                    <input
+                      id="labels-visible"
+                      class="oo-checkbox"
+                      type="checkbox"
+                      checked
+                      aria-label="Show every label"
+                      data-i18n-aria="settings.labelsToggle"
+                    />
+                    <span data-i18n="settings.col.names">Label</span>
+                  </label>
+                </th>
+                <th scope="col" class="oo-th oo-th-toggle">
+                  <label>
+                    <input
+                      id="bodies-visible"
+                      class="oo-checkbox"
+                      type="checkbox"
+                      checked
+                      aria-label="Show every object"
+                      data-i18n-aria="settings.bodiesToggle"
+                    />
+                    <span data-i18n="settings.col.bodies">Object</span>
+                  </label>
+                </th>
+                <th scope="col" class="oo-th oo-th-toggle">
+                  <label>
+                    <input
+                      id="orbits-visible"
+                      class="oo-checkbox"
+                      type="checkbox"
+                      checked
+                      aria-label="Show every orbit and trajectory"
+                      data-i18n-aria="settings.orbitsToggle"
+                    />
+                    <span data-i18n="settings.col.orbits">Orbit</span>
+                  </label>
+                </th>
+              </tr>
+            </thead>
+            <!-- un <tbody> par groupe, construit par ui/orbitOptions.ts -->
+          </table>
+        </section>
+        <section
+          id="smallbody-filters"
+          class="settings-section"
+          aria-labelledby="settings-section-field-title"
+        >
+          <h4
+            id="settings-section-field-title"
+            class="settings-section-title"
+            data-i18n="smallBodies.title"
+          >
+            Asteroid and comet field
+          </h4>
+          <p class="oo-table-hint" data-i18n="smallBodies.exploOnly">
+            Drawn in Exploration mode, one dot per known orbit.
+          </p>
+          <div class="oo-body">
+            <!-- populated by ui/smallBodyFilters.ts -->
+          </div>
+          <!-- Provenance et DATE du relevé, remplies par ui/smallBodyFilters.ts. -->
+          <p class="sb-source" hidden></p>
+        </section>
+        <section
+          id="settings-section-rendering"
+          class="settings-section"
+          aria-labelledby="settings-section-rendering-title"
+        >
+          <h4
+            id="settings-section-rendering-title"
+            class="settings-section-title"
+            data-i18n="settings.section.rendering"
+          >
+            Rendering
+          </h4>
+        </section>
+        <section
+          id="settings-section-reading"
+          class="settings-section"
+          aria-labelledby="settings-section-reading-title"
+        >
+          <h4
+            id="settings-section-reading-title"
+            class="settings-section-title"
+            data-i18n="settings.section.reading"
+          >
+            Accessibility and units
+          </h4>
+        </section>
+        <section
+          id="settings-section-view"
+          class="settings-section"
+          aria-labelledby="settings-section-view-title"
+          hidden
+        >
+          <h4
+            id="settings-section-view-title"
+            class="settings-section-title"
+            data-i18n="settings.section.view"
+          >
+            View
+          </h4>
+        </section>
+        <!-- Hors ligne (lot 17E) : la seule section qui parle de DONNÉES et non d'affichage.
+             Elle est ici parce que c'est la seule surface de réglages de l'application, celle
+             qui porte déjà la qualité graphique et les unités. Son contenu est rempli par
+             ui/offlineData.ts, et tout ce qu'il affiche est LU dans le magasin. -->
+        <section
+          id="settings-section-offline"
+          class="settings-section"
+          aria-labelledby="settings-section-offline-title"
+        >
+          <h4
+            id="settings-section-offline-title"
+            class="settings-section-title"
+            data-i18n="settings.section.offline"
+          >
+            Offline use
+          </h4>
+          <p class="oo-table-hint" data-i18n="offline.hint">
+            Download every ephemeris file so the app can place the bodies at
+            any date without a network. Nothing is downloaded until you ask.
+          </p>
+        </section>
+      </div>
+    </aside>
+
+    <!-- ─── Couches météo (nuages / pluie / vent / température) ─────────────── -->
+    <aside
+      id="weather-layers"
+      class="surface surface--settings"
+      role="dialog"
+      aria-label="Weather layers"
+      data-i18n-aria="weather.dialog.aria"
+      hidden
+    >
+      <header class="surface-header">
+        <h3 class="surface-title" data-i18n="weather.title">Weather layers</h3>
+        <button
+          class="surface-close"
+          type="button"
+          aria-label="Close"
+          data-i18n-aria="surface.close"
+        >
+          <svg viewBox="0 0 14 14" width="13" height="13" aria-hidden="true">
+            <path
+              d="M3.5 3.5l7 7M10.5 3.5l-7 7"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+      </header>
+      <div class="surface-body">
+        <div class="wl-body">
+          <!-- populated by ui/weatherLayers.ts -->
+        </div>
+        <!-- Attribution exigée par la licence CC BY 4.0 d'Open-Meteo, « à côté de tout endroit
+             où ses données sont affichées », et citation demandée par NASA et Copernicus. -->
+        <p class="wl-note wl-attribution">
+          <span data-i18n="weather.attribution.prefix">Weather data:</span>
+          NASA GIBS (EOSDIS) ·
+          <a
+            href="https://open-meteo.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Open-Meteo.com</a
+          >
+          (<a
+            href="https://creativecommons.org/licenses/by/4.0/"
+            target="_blank"
+            rel="noopener noreferrer"
+            >CC BY 4.0</a
+          >,
+          <span data-i18n="weather.attribution.modified"
+            >resampled into map textures</span
+          >) · ERA5, Copernicus Climate Change Service (ECMWF).
+        </p>
+      </div>
+    </aside>
+
+    <!-- ─── Événements terrestres ──────────────────────────────────────────── -->
+    <aside
+      id="earth-events"
+      class="surface surface--settings"
+      role="dialog"
+      aria-label="Earth events"
+      data-i18n-aria="earthEvents.dialog.aria"
+      hidden
+    >
+      <header class="surface-header">
+        <h3 class="surface-title" data-i18n="earthEvents.title">
+          Earth events
+        </h3>
+        <button
+          class="surface-close"
+          type="button"
+          aria-label="Close"
+          data-i18n-aria="surface.close"
+        >
+          <svg viewBox="0 0 14 14" width="13" height="13" aria-hidden="true">
+            <path
+              d="M3.5 3.5l7 7M10.5 3.5l-7 7"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+      </header>
+      <div class="surface-body">
+        <div class="ee-body">
+          <!-- populated by ui/earthEvents.ts -->
+        </div>
+        <!-- Crédits demandés par les deux sources, affichés à côté de la donnée : l'USGS
+             demande d'être crédité, et EONET est identifié comme le tracker de la NASA. -->
+        <p class="ee-note ee-attribution">
+          <span data-i18n="earthEvents.attribution.prefix">Event data:</span>
+          <a
+            href="https://earthquake.usgs.gov/fdsnws/event/1/"
+            target="_blank"
+            rel="noopener noreferrer"
+            >U.S. Geological Survey</a
+          >
+          ·
+          <a
+            href="https://eonet.gsfc.nasa.gov/"
+            target="_blank"
+            rel="noopener noreferrer"
+            >NASA Earth Observatory (EONET)</a
+          >
+        </p>
+      </div>
+    </aside>
+
+    <!-- ─── Aide & crédits ─────────────────────────────────────────────────── -->
+    <aside
+      id="help-popover"
+      class="surface surface--help"
+      role="dialog"
+      aria-label="Help and credits"
+      data-i18n-aria="help.dialog.aria"
+      hidden
+    >
+      <header class="surface-header">
+        <h3 class="surface-title" data-i18n="help.title">Navigation</h3>
+        <button
+          class="surface-close"
+          type="button"
+          aria-label="Close"
+          data-i18n-aria="surface.close"
+        >
+          <svg viewBox="0 0 14 14" width="13" height="13" aria-hidden="true">
+            <path
+              d="M3.5 3.5l7 7M10.5 3.5l-7 7"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+      </header>
+      <div class="surface-body">
+        <ul class="help-tips">
+          <li>
+            <span class="help-key" data-i18n="help.tip.drag.key">Drag</span>
+            <span data-i18n="help.tip.drag.text">orbit the view</span>
+          </li>
+          <li>
+            <span class="help-key" data-i18n="help.tip.zoom.key"
+              >Scroll · pinch</span
+            >
+            <span data-i18n="help.tip.zoom.text">zoom in / out</span>
+          </li>
+          <li>
+            <span class="help-key" data-i18n="help.tip.click.key"
+              >Click a body</span
+            >
+            <span data-i18n="help.tip.click.text"
+              >or its label to travel to it</span
+            >
+          </li>
+          <li>
+            <span class="help-key" data-i18n="help.tip.mode.key"
+              >Educ · Explo</span
+            >
+            <span data-i18n="help.tip.mode.text"
+              >compressed overview vs true-scale voyage</span
+            >
+          </li>
+          <li>
+            <span class="help-key" data-i18n="help.tip.time.key"
+              >Clock · date</span
+            >
+            <span data-i18n="help.tip.time.text"
+              >scroll to time-travel, tap to pick</span
+            >
+          </li>
+        </ul>
+        <div class="help-credits">
+          <div
+            id="lang-switch"
+            role="group"
+            aria-label="Language"
+            data-i18n-aria="lang.label"
+          >
+            <!--
+              Quatre langues depuis le lot 20. Chaque segment porte trois choses que l'œil ne
+              voit pas : `lang`, pour que le lecteur d'écran prononce « Español » en espagnol et
+              non en anglais ; `aria-label` avec le nom de la langue dans SA langue, parce que
+              « ES » s'énonce « euh esse » ; et `aria-pressed`, tenu par `ui/langSwitch`, parce
+              qu'avant ce lot la langue active n'était marquée que par une classe CSS, donc
+              invisible pour un lecteur d'écran. `src/i18n/langSwitchMarkup.test.ts` vérifie que
+              ces segments sont exactement les langues livrées.
+            -->
+            <button
+              class="lang-btn"
+              type="button"
+              data-locale="en"
+              lang="en"
+              aria-pressed="false"
+            >
+              EN
+            </button>
+            <button
+              class="lang-btn"
+              type="button"
+              data-locale="fr"
+              lang="fr"
+              aria-pressed="false"
+            >
+              FR
+            </button>
+            <button
+              class="lang-btn"
+              type="button"
+              data-locale="es"
+              lang="es"
+              aria-pressed="false"
+            >
+              ES
+            </button>
+            <button
+              class="lang-btn"
+              type="button"
+              data-locale="pt-BR"
+              lang="pt-BR"
+              aria-pressed="false"
+            >
+              PT
+            </button>
+          </div>
+          <p class="credits-copy">
+            © 2026 Adrian34 ·
+            <a
+              href="https://polyformproject.org/licenses/noncommercial/1.0.0"
+              target="_blank"
+              rel="noopener noreferrer"
+              >PolyForm NC 1.0.0</a
+            >
+            ·
+            <a href="/privacy.html" data-i18n="credits.privacy">Privacy</a>
+            ·
+            <a
+              href="/methodology/"
+              data-i18n="credits.methodology"
+              data-i18n-href="credits.methodology.href"
+              >Methodology</a
+            >
+            ·
+            <a
+              href="/sources/"
+              data-i18n="credits.sources"
+              data-i18n-href="credits.sources.href"
+              >Sources</a
+            >
+          </p>
+          <dl class="credits-list">
+            <dt data-i18n="credits.textures">Textures</dt>
+            <dd>
+              USGS Astrogeology / NASA-JPL (public domain) · Solar System Scope
+              (CC BY 4.0) · NOAA ETOPO 2022 · Halley, Itokawa, Gaspra, Ida: Philip
+              Stooke / NASA PDS.
+            </dd>
+            <dt data-i18n="credits.fictional">Illustrative surfaces</dt>
+            <dd data-i18n="credits.fictional.list">
+              Bodies never mapped globally have an illustrative texture, not a
+              scientific map; the body card says so, and Sources lists them.
+            </dd>
+            <dt data-i18n="credits.models">3D shape models</dt>
+            <dd>
+              NASA PDS: NEAR (Eros), Hayabusa (Itokawa), Galileo (Ida, Gaspra) ·
+              ISAS/JAXA: Hayabusa2 (Ryugu) · NASA/Goddard SVS: OSIRIS-REx
+              (Bennu)
+            </dd>
+            <dt data-i18n="credits.data">Data</dt>
+            <dd>
+              Astronomy Engine · NASA/JPL Horizons · JPL SBDB · NASA GIBS ·
+              <a
+                href="https://pds.nasa.gov/"
+                target="_blank"
+                rel="noopener noreferrer"
+                >NASA Planetary Data System</a
+              >
+              (mission context products) ·
+              <a
+                href="https://planetarynames.wr.usgs.gov/"
+                target="_blank"
+                rel="noopener noreferrer"
+                >IAU Gazetteer of Planetary Nomenclature</a
+              >
+              ·
+              <a
+                href="https://open-meteo.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                >Open-Meteo.com</a
+              >
+              (<a
+                href="https://creativecommons.org/licenses/by/4.0/"
+                target="_blank"
+                rel="noopener noreferrer"
+                >CC BY 4.0</a
+              >) · ERA5, Copernicus Climate Change Service (ECMWF)
+            </dd>
+          </dl>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Scrim : ferme la surface contextuelle ouverte au clic hors surface
+         (surtout utile pour les feuilles en bas d'écran sur mobile). -->
+    <div id="surface-scrim" hidden></div>
+
+    <script type="module" src="/src/MainSolarSystemApp.ts"></script>
+  </body>
+</html>

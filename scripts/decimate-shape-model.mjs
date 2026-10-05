@@ -1,0 +1,848 @@
+/* global console, process, Buffer */
+/**
+ * Réduit un modèle de forme scientifique à une taille utilisable sur le web.
+ *
+ * Usage (en pratique par `scripts/generate-shape-models.mjs`, qui lit la recette) :
+ *   node scripts/decimate-shape-model.mjs <entrée> <sortie.glb> --target N
+ *        [--z-up] [--west] [--lon-lat] [--principal] [--whole]
+ * `--target N` : au plus N triangles. C'est ainsi que sont produits les niveaux de détail
+ * `{corps}_shape_{1k,2k,4k}.glb` : un budget de triangles par niveau. Refuse un budget que la
+ * SOURCE ne peut pas atteindre — un niveau plus détaillé que sa source serait une interpolation
+ * présentée comme une mesure. `--whole` lève ce refus pour le niveau le plus léger d'un corps
+ * dont la source entière tient sous ce budget (Lutetia, Psyché) : elle est alors livrée telle
+ * quelle, rien n'est décimé.
+ *
+ * Entrées lues : glTF binaire (.glb), Wavefront (.obj), et les deux formats de la PDS Small
+ * Bodies Node — table sommets/plaques (`ver128q.tab` : comptes, « id x y z », « id a b c ») et
+ * grille latitude/longitude/rayon (`243ida.tab`, planétocentrique, degrés et km).
+ *
+ * `--principal` : tourne le maillage dans ses axes principaux d'inertie (cf.
+ * `alignToPrincipalAxes`), pour un corps dont le repère publié n'est pas celui de sa rotation.
+ *
+ * `--lon-lat` et `--west` (grilles seulement) : colonnes longitude puis latitude, et longitudes
+ * comptées vers l'Ouest. Lire l'ÉTIQUETTE PDS avant de choisir : un sens de longitude inversé
+ * donne un corps en miroir, que rien ne signale.
+ *
+ * `--z-up` : le fichier porte le PÔLE sur Z, convention des produits PDS en repère lié au
+ * corps. La scène fait tourner chaque corps autour de son Y local (convention glTF) : sans
+ * cette rotation, le corps tournerait autour d'un axe équatorial. C'est exactement ce qui a été
+ * livré pour Bennu, dont le fichier SVS porte son pôle sur Z. `src/config/shapeModels.test.ts`
+ * vérifie désormais que l'axe de plus grande inertie de chaque modèle livré est Y.
+ *
+ * POURQUOI ce script existe. Les modèles de forme publiés par la NASA sont des produits
+ * scientifiques : celui de Bennu fait 3,37 millions de triangles et 60 Mo. Inutilisable tel
+ * quel. Les versions « légères » qu'on trouve ailleurs ne sont pas des modèles de forme :
+ * celle du dépôt NASA-3D-Resources est une sphère bosselée (écart-type du rayon 0,76 %,
+ * rapport équateur/pôles 0,999) alors que Bennu est une toupie (6,00 % et 1,118). Elle est
+ * d'ailleurs nommée « Fake » dans le fichier. La décimer nous-mêmes est le seul moyen d'avoir
+ * à la fois la vraie forme et un poids raisonnable.
+ *
+ * MÉTHODE : effondrement d'arêtes (meshoptimizer), après soudure des sommets confondus, puis
+ * contrôle que la surface est FERMÉE (cf. `simplify`). Le regroupement de sommets employé
+ * jusqu'au 2026-10-04 soudait tout ce qui tombait dans une même cellule de grille : la forme
+ * d'ensemble survivait, mais pas la topologie.
+ *
+ * CE QUI DOIT ÊTRE VÉRIFIÉ, et que le script imprime avant/après : l'écart-type du rayon et le
+ * rapport équateur/pôles. Ce sont les deux nombres qui distinguent un modèle de forme d'une
+ * patate. S'ils bougent, la décimation a mangé la signature du corps. Sur Bennu (v20 en DSK,
+ * 3,15 M de plaques) à 3 974 triangles, pondérés par l'aire : rapport équateur/pôles inchangé.
+ *
+ * Le fichier produit est DÉTERMINISTE : la simplification l'est, et les sommets sont numérotés
+ * dans l'ordre de leur première apparition, donc deux exécutions donnent les mêmes octets.
+ */
+import { readFileSync, writeFileSync } from 'fs';
+import { dirname, resolve } from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const { MeshoptSimplifier } = await import('meshoptimizer');
+await MeshoptSimplifier.ready;
+const { GLTFLoader } = await import(
+  pathToFileURL(
+    resolve(ROOT, 'node_modules/three/examples/jsm/loaders/GLTFLoader.js')
+  ).href
+);
+
+/**
+ * Statistiques de forme. `sdPct` mesure l'irrégularité, `equatorOverPolar` l'aplatissement
+ * autour de l'axe de plus faible extension (l'axe de rotation d'une toupie).
+ *
+ * `weights` (optionnel) pondère chaque sommet. Sans poids, chaque sommet compte pour un — ce
+ * qui mesure AUSSI l'échantillonnage : une grille latitude/longitude, dont la densité croît
+ * comme 1/cos φ vers les pôles, sort avec un rapport équateur/pôles de 0,94 quand la même
+ * forme, rééchantillonnée uniformément, donne 2,0 (Ida, mesuré). Pondérés par l'aire
+ * (`vertexAreaWeights`), ces nombres décrivent la SURFACE et plus la façon dont on l'a tirée.
+ */
+export function shapeStats(positions, count, weights = null) {
+  const w = (i) => (weights ? weights[i] : 1);
+  let total = 0;
+  let cx = 0;
+  let cy = 0;
+  let cz = 0;
+  for (let i = 0; i < count; i++) {
+    total += w(i);
+    cx += w(i) * positions[i * 3];
+    cy += w(i) * positions[i * 3 + 1];
+    cz += w(i) * positions[i * 3 + 2];
+  }
+  cx /= total;
+  cy /= total;
+  cz /= total;
+
+  const spread = [0, 0, 0];
+  for (let i = 0; i < count; i++) {
+    spread[0] += w(i) * (positions[i * 3] - cx) ** 2;
+    spread[1] += w(i) * (positions[i * 3 + 1] - cy) ** 2;
+    spread[2] += w(i) * (positions[i * 3 + 2] - cz) ** 2;
+  }
+  const sd3 = spread.map((s) => Math.sqrt(s / total));
+  const spin = sd3.indexOf(Math.min(...sd3));
+
+  let sum = 0;
+  let equator = 0;
+  let equatorN = 0;
+  let polar = 0;
+  let polarN = 0;
+  const radii = new Float64Array(count);
+  for (let i = 0; i < count; i++) {
+    const dx = positions[i * 3] - cx;
+    const dy = positions[i * 3 + 1] - cy;
+    const dz = positions[i * 3 + 2] - cz;
+    const r = Math.hypot(dx, dy, dz);
+    radii[i] = r;
+    sum += w(i) * r;
+    const lat = Math.abs(Math.asin([dx, dy, dz][spin] / r)) * (180 / Math.PI);
+    if (lat < 15) {
+      equator += w(i) * r;
+      equatorN += w(i);
+    } else if (lat > 60) {
+      polar += w(i) * r;
+      polarN += w(i);
+    }
+  }
+  const mean = sum / total;
+  let variance = 0;
+  for (let i = 0; i < count; i++) variance += w(i) * (radii[i] - mean) ** 2;
+  return {
+    count,
+    mean,
+    sdPct: (Math.sqrt(variance / total) / mean) * 100,
+    equatorOverPolar: equator / equatorN / (polar / polarN),
+    spinAxis: 'XYZ'[spin],
+  };
+}
+
+/**
+ * Charge un modèle de forme en tableaux bruts, quel que soit son format — cf. l'en-tête.
+ * Rend `{ pos, index }` (index `null` pour un glTF non indexé).
+ */
+async function loadShape(path) {
+  if (path.toLowerCase().endsWith('.glb')) {
+    const mesh = await loadFirstMesh(path);
+    return {
+      pos: mesh.geometry.attributes.position.array,
+      index: mesh.geometry.index ? mesh.geometry.index.array : null,
+    };
+  }
+  let lines = readFileSync(path, 'utf-8')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (path.toLowerCase().endsWith('.obj')) {
+    const pos = [];
+    const index = [];
+    for (const line of lines) {
+      const t = line.split(/\s+/);
+      if (t[0] === 'v') pos.push(Number(t[1]), Number(t[2]), Number(t[3]));
+      else if (t[0] === 'f') {
+        if (t.length !== 4) throw new Error(`${path} : face non triangulaire`);
+        index.push(...t.slice(1).map((v) => parseInt(v, 10) - 1));
+      }
+    }
+    return { pos: Float32Array.from(pos), index: Uint32Array.from(index) };
+  }
+  const first = lines[0].split(/\s+/).map(Number);
+  /**
+   * TROISIÈME variante de la table sommets/plaques, publiée par les modèles de forme de
+   * satellites dérivés de Cassini (`mimas_ver128q.tab`) : les deux comptes sont sur DEUX lignes
+   * séparées — le nombre de sommets en tête, puis le nombre de plaques juste après le dernier
+   * sommet — là où les deux autres variantes les mettent sur la même ligne. Le reste est
+   * identique, « id x y z » puis « id a b c » indexé depuis 1.
+   *
+   * La reconnaître ICI plutôt que de recombiner les fichiers à la main : un format publié se lit,
+   * il ne se prépare pas, sinon la prochaine lune coûtera la même manipulation silencieuse.
+   */
+  if (first.length === 1 && Number.isInteger(first[0])) {
+    const vertices = first[0];
+    const countLine = lines[1 + vertices]?.split(/\s+/).map(Number) ?? [];
+    if (countLine.length !== 1 || !Number.isInteger(countLine[0]))
+      throw new Error(
+        `${path} : ${vertices} sommets annoncés, mais la ligne ${2 + vertices} ne porte pas ` +
+          `le compte des plaques`
+      );
+    // On se ramène à la forme « comptes sur une ligne », que la branche suivante sait lire.
+    lines = [
+      `${vertices} ${countLine[0]}`,
+      ...lines.slice(1, 1 + vertices),
+      ...lines.slice(2 + vertices),
+    ];
+    first.push(countLine[0]);
+  }
+  if (first.length === 2 && first.every(Number.isInteger)) {
+    // Table sommets/plaques PDS, coordonnées en km. Deux variantes publiées, reconnues au nombre
+    // de champs : PDS3 (`ver128q.tab`) numérote chaque ligne et indexe les plaques à partir de 1 ;
+    // PDS4 (petites lunes de Saturne, `hyperion_30k_plt.tab`) écrit x y z seuls et indexe à partir
+    // de 0, ce que dit son étiquette XML (trois champs par enregistrement).
+    const [vertices, plates] = first;
+    const numbered = lines[1].split(/\s+/).length === 4;
+    const pos = new Float32Array(vertices * 3);
+    for (let i = 0; i < vertices; i++) {
+      const t = lines[1 + i].split(/\s+/).map(Number);
+      const o = numbered ? 1 : 0;
+      pos[i * 3] = t[o];
+      pos[i * 3 + 1] = t[o + 1];
+      pos[i * 3 + 2] = t[o + 2];
+    }
+    // Base des indices LUE dans les données, jamais supposée d'après le nombre de colonnes :
+    // PDS3 numérote les plaques depuis 1 (« id a b c »), les petites lunes de Saturne (PDS4)
+    // depuis 0, et DAMIT depuis 1 SANS numéro de ligne (« a b c »). Plus petit indice 0 ou 1.
+    const raw = new Array(plates * 3);
+    for (let i = 0; i < plates; i++) {
+      const t = lines[1 + vertices + i].split(/\s+/).map(Number);
+      const abc = t.length === 4 ? t.slice(1) : t;
+      raw[i * 3] = abc[0];
+      raw[i * 3 + 1] = abc[1];
+      raw[i * 3 + 2] = abc[2];
+    }
+    let base = Infinity;
+    for (const k of raw) if (k < base) base = k;
+    if (base !== 0 && base !== 1)
+      throw new Error(
+        `${path} : plus petit indice de plaque ${base}, ni 0 ni 1`
+      );
+    const index = Uint32Array.from(raw, (k) => k - base);
+    if (index.some((k) => !(k >= 0 && k < vertices)))
+      throw new Error(
+        `${path} : indice de plaque hors des ${vertices} sommets`
+      );
+    return { pos, index };
+  }
+  // Grille latitude / longitude / rayon. La longitude 360 double la longitude 0 : elle est
+  // écartée, et la couture se referme par l'indice modulo.
+  const raw = lines.map((line) => line.split(/\s+/).map(Number));
+  if (raw.some((r) => r.length !== 3 || !r.every(Number.isFinite)))
+    throw new Error(`${path} : format de modèle de forme non reconnu`);
+  // `--lon-lat` : colonnes longitude puis latitude (modèles de Stooke). `--west` : longitudes
+  // comptées vers l'OUEST, convention des satellites chez Thomas et Stooke (vérifié sur le
+  // Phobos de Thomas, dont Stickney tombe à 50 pour 49,7° O publié) ; ramenées vers l'Est, sans
+  // quoi le corps sortirait en MIROIR sans la moindre erreur.
+  const rows = raw.map(([a, b, r]) => {
+    const [lat, lon] = lonLat ? [b, a] : [a, b];
+    return [lat, west ? (360 - (lon % 360)) % 360 : lon, r];
+  });
+  // Ordre IMPOSÉ, plus supposé du fichier : latitudes décroissantes, longitudes croissantes. C'est
+  // lui qui oriente les faces vers l'extérieur ; inverser les longitudes les retournerait.
+  const lats = [...new Set(rows.map((r) => r[0]))].sort((x, y) => y - x);
+  const lons = [...new Set(rows.map((r) => r[1] % 360))].sort((x, y) => x - y);
+  const radius = new Map(rows.map((r) => [`${r[0]},${r[1] % 360}`, r[2]]));
+  const pos = new Float32Array(lats.length * lons.length * 3);
+  lats.forEach((lat, i) =>
+    lons.forEach((lon, j) => {
+      const r = radius.get(`${lat},${lon}`);
+      if (r === undefined)
+        throw new Error(`${path} : rayon manquant en ${lat}°, ${lon}°`);
+      const phi = (lat * Math.PI) / 180;
+      const lambda = (lon * Math.PI) / 180;
+      const k = (i * lons.length + j) * 3;
+      // Aux pôles, cos(φ) vaut 6e-17 et non 0 : les sommets d'une même latitude ±90°
+      // resteraient distincts à 1e-14 près, et la soudure laisserait le pôle ouvert (Vesta,
+      // 1 440 arêtes de bord). Le pôle est UN point.
+      const c = Math.abs(lat) === 90 ? 0 : Math.cos(phi);
+      pos[k] = r * c * Math.cos(lambda);
+      pos[k + 1] = r * c * Math.sin(lambda);
+      pos[k + 2] = r * Math.sin(phi);
+    })
+  );
+  const index = [];
+  const at = (i, j) => i * lons.length + (j % lons.length);
+  // Orientation vers l'extérieur : latitudes décroissantes d'une ligne à l'autre.
+  for (let i = 0; i + 1 < lats.length; i++)
+    for (let j = 0; j < lons.length; j++)
+      index.push(
+        at(i, j),
+        at(i + 1, j),
+        at(i, j + 1),
+        at(i, j + 1),
+        at(i + 1, j),
+        at(i + 1, j + 1)
+      );
+  return { pos, index: Uint32Array.from(index) };
+}
+
+/** Volume d'un maillage fermé (divergence) — pour imprimer le rayon équivalent. */
+function meshVolume(pos, index, triangleCount) {
+  let volume = 0;
+  for (let t = 0; t < triangleCount; t++) {
+    const [a, b, c] = [0, 1, 2].map(
+      (k) => (index ? index[t * 3 + k] : t * 3 + k) * 3
+    );
+    volume +=
+      (pos[a] * (pos[b + 1] * pos[c + 2] - pos[b + 2] * pos[c + 1]) -
+        pos[a + 1] * (pos[b] * pos[c + 2] - pos[b + 2] * pos[c]) +
+        pos[a + 2] * (pos[b] * pos[c + 1] - pos[b + 1] * pos[c])) /
+      6;
+  }
+  return Math.abs(volume);
+}
+
+const equivalentRadius = (volume) => Math.cbrt((3 * volume) / (4 * Math.PI));
+
+/** Poids d'aire par sommet : un tiers de l'aire de chaque triangle adjacent. */
+function vertexAreaWeights(pos, index, triangleCount, vertexCount) {
+  const weights = new Float64Array(vertexCount);
+  for (let t = 0; t < triangleCount; t++) {
+    const [a, b, c] = [0, 1, 2].map((k) =>
+      index ? index[t * 3 + k] : t * 3 + k
+    );
+    const u = [0, 1, 2].map((k) => pos[b * 3 + k] - pos[a * 3 + k]);
+    const v = [0, 1, 2].map((k) => pos[c * 3 + k] - pos[a * 3 + k]);
+    const area =
+      Math.hypot(
+        u[1] * v[2] - u[2] * v[1],
+        u[2] * v[0] - u[0] * v[2],
+        u[0] * v[1] - u[1] * v[0]
+      ) / 2;
+    for (const k of [a, b, c]) weights[k] += area / 3;
+  }
+  return weights;
+}
+
+function loadFirstMesh(path) {
+  const bytes = readFileSync(path);
+  return new Promise((ok, ko) => {
+    new GLTFLoader().parse(
+      bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+      '',
+      (gltf) => {
+        let mesh = null;
+        gltf.scene.traverse((o) => {
+          if (o.isMesh && !mesh) mesh = o;
+        });
+        if (!mesh) ko(new Error(`${path} : aucun maillage`));
+        else ok(mesh);
+      },
+      ko
+    );
+  });
+}
+
+/** Écrit un GLB minimal : positions, normales, indices, un matériau. */
+function writeGlb(path, positions, normals, indices, copyright, name) {
+  const use32 = positions.length / 3 > 65535;
+  const indexArray = use32
+    ? new Uint32Array(indices)
+    : new Uint16Array(indices);
+  const pad4 = (n) => (n + 3) & ~3;
+  const parts = [
+    Buffer.from(positions.buffer, 0, positions.byteLength),
+    Buffer.from(normals.buffer, 0, normals.byteLength),
+    Buffer.from(indexArray.buffer, 0, indexArray.byteLength),
+  ];
+  const offsets = [];
+  const chunks = [];
+  let cursor = 0;
+  for (const part of parts) {
+    offsets.push(cursor);
+    chunks.push(part);
+    const padding = pad4(part.length) - part.length;
+    if (padding) chunks.push(Buffer.alloc(padding));
+    cursor = pad4(cursor + part.length);
+  }
+  const bin = Buffer.concat(chunks);
+
+  const min = [Infinity, Infinity, Infinity];
+  const max = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < positions.length; i++) {
+    const k = i % 3;
+    if (positions[i] < min[k]) min[k] = positions[i];
+    if (positions[i] > max[k]) max[k] = positions[i];
+  }
+
+  const gltf = {
+    asset: {
+      version: '2.0',
+      generator:
+        'galaxy scripts/decimate-shape-model.mjs (meshoptimizer edge collapse)',
+      copyright,
+    },
+    scene: 0,
+    scenes: [{ nodes: [0] }],
+    nodes: [{ mesh: 0, name }],
+    meshes: [
+      {
+        name,
+        primitives: [
+          { attributes: { POSITION: 0, NORMAL: 1 }, indices: 2, material: 0 },
+        ],
+      },
+    ],
+    materials: [
+      {
+        name,
+        pbrMetallicRoughness: {
+          baseColorFactor: [0.35, 0.33, 0.32, 1],
+          metallicFactor: 0,
+          roughnessFactor: 1,
+        },
+      },
+    ],
+    accessors: [
+      {
+        bufferView: 0,
+        componentType: 5126,
+        count: positions.length / 3,
+        type: 'VEC3',
+        min,
+        max,
+      },
+      {
+        bufferView: 1,
+        componentType: 5126,
+        count: normals.length / 3,
+        type: 'VEC3',
+      },
+      {
+        bufferView: 2,
+        componentType: use32 ? 5125 : 5123,
+        count: indexArray.length,
+        type: 'SCALAR',
+      },
+    ],
+    bufferViews: [
+      {
+        buffer: 0,
+        byteOffset: offsets[0],
+        byteLength: parts[0].length,
+        target: 34962,
+      },
+      {
+        buffer: 0,
+        byteOffset: offsets[1],
+        byteLength: parts[1].length,
+        target: 34962,
+      },
+      {
+        buffer: 0,
+        byteOffset: offsets[2],
+        byteLength: parts[2].length,
+        target: 34963,
+      },
+    ],
+    buffers: [{ byteLength: bin.length }],
+  };
+
+  const json = Buffer.from(JSON.stringify(gltf), 'utf8');
+  const jsonChunk = Buffer.concat([
+    json,
+    Buffer.alloc(pad4(json.length) - json.length, 0x20),
+  ]);
+  const header = Buffer.alloc(12);
+  header.write('glTF', 0, 'ascii');
+  header.writeUInt32LE(2, 4);
+  header.writeUInt32LE(12 + 8 + jsonChunk.length + 8 + bin.length, 8);
+  const jsonHeader = Buffer.alloc(8);
+  jsonHeader.writeUInt32LE(jsonChunk.length, 0);
+  jsonHeader.writeUInt32LE(0x4e4f534a, 4);
+  const binHeader = Buffer.alloc(8);
+  binHeader.writeUInt32LE(bin.length, 0);
+  binHeader.writeUInt32LE(0x004e4942, 4);
+  const out = Buffer.concat([header, jsonHeader, jsonChunk, binHeader, bin]);
+  writeFileSync(path, out);
+  return out.length;
+}
+
+const args = process.argv.slice(2);
+const zUp = args.includes('--z-up');
+const lonLat = args.includes('--lon-lat');
+const west = args.includes('--west');
+const principal = args.includes('--principal');
+
+/**
+ * `--principal` : tourne le maillage dans ses AXES PRINCIPAUX d'inertie (solide homogène) :
+ * plus grande inertie sur Y (l'axe de rotation de la scène), plus petite sur X (le grand axe),
+ * du côté de l'ancien +X pour garder le méridien 0 du fichier, et Z tel que la rotation soit
+ * PROPRE (déterminant +1, jamais un miroir). Pour un corps dont le repère publié n'est pas
+ * celui de sa rotation, ou pas défini : Hypérion (rotation chaotique), Halley (repère du modèle,
+ * nord le long du grand axe), Protée (presque rond, repère de Voyager). Pas pour un corps dont
+ * la texture est posée dans le repère IAU : ce repère-là doit rester celui du fichier.
+ */
+function alignToPrincipalAxes(pos, index, triangles) {
+  const at = (t, k) => (index ? index[t * 3 + k] : t * 3 + k) * 3;
+  let vol = 0;
+  const c = [0, 0, 0];
+  for (let t = 0; t < triangles; t++) {
+    const [a, b, d] = [0, 1, 2].map((k) => at(t, k));
+    const v =
+      (pos[a] * (pos[b + 1] * pos[d + 2] - pos[b + 2] * pos[d + 1]) -
+        pos[a + 1] * (pos[b] * pos[d + 2] - pos[b + 2] * pos[d]) +
+        pos[a + 2] * (pos[b] * pos[d + 1] - pos[b + 1] * pos[d])) /
+      6;
+    vol += v;
+    for (let k = 0; k < 3; k++)
+      c[k] += (v * (pos[a + k] + pos[b + k] + pos[d + k])) / 4;
+  }
+  for (let k = 0; k < 3; k++) c[k] /= vol;
+  const cov = new Array(9).fill(0);
+  for (let t = 0; t < triangles; t++) {
+    const p = [0, 1, 2].map((k) => {
+      const o = at(t, k);
+      return [pos[o] - c[0], pos[o + 1] - c[1], pos[o + 2] - c[2]];
+    });
+    const [a, b, d] = p;
+    const v =
+      (a[0] * (b[1] * d[2] - b[2] * d[1]) -
+        a[1] * (b[0] * d[2] - b[2] * d[0]) +
+        a[2] * (b[0] * d[1] - b[1] * d[0])) /
+      6;
+    const sum = [0, 1, 2].map((k) => a[k] + b[k] + d[k]);
+    for (let i = 0; i < 3; i++)
+      for (let j = 0; j < 3; j++)
+        cov[i * 3 + j] +=
+          (v / 20) *
+          (a[i] * a[j] + b[i] * b[j] + d[i] * d[j] + sum[i] * sum[j]);
+  }
+  // Jacobi 3×3 : vecteurs propres de la covariance. Plus GRANDE valeur propre = plus PETITE
+  // inertie (grand axe), et inversement.
+  const m = [...cov];
+  const V = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+  for (let sweep = 0; sweep < 60; sweep++) {
+    for (const [pp, q] of [
+      [0, 1],
+      [0, 2],
+      [1, 2],
+    ]) {
+      const apq = m[pp * 3 + q];
+      if (Math.abs(apq) < 1e-300) continue;
+      const theta = (m[q * 3 + q] - m[pp * 3 + pp]) / (2 * apq);
+      const tt =
+        Math.sign(theta || 1) /
+        (Math.abs(theta) + Math.sqrt(theta * theta + 1));
+      const cs = 1 / Math.sqrt(tt * tt + 1);
+      const sn = tt * cs;
+      for (let k = 0; k < 3; k++) {
+        const kp = m[k * 3 + pp],
+          kq = m[k * 3 + q];
+        m[k * 3 + pp] = cs * kp - sn * kq;
+        m[k * 3 + q] = sn * kp + cs * kq;
+      }
+      for (let k = 0; k < 3; k++) {
+        const pk = m[pp * 3 + k],
+          qk = m[q * 3 + k];
+        m[pp * 3 + k] = cs * pk - sn * qk;
+        m[q * 3 + k] = sn * pk + cs * qk;
+      }
+      for (let k = 0; k < 3; k++) {
+        const kp = V[k * 3 + pp],
+          kq = V[k * 3 + q];
+        V[k * 3 + pp] = cs * kp - sn * kq;
+        V[k * 3 + q] = sn * kp + cs * kq;
+      }
+    }
+  }
+  const values = [m[0], m[4], m[8]];
+  const col = (k) => [V[k], V[3 + k], V[6 + k]];
+  const order = [0, 1, 2].sort((x, y) => values[y] - values[x]);
+  let ex = col(order[0]); // grand axe
+  let ey = col(order[2]); // plus grande inertie
+  if (ex[0] < 0) ex = ex.map((v) => -v);
+  if (ey[1] < 0) ey = ey.map((v) => -v);
+  const ez = [
+    ex[1] * ey[2] - ex[2] * ey[1],
+    ex[2] * ey[0] - ex[0] * ey[2],
+    ex[0] * ey[1] - ex[1] * ey[0],
+  ];
+  for (let i = 0; i < pos.length; i += 3) {
+    const x = pos[i] - c[0],
+      y = pos[i + 1] - c[1],
+      z = pos[i + 2] - c[2];
+    pos[i] = ex[0] * x + ex[1] * y + ex[2] * z + c[0];
+    pos[i + 1] = ey[0] * x + ey[1] * y + ey[2] * z + c[1];
+    pos[i + 2] = ez[0] * x + ez[1] * y + ez[2] * z + c[2];
+  }
+  const tilt =
+    (Math.acos(Math.min(1, Math.abs(col(order[2])[1]))) * 180) / Math.PI;
+  console.log(
+    `axes principaux : inertie maximale ramenée sur Y (elle était à ${tilt.toFixed(1)}°)`
+  );
+}
+const targetAt = args.indexOf('--target');
+const TARGET = targetAt === -1 ? NaN : Number(args[targetAt + 1]);
+const [input, output] = args
+  .filter((_a, i) => targetAt === -1 || (i !== targetAt && i !== targetAt + 1))
+  .filter((a) => !a.startsWith('--'));
+if (!input || !output || !(TARGET > 0)) {
+  console.error(
+    'usage : node scripts/decimate-shape-model.mjs <entrée> <sortie.glb> --target N [--z-up] [--west] [--lon-lat] [--principal]'
+  );
+  process.exit(1);
+}
+
+const shape = await loadShape(input);
+const pos = Float32Array.from(shape.pos);
+const index = shape.index;
+const vertexCount = pos.length / 3;
+if (zUp) {
+  // Pôle Z → Y : rotation de −90° autour de X, (x, y, z) → (x, z, −y). Déterminant +1 : c'est
+  // une rotation, pas un miroir — la chiralité du corps et l'orientation des faces survivent.
+  for (let i = 0; i < vertexCount; i++) {
+    const y = pos[i * 3 + 1];
+    pos[i * 3 + 1] = pos[i * 3 + 2];
+    pos[i * 3 + 2] = -y;
+  }
+}
+const triangleCount = index ? index.length / 3 : vertexCount / 3;
+if (principal) alignToPrincipalAxes(pos, index, triangleCount);
+console.log(
+  `entrée : ${vertexCount} sommets, ${triangleCount} triangles${zUp ? ' (pôle Z ramené sur Y)' : ''}`
+);
+const before = shapeStats(pos, vertexCount);
+const beforeArea = shapeStats(
+  pos,
+  vertexCount,
+  vertexAreaWeights(pos, index, triangleCount, vertexCount)
+);
+const volumeBefore = meshVolume(pos, index, triangleCount);
+
+/**
+ * Soude les sommets de MÊME position (une grille répète le pôle à chaque longitude, un glTF
+ * drapé duplique sa couture) puis écarte les triangles devenus dégénérés ou répétés. Sans
+ * soudure, la simplification verrait des bords là où la surface est fermée.
+ */
+function weld(pos, index, triangleCount) {
+  const byPosition = new Map();
+  const remap = new Uint32Array(pos.length / 3);
+  const welded = [];
+  for (let i = 0; i < pos.length / 3; i++) {
+    const key = `${pos[i * 3]},${pos[i * 3 + 1]},${pos[i * 3 + 2]}`;
+    let n = byPosition.get(key);
+    if (n === undefined) {
+      n = byPosition.size;
+      byPosition.set(key, n);
+      welded.push(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2]);
+    }
+    remap[i] = n;
+  }
+  const seen = new Set();
+  const triangles = [];
+  for (let t = 0; t < triangleCount; t++) {
+    const [a, b, c] = [0, 1, 2].map(
+      (k) => remap[index ? index[t * 3 + k] : t * 3 + k]
+    );
+    if (a === b || b === c || a === c) continue;
+    const lo = Math.min(a, b, c);
+    const hi = Math.max(a, b, c);
+    const sig = `${lo},${a + b + c - lo - hi},${hi}`;
+    if (seen.has(sig)) continue;
+    seen.add(sig);
+    triangles.push(a, b, c);
+  }
+  return {
+    pos: Float32Array.from(welded),
+    index: Uint32Array.from(triangles),
+  };
+}
+
+/**
+ * Ce qu'un maillage de surface FERMÉE doit être, compté arête par arête : chaque arête bordée
+ * par exactement deux triangles (sinon un trou, ou une arête non manifold), et parcourue dans
+ * deux sens opposés (sinon une face retournée, que la scène dessine en noir).
+ */
+export function topologyDefects(index) {
+  const edges = new Map();
+  for (let t = 0; t < index.length; t += 3)
+    for (let k = 0; k < 3; k++) {
+      const a = index[t + k];
+      const b = index[t + ((k + 1) % 3)];
+      const key = a < b ? `${a},${b}` : `${b},${a}`;
+      const e = edges.get(key) ?? { n: 0, forward: 0 };
+      e.n++;
+      if (a < b) e.forward++;
+      edges.set(key, e);
+    }
+  let boundary = 0;
+  let nonManifold = 0;
+  let flipped = 0;
+  for (const e of edges.values()) {
+    if (e.n === 1) boundary++;
+    else if (e.n > 2) nonManifold++;
+    else if (e.forward !== 1) flipped++;
+  }
+  return { boundary, nonManifold, flipped };
+}
+
+const clean = (d) => d.boundary + d.nonManifold + d.flipped === 0;
+
+/**
+ * Retire les NAGEOIRES : deux triangles sur les trois mêmes sommets, de sens opposés. C'est un
+ * feuillet d'épaisseur nulle que l'effondrement d'arêtes laisse parfois (662 paires sur Bennu
+ * à 60 000 triangles, toutes ses arêtes non manifold) ; il ne porte ni volume ni surface
+ * extérieure, et la scène le dessine en noir. Les retirer ferme la surface sans rien inventer.
+ */
+function removeFins(index) {
+  const byVertices = new Map();
+  for (let t = 0; t < index.length; t += 3) {
+    const key = [index[t], index[t + 1], index[t + 2]]
+      .sort((a, b) => a - b)
+      .join();
+    const list = byVertices.get(key) ?? [];
+    list.push(t);
+    byVertices.set(key, list);
+  }
+  // Même cycle à une rotation près = même sens.
+  const cycle = (t) => {
+    const v = [index[t], index[t + 1], index[t + 2]];
+    const i = v.indexOf(Math.min(...v));
+    return `${v[i]},${v[(i + 1) % 3]},${v[(i + 2) % 3]}`;
+  };
+  const drop = new Set();
+  for (const list of byVertices.values()) {
+    if (list.length !== 2) continue;
+    if (cycle(list[0]) === cycle(list[1]))
+      drop.add(list[1]); // doublon : un seul compte
+    else for (const t of list) drop.add(t); // nageoire : ni l'un ni l'autre
+  }
+  if (!drop.size) return index;
+  const kept = [];
+  for (let t = 0; t < index.length; t += 3)
+    if (!drop.has(t)) kept.push(index[t], index[t + 1], index[t + 2]);
+  return Uint32Array.from(kept);
+}
+
+/**
+ * Simplification par EFFONDREMENT D'ARÊTES (meshoptimizer), qui garde la topologie de la
+ * source. Le regroupement de sommets qu'elle remplace soudait tout ce qui tombait dans une même
+ * cellule de grille, ce qui créait des arêtes non manifold, des faces retournées et des trous
+ * sur 38 des 49 niveaux livrés, quand toutes les sources mesurées en avaient zéro (2026-10-04).
+ *
+ * Trois passes, dans cet ordre et pas d'autre : la simplification nue, qui suit le mieux la
+ * forme ; puis, si elle a laissé un défaut, la même avec `RegularizeLight`, puis `Regularize`,
+ * qui préfèrent des triangles réguliers (erreur un peu plus forte, toujours sous 1 % de la
+ * taille du corps sur les modèles mesurés). Si les trois échouent, on REFUSE d'écrire : un maillage troué livré en
+ * silence est exactement ce que ce script a fait jusqu'ici.
+ */
+function simplify(source, target) {
+  const sourceDefects = topologyDefects(source.index);
+  if (!clean(sourceDefects))
+    throw new Error(
+      `source non fermée : ${JSON.stringify(sourceDefects)} — rien à préserver`
+    );
+  let index = source.index;
+  let error = 0;
+  let pass = 'source entière';
+  if (source.index.length / 3 > target) {
+    for (const flags of [[], ['RegularizeLight'], ['Regularize']]) {
+      const [out, err] = MeshoptSimplifier.simplify(
+        source.index,
+        source.pos,
+        3,
+        target * 3,
+        1,
+        flags
+      );
+      index = removeFins(out);
+      error = err;
+      pass = flags.length ? flags.join('+') : 'simple';
+      if (clean(topologyDefects(index))) break;
+    }
+    const defects = topologyDefects(index);
+    if (!clean(defects))
+      throw new Error(
+        `simplification à ${target} triangles non fermée : ${JSON.stringify(defects)}`
+      );
+  }
+  // Sommets renumérotés dans l'ordre de leur première apparition : déterministe.
+  const order = new Map();
+  for (const v of index) if (!order.has(v)) order.set(v, order.size);
+  const outPos = new Float32Array(order.size * 3);
+  for (const [v, n] of order)
+    for (let k = 0; k < 3; k++) outPos[n * 3 + k] = source.pos[v * 3 + k];
+  const outIdx = Array.from(index, (v) => order.get(v));
+
+  const outNrm = new Float32Array(order.size * 3);
+  for (let i = 0; i < outIdx.length; i += 3) {
+    const [a, b, c] = [outIdx[i], outIdx[i + 1], outIdx[i + 2]];
+    const ux = outPos[b * 3] - outPos[a * 3];
+    const uy = outPos[b * 3 + 1] - outPos[a * 3 + 1];
+    const uz = outPos[b * 3 + 2] - outPos[a * 3 + 2];
+    const vx = outPos[c * 3] - outPos[a * 3];
+    const vy = outPos[c * 3 + 1] - outPos[a * 3 + 1];
+    const vz = outPos[c * 3 + 2] - outPos[a * 3 + 2];
+    const nx = uy * vz - uz * vy;
+    const ny = uz * vx - ux * vz;
+    const nz = ux * vy - uy * vx;
+    for (const k of [a, b, c]) {
+      outNrm[k * 3] += nx;
+      outNrm[k * 3 + 1] += ny;
+      outNrm[k * 3 + 2] += nz;
+    }
+  }
+  for (let i = 0; i < order.size; i++) {
+    const len =
+      Math.hypot(outNrm[i * 3], outNrm[i * 3 + 1], outNrm[i * 3 + 2]) || 1;
+    outNrm[i * 3] /= len;
+    outNrm[i * 3 + 1] /= len;
+    outNrm[i * 3 + 2] /= len;
+  }
+  return { count: order.size, outPos, outIdx, outNrm, error, pass };
+}
+
+const whole = args.includes('--whole');
+if (triangleCount < TARGET * 0.95 && !whole)
+  throw new Error(
+    `la source n'a que ${triangleCount} triangles : impossible d'en produire ${TARGET} sans inventer de géométrie (--whole pour livrer la source entière au niveau le plus léger)`
+  );
+const source = weld(pos, index, triangleCount);
+const { count, outPos, outIdx, outNrm, error, pass } = simplify(source, TARGET);
+console.log(
+  `simplification (${pass}) : erreur relative ${error.toExponential(2)}, topologie fermée`
+);
+
+const after = shapeStats(outPos, count);
+const afterArea = shapeStats(
+  outPos,
+  count,
+  vertexAreaWeights(outPos, outIdx, outIdx.length / 3, count)
+);
+console.log(`sortie : ${count} sommets, ${outIdx.length / 3} triangles`);
+console.log(
+  `  écart-type du rayon  ${before.sdPct.toFixed(2)} %  →  ${after.sdPct.toFixed(2)} %`
+);
+console.log(
+  `  équateur / pôles     ${before.equatorOverPolar.toFixed(3)}  →  ${after.equatorOverPolar.toFixed(3)}`
+);
+console.log(
+  `  rayon moyen          ${before.mean.toFixed(4)}  →  ${after.mean.toFixed(4)}`
+);
+const volumeAfter = meshVolume(outPos, outIdx, outIdx.length / 3);
+console.log(
+  `  rayon équiv.-volume  ${equivalentRadius(volumeBefore).toFixed(4)}  →  ${equivalentRadius(volumeAfter).toFixed(4)}`
+);
+console.log(`  axe de plus faible étendue : ${after.spinAxis}`);
+console.log('  pondéré par l’aire (indépendant de l’échantillonnage) :');
+console.log(
+  `    écart-type du rayon  ${beforeArea.sdPct.toFixed(2)} %  →  ${afterArea.sdPct.toFixed(2)} %`
+);
+console.log(
+  `    équateur / pôles     ${beforeArea.equatorOverPolar.toFixed(3)}  →  ${afterArea.equatorOverPolar.toFixed(3)}`
+);
+// Critère sur la version pondérée : la version par sommet s'alarme dès que l'échantillonnage
+// de la source est non uniforme (grille lat/lon, ICQ), même quand la forme est intacte.
+if (Math.abs(afterArea.sdPct - beforeArea.sdPct) > 1)
+  console.warn(
+    '  ATTENTION : la décimation a lissé la forme, grille trop grossière.'
+  );
+
+const copyright = process.env.MODEL_COPYRIGHT ?? 'source à documenter';
+const name = process.env.MODEL_NAME ?? 'shape';
+const size = writeGlb(output, outPos, outNrm, outIdx, copyright, name);
+console.log(`écrit ${output} — ${(size / 1024).toFixed(0)} Kio`);

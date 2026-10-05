@@ -1,0 +1,477 @@
+import { expect, test, type Page } from '@playwright/test';
+import { clickWhenCalm } from './mainThread';
+import { blockExternalNetwork } from './netBlock';
+
+test.beforeEach(async ({ page }) => {
+  await blockExternalNetwork(page);
+  await page.addInitScript(() => {
+    localStorage.setItem('ssv-guided-tour-v1', '1');
+    localStorage.setItem('ssv-explo-tour-nudge-v1', '1');
+  });
+});
+
+async function boot(page: Page): Promise<void> {
+  await page.goto('/');
+  await expect(page.locator('#loader')).toBeHidden({ timeout: 30_000 });
+}
+
+test('educational projected names are pointer-clickable and select a new body', async ({
+  page,
+}) => {
+  await boot(page);
+  const marsLabel = page.locator('.explo-label[aria-label="Mars"]');
+  await expect(marsLabel).toBeVisible();
+  await expect(marsLabel).toHaveCSS('pointer-events', 'auto');
+  await expect(marsLabel).toHaveCSS('--label-rgb', '232, 93, 63');
+
+  // Le label est un vrai <button> ; on active son gestionnaire directement. Un clic par
+  // coordonnées serait fragile ici : Deimos orbite Mars, donc leurs labels sont adjacents
+  // et peuvent se chevaucher à certaines dates d'éphéméride (le hit-test tomberait sur
+  // l'un ou l'autre). On teste ainsi le CÂBLAGE (label → selectBody), pas la topologie.
+  await marsLabel.evaluate((el) => (el as HTMLButtonElement).click());
+  await expect(page.locator('#orbit-mars')).toHaveClass(/is-active/);
+  await expect(page.locator('#body-info')).toBeVisible();
+  await expect(page.locator('#body-info .bi-name')).toHaveText('Mars');
+});
+
+test('selection, information panel and target semantics survive both mode switches', async ({
+  page,
+}) => {
+  await boot(page);
+  await page.locator('#body-search-trigger').click();
+  await page.locator('#orbit-earth').click();
+  const info = page.locator('#body-info');
+  await expect(info).toBeVisible();
+
+  // Arrivée sur la Terre : ses couches se chargent une à une pendant ~23 s en rendu logiciel
+  // (ligne 44.3), d'où le clic après calme, qui attend aussi qu'aucune texture ne soit en vol.
+  await clickWhenCalm(page, page.locator('.mode-btn[data-mode="explo"]'));
+  await expect(page.locator('body')).toHaveClass(/is-explo-mode/);
+  await expect(info).toBeVisible();
+  await expect(info.locator('.bi-name')).toHaveText('Earth');
+  const target = page.locator('.explo-label.is-target');
+  await expect(target).toHaveAttribute('aria-label', 'Earth');
+  await expect(target.locator('.explo-label-text')).toBeHidden();
+  await expect(target.locator('.explo-label-dot')).toHaveCSS(
+    'background-color',
+    'rgba(0, 0, 0, 0)'
+  );
+
+  await clickWhenCalm(page, page.locator('.mode-btn[data-mode="educ"]'));
+  await expect(page.locator('#explo-labels')).toHaveClass(/is-educ-mode/);
+  await expect(info).toBeVisible();
+  await expect(target.locator('.explo-label-text')).toBeHidden();
+  await expect(target.locator('.explo-label-dot')).toBeVisible();
+});
+
+test('graphics quality controls live inline inside settings', async ({
+  page,
+}) => {
+  await boot(page);
+  // La qualité graphique est fusionnée dans le panneau Réglages : plus de
+  // bouton/popover dédié, le groupe de radios apparaît dans le même panneau.
+  await page.locator('#settings-trigger').click();
+  const settings = page.locator('#orbit-options');
+  await expect(settings).toBeVisible();
+  const qualityGroup = settings.locator('#quality-group');
+  await expect(qualityGroup).toBeVisible();
+  const radios = qualityGroup.locator('.quality-radio');
+  await expect(radios).toHaveCount(4);
+
+  await radios.nth(1).check();
+  await expect(radios.nth(1)).toBeChecked();
+});
+
+test('settings stay available in both modes and control label density', async ({
+  page,
+}) => {
+  await boot(page);
+  const settings = page.locator('#orbit-options');
+  // Le Soleil n'a pas de ligne dans le tableau Réglages (toujours affiché, pas d'orbite
+  // pour lui) donc son label échappe volontairement au bascule groupé « Nom ».
+  const labels = page.locator('.explo-label:not([aria-label="Sun"])');
+  // `expect.poll` et non `expect(await ...)` : la bascule « Nom » ne se traduit dans le DOM
+  // qu'a la prochaine passe de projection de l'ExploHud (une frame rAF). Une lecture unique
+  // juste apres le clic peut donc tomber AVANT cette frame et lire l'ancien etat — un faux
+  // echec intermittent, sans rapport avec la fonctionnalite testee. Les autres assertions
+  // du fichier passent par `expect(locator)`, qui reessaie deja tout seul.
+  const hasVisibleLabel = () =>
+    labels.evaluateAll((els) =>
+      els.some((el) => getComputedStyle(el).display !== 'none')
+    );
+
+  // La surface de réglages démarre masquée ; le déclencheur du dock l'ouvre.
+  await expect(settings).toBeHidden();
+  await page.locator('#settings-trigger').click();
+  await expect(settings).toBeVisible();
+  // Les deux en-têtes reflètent un état MIXTE, et pour la même raison : ni les libellés ni
+  // les orbites ne démarrent sur la totalité du catalogue. Seules les planètes ont leur
+  // orbite ; seuls le Soleil, les huit planètes et la Lune ont leur nom (cf. MAJOR_BODIES).
+  // Le libellé a rejoint cette retenue le 2026-09-11 — avant, les cinquante et quelques corps
+  // étaient nommés d'emblée et cet en-tête était pleinement coché.
+  await expect(page.locator('#labels-visible')).toHaveJSProperty(
+    'indeterminate',
+    true
+  );
+  await expect(page.locator('#orbits-visible')).toHaveJSProperty(
+    'indeterminate',
+    true
+  );
+  await expect(page.locator('#settings-table .oo-tr').first()).toBeVisible();
+  await expect.poll(hasVisibleLabel).toBe(true);
+
+  // Depuis l'état MIXTE, l'en-tête se parcourt dans cet ordre : un clic coche tout, le
+  // suivant décoche tout. `uncheck()` seul serait un NO-OP silencieux — une case indéterminée
+  // porte déjà `checked === false`, donc Playwright considère l'état atteint et ne clique
+  // pas ; aucun événement `change` ne part et les libellés restent affichés. Le test tombait
+  // alors sur l'assertion SUIVANTE, en désignant la mauvaise ligne.
+  await page.locator('#labels-visible').check();
+  await expect.poll(hasVisibleLabel).toBe(true);
+  await page.locator('#labels-visible').uncheck();
+  await expect.poll(hasVisibleLabel).toBe(false);
+  await expect(
+    page
+      .locator(
+        '.explo-label:not(.is-target):not([aria-label="Sun"]) .explo-label-dot'
+      )
+      .first()
+  ).toBeHidden();
+
+  await page.locator('.mode-btn[data-mode="explo"]').click();
+  await expect(page.locator('body')).toHaveClass(/is-explo-mode/);
+  await expect(settings).toBeVisible();
+  await expect(page.locator('#orbit-overview')).toBeVisible();
+
+  await page.locator('#labels-visible').check();
+  await expect.poll(hasVisibleLabel).toBe(true);
+});
+
+test('settings column header reflects mixed row state and bulk-toggles all rows', async ({
+  page,
+}) => {
+  await boot(page);
+  await page.locator('#settings-trigger').click();
+
+  const bodyToggle = page.locator('#bodies-visible');
+  const marsRow = page.locator('#settings-table tr.oo-tr', {
+    hasText: 'Mars',
+  });
+  const marsBodyCheckbox = marsRow.locator('td:nth-child(3) .oo-checkbox');
+  const planets = page.locator(
+    '.oo-group[data-group="nav.group.planet"] .oo-group-row td:nth-child(3) .oo-checkbox'
+  );
+
+  // Au démarrage, l'en-tête « Objet » est MIXTE : tout le catalogue est dessiné, les objets
+  // d'instrument (sondes, interstellaires) ne le sont pas (cf. `ui/defaultDisplay.ts`). La
+  // ligne du groupe « Planètes », elle, est pleinement cochée, et décocher UNE planète doit la
+  // faire passer à indéterminée (ancien bug : l'en-tête restait un interrupteur figé,
+  // déconnecté des lignes).
+  await expect(bodyToggle).toHaveJSProperty('indeterminate', true);
+  await expect(planets).toBeChecked();
+  await marsBodyCheckbox.uncheck();
+  await expect(planets).toHaveJSProperty('indeterminate', true);
+
+  // Cliquer l'en-tête (même indéterminée) coche TOUTES les lignes, Mars y compris —
+  // une vraie action « tout cocher », pas un interrupteur caché indépendant des lignes.
+  await bodyToggle.check();
+  await expect(bodyToggle).toHaveJSProperty('indeterminate', false);
+  await expect(marsBodyCheckbox).toBeChecked();
+
+  // Et « tout décocher » doit se refléter sur chaque ligne individuellement.
+  await bodyToggle.uncheck();
+  await expect(marsBodyCheckbox).not.toBeChecked();
+});
+
+test('visible projected annotations do not overlap each other', async ({
+  page,
+}) => {
+  await boot(page);
+  const overlaps = await page
+    .locator('.explo-label-text')
+    .evaluateAll((labels) => {
+      const visible = labels
+        .map((label) => ({
+          name: label.parentElement?.getAttribute('aria-label'),
+          rect: label.getBoundingClientRect(),
+        }))
+        .filter(({ rect }) => rect.width > 0 && rect.height > 0);
+      const collisions: string[] = [];
+      for (let i = 0; i < visible.length; i++) {
+        for (let j = i + 1; j < visible.length; j++) {
+          const a = visible[i];
+          const b = visible[j];
+          const overlapX =
+            Math.min(a.rect.right, b.rect.right) -
+            Math.max(a.rect.left, b.rect.left);
+          const overlapY =
+            Math.min(a.rect.bottom, b.rect.bottom) -
+            Math.max(a.rect.top, b.rect.top);
+          if (overlapX > 2 && overlapY > 2)
+            collisions.push(a.name + '/' + b.name);
+        }
+      }
+      return collisions;
+    });
+  expect(overlaps).toEqual([]);
+});
+
+test('mobile mode control stays clear of other controls and remains clickable', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await boot(page);
+  // Aucune surface ouverte au démarrage.
+  await expect(page.locator('#orbit-options')).toBeHidden();
+
+  const exploButton = page.locator('.mode-btn[data-mode="explo"]');
+  const unobstructed = await exploButton.evaluate((button) => {
+    const rect = button.getBoundingClientRect();
+    return (
+      document.elementFromPoint(
+        rect.left + rect.width / 2,
+        rect.top + rect.height / 2
+      ) === button
+    );
+  });
+  expect(unobstructed).toBe(true);
+  await exploButton.click();
+  await expect(page.locator('body')).toHaveClass(/is-explo-mode/);
+});
+
+test('mobile contextual surfaces are mutually exclusive and keep the time bar', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await boot(page);
+
+  const info = page.locator('#body-info');
+  const settings = page.locator('#orbit-options');
+
+  // Sélectionner un corps ouvre directement sa fiche (feuille en bas) — feedback immédiat.
+  await page.locator('#body-search-trigger').click();
+  await page.locator('#orbit-sun').click();
+  await expect(info).toBeVisible();
+  // La barre temps reste toujours présente et essentielle (play + vitesse).
+  await expect(page.locator('#play-pause-btn')).toBeVisible();
+  await expect(page.locator('#speed-value')).toBeVisible();
+
+  // Ouvrir les réglages ferme la fiche : une seule surface à la fois.
+  await page.locator('#settings-trigger').click();
+  await expect(settings).toBeVisible();
+  await expect(info).toBeHidden();
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const trigger = document
+          .querySelector('#settings-trigger')!
+          .getBoundingClientRect();
+        const panel = document
+          .querySelector('#orbit-options')!
+          .getBoundingClientRect();
+        return Math.abs(panel.top - trigger.top);
+      })
+    )
+    .toBeLessThan(0.5);
+
+  const anchoredSurface = await page.evaluate(() => {
+    const trigger = document
+      .querySelector('#settings-trigger')!
+      .getBoundingClientRect();
+    const panel = document
+      .querySelector('#orbit-options')!
+      .getBoundingClientRect();
+    return {
+      triggerTop: trigger.top,
+      triggerLeft: trigger.left,
+      panelTop: panel.top,
+      panelRight: panel.right,
+    };
+  });
+  expect(anchoredSurface.panelTop).toBeCloseTo(anchoredSurface.triggerTop, 0);
+  expect(anchoredSurface.panelRight).toBeLessThan(anchoredSurface.triggerLeft);
+  const expectSingleScrollOwner = async (
+    panelSelector: string,
+    nestedSelector: string
+  ): Promise<void> => {
+    const metrics = await page.evaluate(
+      ({ panelSelector: panelId, nestedSelector: nestedId }) => {
+        const panel = document.querySelector(panelId)!;
+        const outer = panel.querySelector('.surface-body')!;
+        const nested = panel.querySelector(nestedId);
+        return {
+          outerCanScroll: outer.scrollHeight > outer.clientHeight,
+          nestedCanScroll: nested
+            ? nested.scrollHeight > nested.clientHeight
+            : false,
+        };
+      },
+      { panelSelector, nestedSelector }
+    );
+    expect(metrics.outerCanScroll && metrics.nestedCanScroll).toBe(false);
+  };
+
+  // Le tableau des Réglages ne défile plus dans le panneau qui défile : huit lignes visibles
+  // sur un téléphone, et une molette qui ne savait pas laquelle des deux boîtes faire bouger.
+  await expectSingleScrollOwner('#orbit-options', '#settings-table');
+
+  await page.locator('#weather-trigger').click();
+  await expect(page.locator('#weather-layers')).toBeVisible();
+  await expectSingleScrollOwner('#weather-layers', '.wl-body');
+
+  await page.locator('#events-trigger').click();
+  await expect(page.locator('#astronomical-events')).toBeVisible();
+  await expectSingleScrollOwner('#astronomical-events', '.events-list');
+});
+
+test('initial boot avoids blocking on highest-resolution planet textures', async ({
+  page,
+}) => {
+  const loaded8k: string[] = [];
+  page.on('response', (response) => {
+    const path = new URL(response.url()).pathname;
+    if (path.includes('/textures/') && path.endsWith('_8k.jpg'))
+      loaded8k.push(path);
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await boot(page);
+  expect(loaded8k).toEqual([]);
+});
+
+test('projected marker dots stay on their exact body anchors after labels spread out', async ({
+  page,
+}) => {
+  await boot(page);
+  await page.locator('.mode-btn[data-mode="explo"]').click();
+
+  const deviations = await page.locator('.explo-label').evaluateAll((labels) =>
+    labels
+      .filter((label) => getComputedStyle(label).display !== 'none')
+      .map((label) => {
+        const transform = new DOMMatrixReadOnly(
+          getComputedStyle(label).transform
+        );
+        const dot = label.querySelector('.explo-label-dot');
+        if (!dot) return Number.POSITIVE_INFINITY;
+        const rect = dot.getBoundingClientRect();
+        return Math.hypot(
+          rect.left + rect.width / 2 - transform.m41,
+          rect.top + rect.height / 2 - transform.m42
+        );
+      })
+  );
+
+  expect(deviations.length).toBeGreaterThan(0);
+  expect(Math.max(...deviations)).toBeLessThan(0.25);
+  await expect(page.locator('#orbit-overview')).toBeVisible();
+});
+
+test('keeps untextured catalog bodies available in both modes', async ({
+  page,
+}) => {
+  await boot(page);
+  const pallas = page.locator('.explo-label[aria-label="Pallas"]');
+  const halley = page.locator('.explo-label[aria-label="Halley"]');
+  await expect(pallas).toHaveCount(1);
+  await expect(halley).toHaveCount(1);
+
+  await page.locator('.mode-btn[data-mode="explo"]').click();
+  await expect(page.locator('body')).toHaveClass(/is-explo-mode/);
+  await expect(pallas).toHaveCount(1);
+  await expect(halley).toHaveCount(1);
+});
+
+test('un corps masqué par défaut devient bien la CIBLE quand on le sélectionne', async ({
+  page,
+}) => {
+  // Les libellés démarrent restreints aux corps majeurs (cf. MAJOR_BODIES) : Io en est exclu.
+  // Toutes les autres assertions `is-target` de la suite portent sur Jupiter, Mars ou la Terre,
+  // qui sont majeurs — aucune n'exerçait donc le passage d'un corps MASQUÉ au statut de cible.
+  //
+  // Sans l'exception correspondante dans `ExploHud.update`, un corps décoché n'atteint jamais le
+  // positionnement et n'obtient JAMAIS la classe `is-target` : mesuré en la retirant, l'élément
+  // `.explo-label.is-target` disparaît complètement. Le HUD, l'animation d'acquisition et
+  // plusieurs scénarios d'ici interrogent pourtant ce sélecteur.
+  //
+  // À ne pas confondre avec « la cible affiche son nom » : elle ne l'affiche PAS, le CSS masque
+  // volontairement texte et trait pour ne pas écrire par-dessus l'astre visé. C'est la fiche
+  // d'info qui le nomme, et c'est elle qu'on vérifie ici.
+  await boot(page);
+  await page.locator('#body-search-trigger').click();
+  await page.locator('#orbit-io').click();
+  await expect(page.locator('#body-info .bi-name')).toHaveText('Io');
+
+  const target = page.locator('.explo-label.is-target');
+  await expect(target).toHaveAttribute('aria-label', 'Io');
+});
+
+test('Galilean moons stay available around Jupiter in both display modes', async ({
+  page,
+}) => {
+  await boot(page);
+  await page.locator('#body-search-trigger').click();
+  await page.locator('#orbit-jupiter').click();
+  await expect(page.locator('#body-info .bi-name')).toHaveText('Jupiter');
+
+  const target = page.locator('.explo-label.is-target');
+  await expect(target).toHaveAttribute('aria-label', 'Jupiter');
+
+  const moonNames = ['io', 'europa', 'ganymede', 'callisto'];
+  for (const name of moonNames) {
+    await expect(
+      page.locator('#explo-labels .explo-label[data-body-name="' + name + '"]')
+    ).toHaveCount(1);
+  }
+
+  const targetPosition = async (): Promise<{ x: number; y: number }> =>
+    target.evaluate((element) => {
+      const matrix = new DOMMatrixReadOnly(getComputedStyle(element).transform);
+      return { x: matrix.m41, y: matrix.m42 };
+    });
+
+  const waitForStableTarget = async (): Promise<void> => {
+    await expect
+      .poll(
+        async () => {
+          const first = await targetPosition();
+          await page.evaluate(
+            () =>
+              new Promise<void>((resolve) =>
+                requestAnimationFrame(() => resolve())
+              )
+          );
+          const second = await targetPosition();
+          return Math.hypot(second.x - first.x, second.y - first.y);
+        },
+        { timeout: 15_000 }
+      )
+      .toBeLessThan(0.5);
+  };
+  await waitForStableTarget();
+  const before = await targetPosition();
+
+  await page.locator('.mode-btn[data-mode="explo"]').click();
+  await expect(page.locator('body')).toHaveClass(/is-explo-mode/);
+  await expect(target).toHaveAttribute('aria-label', 'Jupiter');
+  await expect
+    .poll(
+      async () => {
+        const position = await targetPosition();
+        return Math.hypot(position.x - before.x, position.y - before.y);
+      },
+      { timeout: 15_000 }
+    )
+    .toBeLessThan(1);
+
+  await page.locator('.mode-btn[data-mode="educ"]').click();
+  await expect(page.locator('body')).not.toHaveClass(/is-explo-mode/);
+  await expect(target).toHaveAttribute('aria-label', 'Jupiter');
+  await expect
+    .poll(
+      async () => {
+        const position = await targetPosition();
+        return Math.hypot(position.x - before.x, position.y - before.y);
+      },
+      { timeout: 15_000 }
+    )
+    .toBeLessThan(1);
+});

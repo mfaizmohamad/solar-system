@@ -1,0 +1,145 @@
+{
+  "$schema": "../schema/entity.schema.json",
+  "id": "nereid",
+  "targetClass": "satellite",
+  "source": "catalogue",
+  "config": {
+    "kind": "moon",
+    "displayName": {
+      "en": "Nereid",
+      "fr": "Néréide",
+      "es": "Nereida",
+      "pt-BR": "Nereida"
+    },
+    "radius": 0.11,
+    "rotationSpeed": {
+      "$rotationHours": 11.594
+    },
+    "orbitalColor": "0x8c8c8c",
+    "fallbackColor": "0x8c8c8c",
+    "frame": "parentRelative",
+    "rotationBody": "Neptune",
+    "relativeEphemeris": {
+      "kind": "horizonsParentRelative"
+    },
+    "relativeOrbitalElements": {
+      "semiMajorAxisAU": 0.03683832723,
+      "eccentricity": 0.74552,
+      "inclinationRad": {
+        "$deg": 5.0266
+      },
+      "ascendingNodeRad": {
+        "$deg": 319.233
+      },
+      "argPerihelionRad": {
+        "$deg": 296.8466
+      },
+      "meanAnomalyAtEpochRad": {
+        "$deg": 349.0552
+      },
+      "epoch": {
+        "$date": "2025-12-31T00:00:00.000Z"
+      }
+    },
+    "textureResolutions": {
+      "surface": [
+        "2k",
+        "1k"
+      ]
+    },
+    "realData": {
+      "orbitalInclination": {
+        "$deg": 5.060553241702044
+      },
+      "ascendingNode": {
+        "$deg": 319.5912156886533
+      },
+      "description": {
+        "en": "A small, distant moon with the second-most eccentric orbit of any known moon, likely a captured object rather than one formed alongside Neptune.",
+        "fr": "Une petite lune lointaine dotée de l’orbite la plus excentrique parmi les lunes connues après une autre, probablement un objet capturé plutôt que formé avec Neptune.",
+        "es": "Una luna pequeña y lejana, con la segunda órbita más excéntrica entre las lunas conocidas, probablemente un objeto capturado y no formado junto a Neptuno.",
+        "pt-BR": "Uma lua pequena e distante, com a segunda órbita mais excêntrica entre as luas conhecidas, provavelmente um objeto capturado e não formado junto de Netuno."
+      },
+      "wiki": {
+        "en": "https://en.wikipedia.org/wiki/Nereid_(moon)",
+        "fr": "https://fr.wikipedia.org/wiki/N%C3%A9r%C3%A9ide_(lune)",
+        "es": "https://es.wikipedia.org/wiki/Nereida_(sat%C3%A9lite)",
+        "pt-BR": "https://pt.wikipedia.org/wiki/Nereida_(sat%C3%A9lite)"
+      }
+    },
+    "cameraDistance": {
+      "educ": 1.2,
+      "explo": {
+        "$cameraFromRadiusKm": 170
+      }
+    },
+    "loadPriority": 14
+  },
+  "facts": {
+    "radiusKm": {
+      "value": 170,
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "measured",
+      "uncertainty": 25
+    },
+    "massKg": {
+      "value": 31000000000000000000,
+      "published": false,
+      "reason": {
+        "en": "JPL's satellite table, the source of its radius, publishes no GM for Nereid, and a mass cannot be derived without one.",
+        "fr": "La table des satellites de JPL, d'où vient son rayon, ne publie aucun GM pour Néréide, et une masse ne s'en dérive pas sans lui.",
+        "es": "La tabla de satélites del JPL, de donde procede su radio, no publica ningún GM para Nereida, y una masa no puede derivarse sin él.",
+        "pt-BR": "A tabela de satélites do JPL, de onde vem o seu raio, não publica nenhum GM para Nereida, e uma massa não se deriva sem ele."
+      }
+    },
+    "gravity": {
+      "published": false,
+      "reason": {
+        "en": "Surface gravity is derived from GM, and JPL's satellite table publishes none for Nereid.",
+        "fr": "La gravité de surface se dérive du GM, et la table des satellites de JPL n'en publie aucun pour Néréide.",
+        "es": "La gravedad en la superficie se deriva del GM, y la tabla de satélites del JPL no publica ninguno para Nereida.",
+        "pt-BR": "A gravidade à superfície deriva do GM, e a tabela de satélites do JPL não publica nenhum para Nereida."
+      }
+    },
+    "meanTempC": {
+      "published": false,
+      "reason": {
+        "en": "No temperature is published where its other figures come from: neither NASA's satellite fact sheets nor JPL's satellite tables carry one.",
+        "fr": "Aucune température n'est publiée là où viennent ses autres chiffres : ni les fiches des satellites de la NASA, ni les tables des satellites de JPL n'en portent.",
+        "es": "No se publica ninguna temperatura allí donde se obtienen sus demás cifras: ni las hojas de datos de satélites de la NASA ni las tablas de satélites del JPL la incluyen.",
+        "pt-BR": "Nenhuma temperatura é publicada onde vêm os seus outros números: nem as fichas dos satélites da NASA nem as tabelas de satélites do JPL a trazem."
+      }
+    },
+    "axialTilt": {
+      "value": 0,
+      "published": false,
+      "reason": {
+        "en": "The IAU report on rotational elements, which gives the spin axis of most moons shown here, publishes no pole for this body, so a tilt relative to its orbit cannot be derived.",
+        "fr": "Le rapport de l'UAI sur les éléments de rotation, qui donne l'axe de la plupart des lunes affichées ici, ne publie aucun pôle pour ce corps : son inclinaison sur son orbite ne peut donc pas en être dérivée.",
+        "es": "El informe de la UAI sobre elementos de rotación, que da el eje de la mayoría de las lunas mostradas aquí, no publica ningún polo para este cuerpo, así que su inclinación respecto a su órbita no puede derivarse.",
+        "pt-BR": "O relatório da UAI sobre elementos de rotação, que dá o eixo da maioria das luas mostradas aqui, não publica nenhum polo para este corpo, portanto a sua inclinação em relação à órbita não pode ser derivada."
+      }
+    },
+    "distanceAU": {
+      "value": {
+        "$km": 5513400
+      },
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "orbitPeriodDays": {
+      "value": 359.879914569329,
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "rotationPeriod": {
+      "source": "kiss-2016-nereid",
+      "method": "measured",
+      "uncertainty": 0.017
+    }
+  },
+  "notes": {
+    "relativeOrbitalElements": "JPL Horizons osculating elements, epoch 2000-01-01.5 TDB — cohérents avec la période réelle publiée (~360.13 j). Rotation NON verrouillée : 11.594 h, mesure bien déterminée par Kepler (2016) — sans lien avec sa période orbitale.",
+    "textureResolutions": "Aucune mosaïque photo globale contrôlée n'existe côté USGS pour Néréide (résolution Voyager 2 de ~43 km/pixel seulement — insuffisant pour une carte globale) — vérifié en direct (2026-08-26). Texture procédurale générée, avec un contraste hémisphérique doux approximant l'hémisphère sombre réel évoqué pour expliquer sa variabilité photométrique (Schaefer & Schaefer 2000)."
+  }
+}

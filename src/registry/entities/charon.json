@@ -1,0 +1,138 @@
+{
+  "$schema": "../schema/entity.schema.json",
+  "id": "charon",
+  "targetClass": "satellite",
+  "source": "catalogue",
+  "config": {
+    "kind": "moon",
+    "displayName": {
+      "en": "Charon",
+      "fr": "Charon",
+      "es": "Caronte",
+      "pt-BR": "Caronte"
+    },
+    "radius": 0.1,
+    "rotationSpeed": {
+      "$spinPeriodDays": 6.38722209972658
+    },
+    "orbitalColor": "0xb9b3aa",
+    "fallbackColor": "0x8c8882",
+    "frame": "parentRelative",
+    "rotationBody": "Pluto",
+    "relativeEphemeris": {
+      "kind": "horizonsParentRelative"
+    },
+    "relativeOrbitalElements": {
+      "semiMajorAxisAU": 0.0001309776734,
+      "eccentricity": 0.0000803236,
+      "inclinationRad": {
+        "$deg": 112.8878
+      },
+      "ascendingNodeRad": {
+        "$deg": 227.393
+      },
+      "argPerihelionRad": {
+        "$deg": 150.543
+      },
+      "meanAnomalyAtEpochRad": {
+        "$deg": 41.117
+      },
+      "epoch": {
+        "$date": "2025-12-31T00:00:00.000Z"
+      }
+    },
+    "textureResolutions": {
+      "surface": [
+        "8k",
+        "4k",
+        "2k",
+        "1k"
+      ]
+    },
+    "realData": {
+      "orbitalInclination": 0,
+      "ascendingNode": 0,
+      "description": {
+        "en": "Pluto's largest moon, so massive that Pluto and Charon orbit a common barycenter.",
+        "fr": "La plus grande lune de Pluton, si massive que Pluton et Charon orbitent autour d'un barycentre commun.",
+        "es": "La luna más grande de Plutón, tan masiva que Plutón y Caronte orbitan un baricentro común.",
+        "pt-BR": "A maior lua de Plutão, tão massiva que Plutão e Caronte orbitam um baricentro comum."
+      },
+      "wiki": {
+        "en": "https://en.wikipedia.org/wiki/Charon_(moon)",
+        "fr": "https://fr.wikipedia.org/wiki/Charon_(lune)",
+        "es": "https://es.wikipedia.org/wiki/Caronte_(sat%C3%A9lite)",
+        "pt-BR": "https://pt.wikipedia.org/wiki/Caronte_(sat%C3%A9lite)"
+      }
+    },
+    "cameraDistance": {
+      "educ": 0.8,
+      "explo": {
+        "$cameraFromRadiusKm": 606
+      }
+    },
+    "loadPriority": 12
+  },
+  "facts": {
+    "radiusKm": {
+      "value": 606,
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "measured",
+      "uncertainty": 0.5
+    },
+    "massKg": {
+      "value": {
+        "$gm": 106.1
+      },
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "derived",
+      "uncertainty": {
+        "$gm": 0.3
+      },
+      "detail": "massFromGM"
+    },
+    "gravity": {
+      "value": {
+        "$gm": 106.1,
+        "$radiusKm": 606
+      },
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "derived",
+      "detail": "gravityFromGM"
+    },
+    "meanTempC": {
+      "published": false,
+      "reason": {
+        "en": "No temperature is published where its other figures come from: neither NASA's satellite fact sheets nor JPL's satellite tables carry one.",
+        "fr": "Aucune température n'est publiée là où viennent ses autres chiffres : ni les fiches des satellites de la NASA, ni les tables des satellites de JPL n'en portent.",
+        "es": "No se publica ninguna temperatura allí donde se obtienen sus demás cifras: ni las hojas de datos de satélites de la NASA ni las tablas de satélites del JPL la incluyen.",
+        "pt-BR": "Nenhuma temperatura é publicada onde vêm os seus outros números: nem as fichas dos satélites da NASA nem as tabelas de satélites do JPL a trazem."
+      }
+    },
+    "axialTilt": {
+      "value": {
+        "$deg": 0.08
+      },
+      "source": "naif-pck",
+      "method": "derived",
+      "detail": "obliquityFromPole",
+      "citation": "pck00011.tpc, BODY901"
+    },
+    "distanceAU": {
+      "value": {
+        "$km": 19600
+      },
+      "source": "jpl-ssd-satellite-mean-elements",
+      "method": "measured"
+    },
+    "orbitPeriodDays": {
+      "value": 6.38722209972658,
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "rotationPeriod": {
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    }
+  }
+}

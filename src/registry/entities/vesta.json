@@ -1,0 +1,122 @@
+{
+  "$schema": "../schema/entity.schema.json",
+  "id": "vesta",
+  "targetClass": "asteroid",
+  "source": "small-body",
+  "elements": {
+    "displayName": {
+      "en": "Vesta",
+      "fr": "Vesta",
+      "es": "Vesta",
+      "pt-BR": "Vesta"
+    },
+    "a": 2.361534934739072,
+    "e": 0.09002244561937413,
+    "iDeg": 7.133935828421654,
+    "omDeg": 103.9514370845001,
+    "wDeg": 149.5866679599199,
+    "maDeg": 341.0238343838706,
+    "epoch": "2000-01-01T12:00:00Z",
+    "color": "0xc8795d",
+    "model": {
+      "resolutions": [
+        "4k",
+        "2k",
+        "1k"
+      ],
+      "extentRatio": 1.12,
+      "credit": {
+        "en": "Dawn Framing Camera images, digital terrain model by F. Preusker, F. Scholten, K.-D. Matz, T. Roatsch, R. Jaumann, C. A. Raymond and C. T. Russell (DLR), NASA PDS DAWN-A-FC2-5-VESTADTMSPG-V1.0, resampled to 0.5° and decimated for the web.",
+        "fr": "Images de la Framing Camera de Dawn, modèle numérique de terrain de F. Preusker, F. Scholten, K.-D. Matz, T. Roatsch, R. Jaumann, C. A. Raymond et C. T. Russell (DLR), NASA PDS DAWN-A-FC2-5-VESTADTMSPG-V1.0, rééchantillonné à 0,5° et décimé pour le web.",
+        "es": "Imágenes de la Framing Camera de Dawn, modelo digital de terreno de F. Preusker, F. Scholten, K.-D. Matz, T. Roatsch, R. Jaumann, C. A. Raymond y C. T. Russell (DLR), NASA PDS DAWN-A-FC2-5-VESTADTMSPG-V1.0, remuestreado a 0,5° y diezmado para la web.",
+        "pt-BR": "Imagens da Framing Camera da Dawn, modelo digital de terreno de F. Preusker, F. Scholten, K.-D. Matz, T. Roatsch, R. Jaumann, C. A. Raymond e C. T. Russell (DLR), NASA PDS DAWN-A-FC2-5-VESTADTMSPG-V1.0, reamostrado a 0,5° e decimado para a web."
+      }
+    },
+    "surfaceResolutions": [
+      "8k",
+      "4k",
+      "2k",
+      "1k"
+    ],
+    "description": {
+      "en": "The brightest asteroid, and the only one occasionally visible to the naked eye. A giant impact blasted away its south pole, and fragments of that crater rain down on Earth as some of our meteorites.",
+      "fr": "L’astéroïde le plus brillant, et le seul parfois visible à l’œil nu. Un impact géant a arraché son pôle sud, et des fragments de ce cratère tombent sur Terre sous forme de certaines de nos météorites.",
+      "es": "El asteroide más brillante, y el único visible a veces a simple vista. Un impacto gigante arrancó su polo sur, y fragmentos de ese cráter caen sobre la Tierra en forma de algunos de nuestros meteoritos.",
+      "pt-BR": "O asteroide mais brilhante, e o único às vezes visível a olho nu. Um impacto gigante arrancou o seu polo sul, e fragmentos dessa cratera caem na Terra na forma de alguns dos nossos meteoritos."
+    },
+    "wiki": {
+      "en": "https://en.wikipedia.org/wiki/4_Vesta",
+      "fr": "https://fr.wikipedia.org/wiki/(4)_Vesta",
+      "es": "https://es.wikipedia.org/wiki/(4)_Vesta",
+      "pt-BR": "https://pt.wikipedia.org/wiki/4_Vesta"
+    }
+  },
+  "facts": {
+    "radiusKm": {
+      "value": {
+        "$diameterKm": 522.77
+      },
+      "source": "jpl-sbdb",
+      "method": "derived",
+      "uncertainty": 0.05,
+      "detail": "radiusFromDiameter",
+      "citation": "Park, R.S. et al. 2025, Nat Astron, DOI: 10.1038/s41550-025-02533-7"
+    },
+    "massKg": {
+      "value": {
+        "$gm": 17.2882844
+      },
+      "source": "jpl-sbdb",
+      "method": "derived",
+      "uncertainty": {
+        "$gm": 3e-06
+      },
+      "detail": "massFromGM",
+      "citation": "Park, R.S. et al. 2025, Nat Astron, DOI: 10.1038/s41550-025-02533-7"
+    },
+    "gravity": {
+      "value": {
+        "$gm": 17.2882844,
+        "$radiusKm": {
+          "$diameterKm": 522.77
+        }
+      },
+      "source": "jpl-sbdb",
+      "method": "derived",
+      "detail": "gravityFromGM",
+      "citation": "Park, R.S. et al. 2025, Nat Astron, DOI: 10.1038/s41550-025-02533-7"
+    },
+    "meanTempC": {
+      "published": false,
+      "reason": {
+        "en": "The JPL Small-Body Database, the source of its other figures, publishes no temperature among its physical parameters.",
+        "fr": "La base des petits corps de JPL, d'où viennent ses autres chiffres, ne publie aucune température parmi ses paramètres physiques.",
+        "es": "La base de datos de cuerpos menores del JPL, de donde proceden sus demás cifras, no publica ninguna temperatura entre sus parámetros físicos.",
+        "pt-BR": "A base de pequenos corpos do JPL, de onde vêm os seus outros números, não publica nenhuma temperatura entre os seus parâmetros físicos."
+      }
+    },
+    "moonCount": {
+      "value": 0,
+      "source": "jpl-sbdb",
+      "method": "measured",
+      "asOf": "2026-09-28",
+      "detail": "confirmedSatellites"
+    },
+    "axialTilt": {
+      "value": 27.5,
+      "source": "jpl-sbdb",
+      "method": "derived",
+      "detail": "obliquityFromPole",
+      "citation": "Park, R.S. et al. 2025, Nat Astron, DOI: 10.1038/s41550-025-02533-7"
+    },
+    "rotationPeriod": {
+      "value": 5.3421276322,
+      "source": "jpl-sbdb",
+      "method": "measured",
+      "citation": "Park, R.S. et al. 2025, Nat Astron, DOI: 10.1038/s41550-025-02533-7"
+    }
+  },
+  "notes": {
+    "a": "Éléments osculateurs JPL Horizons EXACTEMENT à cette époque (EPHEM_TYPE=ELEMENTS, TLIST=2451545.0) — les anciennes valeurs plaçaient Vesta ~0.9 UA de sa vraie position à cette date (vérifié contre le vecteur d'état Horizons réel)."
+  }
+}

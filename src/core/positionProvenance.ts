@@ -1,0 +1,174 @@
+/**
+ * PROVENANCE TEMPORELLE D'UNE POSITION : quelle source a placé ce corps à cette date, ce que
+ * cela veut dire dans le modèle temporel (`core/temporal.ts`), et quel écart à JPL Horizons a
+ * été MESURÉ autour de cette date. Module PUR : lignes de validation en entrée, rien lu ici.
+ *
+ * La même position peut changer de nature avec la date, sans que rien ne se voie à l'écran :
+ * Encelade vient d'un binaire Horizons sur sa couverture, puis de ses éléments képlériens de
+ * repli au-delà. `BodyPositionResolver.resolveSource` dit laquelle a répondu ; ce module en
+ * tire la catégorie et l'écart mesuré.
+ *
+ * Deux sources ne peuvent pas « extrapoler » :
+ *   - un binaire Horizons ou un noyau SPK EST la référence échantillonnée : hors de sa
+ *     couverture il ne répond pas, et c'est une autre source qui prend le relais ;
+ * Deux autres calculent à n'importe quelle date, et c'est là que l'étiquette compte :
+ *   - astronomy-engine et les éléments képlériens : hors de toute fenêtre où leur écart à
+ *     Horizons a été mesuré (`pnpm ephemeris:validate`), la position est `extrapolated`.
+ *     Aucune ligne mesurée : extrapolée partout, car rien n'établit son exactitude.
+ *
+ * « Mesuré » ne veut pas dire « exact » : les éléments képlériens d'Hygie sur 1900-2100 sont
+ * mesurés, à des dizaines de millions de km (ils ne servent plus qu'en repli depuis le lot 11). C'est pourquoi l'écart est affiché à côté de la catégorie, jamais caché dedans.
+ */
+import { DAY_MS, type DatedProduct, type OpenInterval } from './temporal';
+import { POSITION_PROVIDERS, answersAnyDate } from '@/registry/providers';
+
+/** Source qui a effectivement produit une position (règle de `BodyPositionResolver`). */
+export type PositionSource = 'horizons' | 'spk' | 'astronomy-engine' | 'kepler';
+
+/**
+ * Tolérance de « en direct » : la scène à ±5 min du présent. Même seuil que la pastille du
+ * panneau temps (`ui/timePanel.ts`), qui l'importe d'ici.
+ */
+export const LIVE_TOLERANCE_MS = 5 * 60_000;
+
+/** Ligne du résumé de validation, réduite à ce que ce module lit. */
+export interface AccuracyRow {
+  body: string;
+  provider: string;
+  windowFrom: string;
+  windowTo: string;
+  relative: boolean;
+  /** Rayon du corps, écrit par le script de validation ; absent pour une sonde ou un interstellaire. */
+  radiusKm?: number | null;
+  n: number;
+  km: { mean: number | null } | null;
+}
+
+/**
+ * Nom de chaque source dans le résumé écrit par `scripts/validate-against-horizons.mjs`, LU
+ * dans le registre des fournisseurs (`src/registry/providers/*.json`, champ
+ * `validationProviderId`) : une seule table, deux lecteurs. Le type impose les quatre clés, donc
+ * une source de position sans fiche ne compile pas.
+ */
+export const SUMMARY_PROVIDER: Record<PositionSource, string> = {
+  horizons: POSITION_PROVIDERS.horizons.validationProviderId,
+  spk: POSITION_PROVIDERS.spk.validationProviderId,
+  'astronomy-engine':
+    POSITION_PROVIDERS['astronomy-engine'].validationProviderId,
+  kepler: POSITION_PROVIDERS.kepler.validationProviderId,
+};
+
+/** Fenêtre où l'écart d'une source à Horizons a été mesuré, et son écart moyen. */
+export interface MeasuredWindow {
+  from: number;
+  /** Fin incluse : le jour `windowTo` entier. */
+  to: number;
+  meanKm: number;
+  /** Rayon du corps, lu dans la même ligne du résumé que l'écart (jamais recopié). */
+  radiusKm?: number | null;
+}
+
+/**
+ * Fenêtres mesurées d'une source pour un corps. `relative` : un satellite est jugé sur sa
+ * position autour de son parent, pas sur une position héliocentrique dominée par l'erreur du
+ * parent (la Lune : 11 km relatifs, 900 km héliocentriques). On ne mélange jamais les deux.
+ */
+export function measuredWindows(
+  rows: readonly AccuracyRow[],
+  body: string,
+  source: PositionSource,
+  relative: boolean
+): MeasuredWindow[] {
+  const provider = SUMMARY_PROVIDER[source];
+  return rows
+    .filter(
+      (r) =>
+        r.body === body &&
+        r.provider === provider &&
+        r.relative === relative &&
+        r.n > 0 &&
+        r.km?.mean != null
+    )
+    .map((r) => ({
+      from: Date.parse(`${r.windowFrom}T00:00:00Z`),
+      to: Date.parse(`${r.windowTo}T00:00:00Z`) + DAY_MS,
+      meanKm: r.km!.mean!,
+      radiusKm: r.radiusKm ?? null,
+    }));
+}
+
+/**
+ * LE CORPS EST-IL DESSINÉ HORS DE SA PLACE RÉELLE ? (ligne 22.10, 2026-10-03)
+ *
+ * L'écart affiché est juste et ne dit pas ce qu'il implique : 1 413 000 km pour la Terre vers
+ * 9998 av. J.-C., c'est 111 fois son diamètre. Le critère est celui du DIAMÈTRE parce qu'il a un
+ * sens physique exact : au-delà, la sphère dessinée et la vraie ne se recouvrent plus du tout, le
+ * corps est dessiné AILLEURS. Rend le nombre de diamètres, ou `null` en deçà, ou sans rayon publié.
+ *
+ * Mesuré sur le résumé du 2026-10-02 : ce n'est pas qu'une affaire de temps profond. Aujourd'hui,
+ * interpolés depuis leur binaire Horizons, Amalthée et Styx sont à 6 et 8 diamètres.
+ */
+export function diametersOff(window: MeasuredWindow): number | null {
+  const radius = window.radiusKm;
+  if (radius == null || !(radius > 0)) return null;
+  const diameters = window.meanKm / (2 * radius);
+  return diameters > 1 ? diameters : null;
+}
+
+/** Aucune fenêtre mesurée : tout instant est hors de la fenêtre. */
+const NEVER_MEASURED: OpenInterval = {
+  from: Number.POSITIVE_INFINITY,
+  to: Number.NEGATIVE_INFINITY,
+};
+
+/**
+ * Sources qui répondent à toute date, donc qui peuvent sortir de leur fenêtre mesurée. Lu dans la
+ * couverture déclarée par la fiche du fournisseur : au sens STAC, des bornes nulles des deux côtés
+ * veulent dire « pas de borne ». Une fiche sans couverture déclarée (le noyau SPK, dont chaque
+ * segment porte la sienne) n'est pas illimitée pour autant.
+ */
+function computesAnyDate(source: PositionSource): boolean {
+  return answersAnyDate(POSITION_PROVIDERS[source]);
+}
+
+/** La donnée « position de ce corps à cette date », pour `classifyTemporal`. */
+export function positionProduct(
+  source: PositionSource,
+  date: Date,
+  windows: readonly MeasuredWindow[]
+): DatedProduct {
+  const instant = date.getTime();
+  const product: DatedProduct = {
+    kind: 'ephemeris',
+    validTime: { from: instant, to: instant },
+    liveToleranceMs: LIVE_TOLERANCE_MS,
+  };
+  if (computesAnyDate(source)) {
+    // LA FENÊTRE QUI CONTIENT CETTE DATE, jamais l'enveloppe de toutes. L'enveloppe
+    // [min, max] tenait tant que les fenêtres d'un corps étaient emboîtées ; depuis que la
+    // profondeur du temps les pave millénaire par millénaire (lot 39), une fenêtre absente
+    // — un plancher de substitution refusé, une référence indisponible — laisse un TROU, et
+    // l'enveloppe le déclarait mesuré. La fiche aurait alors annoncé « reconstruit » sans
+    // pouvoir citer le moindre écart : mesuré et muet à la fois.
+    product.measured = measuredErrorAt(windows, date) ?? NEVER_MEASURED;
+  }
+  return product;
+}
+
+/**
+ * L'écart mesuré qui décrit le mieux cette date : la fenêtre la plus ÉTROITE qui la contient
+ * (une fenêtre de ±10 ans autour de l'époque des éléments dit mieux 2026 que la moyenne sur
+ * deux siècles). `null` hors de toute fenêtre.
+ */
+export function measuredErrorAt(
+  windows: readonly MeasuredWindow[],
+  date: Date
+): MeasuredWindow | null {
+  const t = date.getTime();
+  let best: MeasuredWindow | null = null;
+  for (const w of windows) {
+    if (t < w.from || t > w.to) continue;
+    if (!best || w.to - w.from < best.to - best.from) best = w;
+  }
+  return best;
+}

@@ -1,0 +1,73 @@
+{
+  "$schema": "../schema/interstellar.schema.json",
+  "id": "atlas",
+  "targetClass": "comet",
+  "population": "interstellar",
+  "displayName": {
+    "en": "3I/ATLAS",
+    "fr": "3I/ATLAS",
+    "es": "3I/ATLAS",
+    "pt-BR": "3I/ATLAS"
+  },
+  "designation": "C/2025 N1",
+  "solution": {
+    "horizonsRec": 90004935,
+    "solutionDate": "2026-Feb-19",
+    "epochJd": 2461090.5
+  },
+  "elements": {
+    "semiMajorAxisAU": -0.2638374502507929,
+    "eccentricity": 6.14135144931763,
+    "inclinationRad": {
+      "$deg": 175.1164570850441
+    },
+    "ascendingNodeRad": {
+      "$deg": 322.1696089290779
+    },
+    "argPerihelionRad": {
+      "$deg": 128.0228697185195
+    },
+    "meanAnomalyAtEpochRad": {
+      "$deg": 818.2202457999964
+    },
+    "epoch": {
+      "$date": "2026-02-19T00:00:00.000Z"
+    }
+  },
+  "color": "0xd9f26b",
+  "facts": {
+    "eccentricity": {
+      "source": "jpl-sbdb",
+      "method": "measured",
+      "uncertainty": 2.469e-05,
+      "detail": "osculatingEccentricity",
+      "citation": "orbit solution 2026-02-19, 782 observations"
+    },
+    "perihelionAU": {
+      "source": "jpl-sbdb",
+      "method": "derived",
+      "uncertainty": 3.7743e-06,
+      "detail": "perihelionFromElements",
+      "citation": "orbit solution 2026-02-19, 782 observations"
+    },
+    "firstObservation": {
+      "value": "2025-05-15",
+      "source": "jpl-sbdb",
+      "method": "measured",
+      "detail": "firstObservationUsed",
+      "citation": "orbit solution 2026-02-19, 782 observations"
+    },
+    "absoluteMagnitude": {
+      "published": false,
+      "reason": {
+        "en": "The JPL Small-Body Database gives no absolute magnitude H for this comet. It publishes M1 instead, the total magnitude of the cometary brightness law, which includes the glow of the coma around the nucleus: a different quantity, not shown under the same label.",
+        "fr": "La JPL Small-Body Database ne donne pas de magnitude absolue H pour cette comète. Elle publie à la place M1, la magnitude totale de la loi de brillance cométaire, qui inclut l’éclat de la chevelure autour du noyau : une autre grandeur, qu’on n’affiche pas sous le même libellé.",
+        "es": "La JPL Small-Body Database no da magnitud absoluta H para este cometa. Publica en su lugar M1, la magnitud total de la ley de brillo cometario, que incluye el resplandor de la coma alrededor del núcleo: otra magnitud, que no se muestra bajo la misma etiqueta.",
+        "pt-BR": "A JPL Small-Body Database não dá magnitude absoluta H para este cometa. Ela publica em seu lugar M1, a magnitude total da lei de brilho cometário, que inclui o brilho da coma em torno do núcleo: outra grandeza, que não é exibida sob o mesmo rótulo."
+      }
+    }
+  },
+  "notes": {
+    "solution": "Horizons rec #90004935, solution 2026-Feb-19, époque JD 2461090.5."
+  }
+}

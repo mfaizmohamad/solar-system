@@ -1,0 +1,163 @@
+{
+  "$schema": "../schema/entity.schema.json",
+  "id": "proteus",
+  "targetClass": "satellite",
+  "source": "catalogue",
+  "config": {
+    "kind": "moon",
+    "displayName": {
+      "en": "Proteus",
+      "fr": "Protée",
+      "es": "Proteo",
+      "pt-BR": "Proteu"
+    },
+    "radius": 0.12,
+    "rotationSpeed": {
+      "$rotationHours": {
+        "$days": 1.1223147385935797
+      }
+    },
+    "orbitalColor": "0x6a6a6a",
+    "fallbackColor": "0x4a4a4a",
+    "frame": "parentRelative",
+    "rotationBody": "Neptune",
+    "relativeEphemeris": {
+      "kind": "horizonsParentRelative"
+    },
+    "relativeOrbitalElements": {
+      "semiMajorAxisAU": 0.0007866692793,
+      "eccentricity": 0.000438469,
+      "inclinationRad": {
+        "$deg": 29.0597
+      },
+      "ascendingNodeRad": {
+        "$deg": 48.7125
+      },
+      "argPerihelionRad": {
+        "$deg": 43.5662
+      },
+      "meanAnomalyAtEpochRad": {
+        "$deg": 76.5645
+      },
+      "epoch": {
+        "$date": "2025-12-31T00:00:00.000Z"
+      }
+    },
+    "model": {
+      "resolutions": [
+        "1k"
+      ],
+      "extentRatio": 1.16,
+      "credit": {
+        "en": "Voyager 2 images, shape model by P. Stooke, NASA PDS Stooke Small Body Shape Models (EAR-A-5-DDR-STOOKE-SHAPE-MODELS-V2.0), decimated for the web.",
+        "fr": "Images de Voyager 2, modèle de forme de P. Stooke, NASA PDS Stooke Small Body Shape Models (EAR-A-5-DDR-STOOKE-SHAPE-MODELS-V2.0), décimé pour le web.",
+        "es": "Imágenes de Voyager 2, modelo de forma de P. Stooke, NASA PDS Stooke Small Body Shape Models (EAR-A-5-DDR-STOOKE-SHAPE-MODELS-V2.0), diezmado para la web.",
+        "pt-BR": "Imagens da Voyager 2, modelo de forma de P. Stooke, NASA PDS Stooke Small Body Shape Models (EAR-A-5-DDR-STOOKE-SHAPE-MODELS-V2.0), decimado para a web."
+      }
+    },
+    "textureResolutions": {
+      "surface": [
+        "2k",
+        "1k"
+      ]
+    },
+    "realData": {
+      "orbitalInclination": {
+        "$deg": 28.99163681179519
+      },
+      "ascendingNode": {
+        "$deg": 48.27950205867285
+      },
+      "description": {
+        "en": "Neptune's second-largest moon, an irregularly shaped, tidally locked body near the size limit a body of its density can hold without becoming round.",
+        "fr": "La deuxième plus grande lune de Neptune, un corps de forme irrégulière verrouillé par effet de marée, proche de la taille limite qu’un corps de sa densité peut atteindre sans devenir sphérique.",
+        "es": "La segunda luna más grande de Neptuno, un cuerpo de forma irregular bloqueado por las mareas, cerca del tamaño límite que un cuerpo de su densidad puede alcanzar sin volverse redondo.",
+        "pt-BR": "A segunda maior lua de Netuno, um corpo de forma irregular travado pelas marés, perto do tamanho limite que um corpo da sua densidade pode alcançar sem ficar redondo."
+      },
+      "wiki": {
+        "en": "https://en.wikipedia.org/wiki/Proteus_(moon)",
+        "fr": "https://fr.wikipedia.org/wiki/Prot%C3%A9e_(lune)",
+        "es": "https://es.wikipedia.org/wiki/Proteo_(sat%C3%A9lite)",
+        "pt-BR": "https://pt.wikipedia.org/wiki/Proteu_(sat%C3%A9lite)"
+      }
+    },
+    "cameraDistance": {
+      "educ": 1.2,
+      "explo": {
+        "$cameraFromRadiusKm": 208
+      }
+    },
+    "loadPriority": 13
+  },
+  "facts": {
+    "radiusKm": {
+      "value": 208,
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "measured",
+      "uncertainty": 8
+    },
+    "massKg": {
+      "value": {
+        "$gm": 2.58342
+      },
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "derived",
+      "uncertainty": {
+        "$gm": 2.4207
+      },
+      "detail": "massFromGM"
+    },
+    "gravity": {
+      "value": {
+        "$gm": 2.58342,
+        "$radiusKm": 208
+      },
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "derived",
+      "detail": "gravityFromGM"
+    },
+    "meanTempC": {
+      "published": false,
+      "reason": {
+        "en": "No temperature is published where its other figures come from: neither NASA's satellite fact sheets nor JPL's satellite tables carry one.",
+        "fr": "Aucune température n'est publiée là où viennent ses autres chiffres : ni les fiches des satellites de la NASA, ni les tables des satellites de JPL n'en portent.",
+        "es": "No se publica ninguna temperatura allí donde se obtienen sus demás cifras: ni las hojas de datos de satélites de la NASA ni las tablas de satélites del JPL la incluyen.",
+        "pt-BR": "Nenhuma temperatura é publicada onde vêm os seus outros números: nem as fichas dos satélites da NASA nem as tabelas de satélites do JPL a trazem."
+      }
+    },
+    "axialTilt": {
+      "value": {
+        "$deg": 0.18
+      },
+      "source": "naif-pck",
+      "method": "derived",
+      "detail": "obliquityFromPole",
+      "citation": "pck00011.tpc, BODY808"
+    },
+    "distanceAU": {
+      "value": {
+        "$km": 117647
+      },
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "orbitPeriodDays": {
+      "value": 1.1223147385935797,
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "rotationPeriod": {
+      "published": false,
+      "reason": {
+        "en": "NASA's Neptunian satellite fact sheet, the source of its orbit, leaves the rotation column empty for Proteus.",
+        "fr": "La fiche des satellites de Neptune de la NASA, d'où vient son orbite, laisse la colonne de rotation vide pour Protée.",
+        "es": "La hoja de datos de los satélites de Neptuno de la NASA, de donde procede su órbita, deja vacía la columna de rotación para Proteo.",
+        "pt-BR": "A ficha dos satélites de Netuno da NASA, de onde vem a sua órbita, deixa vazia a coluna de rotação para Proteu."
+      }
+    }
+  },
+  "notes": {
+    "relativeOrbitalElements": "JPL Horizons osculating elements, epoch 2000-01-01.5 TDB — cohérents avec la période réelle publiée (1.122 j).",
+    "textureResolutions": "Aucune mosaïque photo globale contrôlée n'existe côté USGS pour Protée (une seule face imagée par Voyager 2, jamais assemblée en carte globale contrôlée) — vérifié en direct (2026-08-26). Texture procédurale générée, paramétrée sur le cratère Pharos réel (~250 km, plus de la moitié du diamètre de Protée, dôme central)."
+  }
+}

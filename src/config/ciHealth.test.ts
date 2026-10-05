@@ -1,0 +1,329 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+import {
+  E2E_ENVELOPE_MINUTES,
+  E2E_TEST_STEP,
+  E2E_WARN_FRACTION,
+  judge,
+  logLines,
+  parsePlaywrightSummary,
+  parseRunnerCpu,
+} from '../../scripts/check-ci-health.mjs';
+
+/**
+ * LE GUETTEUR DE LA CI DE `main`, CONFRONTÉ À CE QUE LA SOURCE ÉMET VRAIMENT (lot 24).
+ *
+ * Ce dépôt a déjà payé DEUX fois le même défaut, et il est écrit dans `CLAUDE.md` : un guetteur
+ * dont le filtre ne correspond à rien de ce que la source émet est aussi muet qu'un guetteur
+ * cassé, et son silence ressemble exactement à « tout va bien ». Un guetteur de CI qui ne
+ * reconnaîtrait plus le résumé de Playwright serait donc PIRE que pas de guetteur.
+ *
+ * Les fragments ci-dessous sont COPIÉS des journaux réels des deux runs rouges de `main`, avec
+ * leur préfixe `job<TAB>step<TAB>horodatage` et leurs retours chariot — c'est-à-dire la forme que
+ * `gh run view --log` rend vraiment, et non une forme réécrite pour l'occasion.
+ *
+ * Et les deux nombres du script sont croisés avec `ci.yml`, qui en est le propriétaire : un
+ * garde-fou porté à 45 min sans que ce seuil suive rendrait le signalement muet.
+ */
+
+const CI_YML = readFileSync(
+  resolve(import.meta.dirname, '../../.github/workflows/ci.yml'),
+  'utf-8'
+);
+
+/**
+ * Le résumé du shard 4 de la PR #40 : un test échoué, rien au réessai.
+ *
+ * Les retours chariot sont ceux du rapporteur `list`, qui écrit son avancement avec `\r`. C'est
+ * la raison pour laquelle `logLines` normalise AVANT toute recherche.
+ */
+const RED_SHARD = [
+  'Browser tests (e2e 4/6)\tUNKNOWN STEP\t2026-09-28T06:34:20.3826767Z   1 failed',
+  'Browser tests (e2e 4/6)\tUNKNOWN STEP\t2026-09-28T06:34:20.3827711Z     [chromium] › e2e/precip-visual.spec.ts:29:1 › IMERG keeps its native alpha mask and compiles the observed rain layer ',
+  'Browser tests (e2e 4/6)\tUNKNOWN STEP\t2026-09-28T06:34:20.3828508Z   34 passed (16.3m)',
+].join('\r\n');
+
+/**
+ * Le résumé du shard 3 du run du lot 23, annoncé « vert en entier » : il l'est, et il contient
+ * un test qui n'est passé qu'au réessai. C'est LE cas que ce guetteur existe pour dire.
+ */
+const GREEN_BUT_RETRIED = [
+  'Browser tests (e2e 3/6)\tUNKNOWN STEP\t2026-09-28T13:25:01.0000000Z   1 flaky',
+  'Browser tests (e2e 3/6)\tUNKNOWN STEP\t2026-09-28T13:25:01.0000000Z     [chromium] › e2e/precip-visual.spec.ts:29:1 › IMERG keeps its native alpha mask and compiles the observed rain layer ',
+  'Browser tests (e2e 3/6)\tUNKNOWN STEP\t2026-09-28T13:25:01.0000000Z   34 passed (15.5m)',
+].join('\r\n');
+
+describe('ce que le guetteur lit dans un journal de Playwright', () => {
+  it('reconnaît un test ÉCHOUÉ dans le résumé du rapporteur `list`', () => {
+    const summary = parsePlaywrightSummary(logLines(RED_SHARD));
+    expect(summary.failed).toEqual([
+      '[chromium] › e2e/precip-visual.spec.ts:29:1 › IMERG keeps its native alpha mask and compiles the observed rain layer',
+    ]);
+    expect(summary.flaky).toEqual([]);
+    expect(summary.passed).toBe(34);
+    expect(summary.totalMinutes).toBeCloseTo(16.3, 5);
+  });
+
+  it('reconnaît un test passé SEULEMENT au réessai, dans un job vert', () => {
+    const summary = parsePlaywrightSummary(logLines(GREEN_BUT_RETRIED));
+    expect(summary.failed).toEqual([]);
+    expect(summary.flaky).toEqual([
+      '[chromium] › e2e/precip-visual.spec.ts:29:1 › IMERG keeps its native alpha mask and compiles the observed rain layer',
+    ]);
+  });
+
+  it('ne confond pas les lignes d’avancement avec un résumé', () => {
+    // Pendant toute la suite, le rapporteur n'émet QUE ces lignes-là, séparées par des retours
+    // chariot. Un filtre écrit sur « passed|failed » ne voit donc rien pendant vingt minutes.
+    const progress = logLines(
+      'Browser tests (e2e 1/6)\tUNKNOWN STEP\t2026-09-28T06:20:00.0000000Z   ✓  12 [chromium] › e2e/smoke.spec.ts:4:1 › boots (21.1s)\r  ✓  13 [chromium] › e2e/modes.spec.ts:9:1 › switches (30.2s)\r'
+    );
+    const summary = parsePlaywrightSummary(progress);
+    expect(summary.passed).toBeNull();
+    expect(summary.failed).toEqual([]);
+    expect(summary.flaky).toEqual([]);
+  });
+});
+
+describe('le jugement, et ses trois natures de défaut', () => {
+  const shard = (
+    name: string,
+    conclusion: string,
+    minutes: number,
+    summary: ReturnType<typeof parsePlaywrightSummary> | null
+  ) => ({ id: 1, name, conclusion, minutes, shard: 4, summary });
+
+  it('un job rouge est rouge', () => {
+    const verdict = judge({
+      jobs: [shard('Browser tests (e2e 4/6)', 'failure', 17.3, null)],
+    });
+    expect(verdict.healthy).toBe(false);
+    expect(verdict.red).toHaveLength(1);
+  });
+
+  it('un job VERT dont un test a été réessayé n’est pas sain', () => {
+    const verdict = judge({
+      jobs: [
+        shard(
+          'Browser tests (e2e 3/6)',
+          'success',
+          15.5,
+          parsePlaywrightSummary(logLines(GREEN_BUT_RETRIED))
+        ),
+      ],
+    });
+    expect(verdict.healthy).toBe(false);
+    expect(verdict.red).toEqual([]);
+    expect(verdict.retried).toHaveLength(1);
+  });
+
+  it('un shard qui remplit son enveloppe est signalé, même vert', () => {
+    const verdict = judge({
+      jobs: [
+        shard(
+          'Browser tests (e2e 4/6)',
+          'success',
+          E2E_ENVELOPE_MINUTES * E2E_WARN_FRACTION + 0.1,
+          parsePlaywrightSummary(
+            logLines(RED_SHARD.replace('1 failed', '0 failed'))
+          )
+        ),
+      ],
+    });
+    expect(verdict.full).toHaveLength(1);
+    expect(verdict.healthy).toBe(false);
+  });
+
+  it('un journal ILLISIBLE rend le run non sain, jamais sain par défaut', () => {
+    // Le cas mesuré : `gh run view` sans `-R` échoue par « not a git repository », les six
+    // journaux deviennent illisibles d'un coup, et un run dont aucun job n'est rouge serait
+    // déclaré sain. C'est le silence qu'on refuse.
+    const verdict = judge({
+      jobs: [
+        shard('Browser tests (e2e 1/6)', 'success', 13.9, {
+          passed: null,
+          totalMinutes: null,
+          failed: [],
+          flaky: [],
+          timedOut: [],
+          interrupted: [],
+          unreadable: 'Command failed: gh run view --job 1 --log',
+        }),
+      ],
+    });
+    expect(verdict.healthy).toBe(false);
+    expect(verdict.unreadable).toHaveLength(1);
+    expect(verdict.red).toEqual([]);
+  });
+
+  it('un run entièrement propre est sain', () => {
+    const clean = parsePlaywrightSummary(
+      logLines(
+        'Browser tests (e2e 1/6)\tUNKNOWN STEP\t2026-09-28T06:20:00.0000000Z   34 passed (13.9m)'
+      )
+    );
+    const verdict = judge({
+      jobs: [
+        shard('Browser tests (e2e 1/6)', 'success', 13.9, clean),
+        { ...shard('Browser smoke test', 'skipped', 0, null), shard: null },
+      ],
+    });
+    expect(verdict.healthy).toBe(true);
+  });
+});
+
+describe('les deux nombres du guetteur viennent de `ci.yml`', () => {
+  it('l’enveloppe est celle du garde-fou de l’ÉTAPE des tests e2e', () => {
+    // L'étape nommée E2E_TEST_STEP, et le `timeout-minutes` qu'elle porte (ligne 44.2).
+    const at = CI_YML.indexOf(`- name: ${E2E_TEST_STEP}`);
+    expect(
+      at,
+      `l’étape « ${E2E_TEST_STEP} » est absente de ci.yml`
+    ).toBeGreaterThan(0);
+    const step = CI_YML.slice(at, CI_YML.indexOf('run:', at));
+    const guard = /timeout-minutes:\s*(\d+)/.exec(step);
+    expect(guard, 'l’étape des tests n’a pas de garde-fou').toBeTruthy();
+    expect(Number(guard![1])).toBe(E2E_ENVELOPE_MINUTES);
+  });
+
+  it('le job e2e laisse place à l’install ET aux tests, donc ce n’est jamais lui qui coupe', () => {
+    // La matrice est repérée par sa FORME, pas par son contenu : le nombre de shards change
+    // (6 puis 7 le 2026-10-02), et un littéral rendait ce test aveugle à chaque passage.
+    const matrix = /shard: \[[\d, ]+\]/.exec(CI_YML);
+    expect(matrix, 'matrice des shards introuvable dans ci.yml').toBeTruthy();
+    const afterMatrix = CI_YML.slice(matrix!.index);
+    const job = Number(/timeout-minutes:\s*(\d+)/.exec(afterMatrix)![1]);
+    const install = afterMatrix.slice(
+      afterMatrix.indexOf('- run: pnpm exec playwright install')
+    );
+    const installGuard = Number(/timeout-minutes:\s*(\d+)/.exec(install)![1]);
+    expect(job).toBeGreaterThan(E2E_ENVELOPE_MINUTES + installGuard);
+  });
+
+  it('le seuil de signalement reste sous l’enveloppe', () => {
+    expect(E2E_WARN_FRACTION).toBeGreaterThan(0);
+    expect(E2E_WARN_FRACTION).toBeLessThan(1);
+  });
+
+  it('le guetteur est déclenché par le workflow `CI` et par lui seul', () => {
+    const watch = readFileSync(
+      resolve(import.meta.dirname, '../../.github/workflows/main-ci-watch.yml'),
+      'utf-8'
+    );
+    expect(watch).toContain("workflows: ['CI']");
+    expect(watch).toContain('branches: [main]');
+    // Le nom du workflow surveillé doit être celui que `ci.yml` se donne, sinon le déclencheur
+    // ne se lie à rien et le guetteur ne tourne JAMAIS, silencieusement.
+    expect(CI_YML.startsWith('name: CI\n')).toBe(true);
+    // Sans ce droit, l'ouverture de l'issue échoue et le guetteur ne dit rien.
+    expect(watch).toContain('issues: write');
+  });
+});
+
+describe('un run REMPLACÉ n’est pas un run malade', () => {
+  /**
+   * `ci.yml` déclare `concurrency: cancel-in-progress`, donc deux fusions rapprochées annulent le
+   * run de la première. Le 2026-09-29 le guetteur a ouvert l'issue #55 sur le run du lot 29,
+   * annulé par la poussée du lot 30 : aucun job n'avait échoué, tous portaient `cancelled`.
+   * Un guetteur qui crie au loup finit ignoré, ce que le lot 28 avait déjà payé sur les sources.
+   */
+  const cancelledShard = (shard: number) => ({
+    id: shard,
+    name: `Browser tests (e2e ${shard}/6)`,
+    conclusion: 'cancelled',
+    minutes: 7.8,
+    shard,
+    summary: null,
+  });
+  const superseded = { id: 42, number: 326, url: 'https://x.test/326' };
+
+  it('est déclaré remplacé, et donc SAIN, quand un run plus récent l’a annulé', () => {
+    const verdict = judge({
+      supersededBy: superseded,
+      jobs: [
+        {
+          id: 1,
+          name: 'Verify and build',
+          conclusion: 'success',
+          minutes: 2.9,
+          shard: null,
+          summary: null,
+        },
+        cancelledShard(1),
+        cancelledShard(2),
+      ],
+    });
+    expect(verdict.superseded).toBe(true);
+    expect(verdict.healthy).toBe(true);
+  });
+
+  it('reste NON SAIN si un job a vraiment échoué avant l’annulation', () => {
+    // La condition est stricte, et c'est le point : taire un vrai échec sous prétexte que le run
+    // a été coupé ensuite serait pire que l'issue de trop.
+    const verdict = judge({
+      supersededBy: superseded,
+      jobs: [
+        {
+          id: 1,
+          name: 'Verify and build',
+          conclusion: 'failure',
+          minutes: 2.9,
+          shard: null,
+          summary: null,
+        },
+        cancelledShard(1),
+      ],
+    });
+    expect(verdict.superseded).toBe(false);
+    expect(verdict.healthy).toBe(false);
+  });
+
+  it('reste NON SAIN si rien ne l’a remplacé : on ne sait pas pourquoi il est annulé', () => {
+    const verdict = judge({
+      supersededBy: null,
+      jobs: [cancelledShard(1), cancelledShard(2)],
+    });
+    expect(verdict.superseded).toBe(false);
+    expect(verdict.healthy).toBe(false);
+  });
+});
+
+/**
+ * LE PROCESSEUR DU SHARD (ligne 44.3), lu sur un fragment RÉEL : le run `37064635527`, shard 4,
+ * tel que `gh run view --log` le rend. Le journal recopie d'abord la COMMANDE, deux fois (dont
+ * une colorée), avec le motif littéral `RUNNER_CPU $(lscpu …` : c'est elle que la lecture ne
+ * doit pas prendre pour un résultat.
+ */
+const RUNNER_CPU_STEP = [
+  'Browser tests (e2e 4/7)\tUNKNOWN STEP\t2026-10-02T21:05:33.6144071Z ##[group]Run echo "RUNNER_CPU $(lscpu | grep -m1 \'Model name\' | cut -d: -f2 | xargs) | nproc $(nproc)"',
+  'Browser tests (e2e 4/7)\tUNKNOWN STEP\t2026-10-02T21:05:33.6144909Z \u001b[36;1mecho "RUNNER_CPU $(lscpu | grep -m1 \'Model name\' | cut -d: -f2 | xargs) | nproc $(nproc)"\u001b[0m',
+  'Browser tests (e2e 4/7)\tUNKNOWN STEP\t2026-10-02T21:05:33.6210107Z shell: /usr/bin/bash -e {0}',
+  'Browser tests (e2e 4/7)\tUNKNOWN STEP\t2026-10-02T21:05:33.6210991Z ##[endgroup]',
+  'Browser tests (e2e 4/7)\tUNKNOWN STEP\t2026-10-02T21:05:33.6568849Z RUNNER_CPU AMD EPYC 7763 64-Core Processor | nproc 4',
+].join('\n');
+
+describe('le processeur de la machine', () => {
+  it('se lit dans la ligne que l’étape imprime', () => {
+    expect(parseRunnerCpu(logLines(RUNNER_CPU_STEP))).toEqual({
+      model: 'AMD EPYC 7763 64-Core Processor',
+      cores: 4,
+    });
+  });
+
+  it('ne prend pas la commande recopiée pour un résultat', () => {
+    const commandOnly = RUNNER_CPU_STEP.split('\n').slice(0, 4).join('\n');
+    expect(parseRunnerCpu(logLines(commandOnly))).toBeNull();
+  });
+
+  it('reste muet sur un run antérieur à l’étape, sans le dire en panne', () => {
+    expect(parseRunnerCpu(logLines(GREEN_BUT_RETRIED))).toBeNull();
+  });
+
+  it('est imprimée par ci.yml sous la forme que la lecture attend', () => {
+    expect(CI_YML).toContain('- name: Runner CPU');
+    expect(CI_YML).toContain('echo "RUNNER_CPU $(lscpu');
+    expect(CI_YML).toContain('| nproc $(nproc)"');
+  });
+});

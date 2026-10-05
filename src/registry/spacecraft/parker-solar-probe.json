@@ -1,0 +1,58 @@
+{
+  "$schema": "../schema/spacecraft.schema.json",
+  "id": "parker-solar-probe",
+  "targetClass": "spacecraft",
+  "displayName": {
+    "en": "Parker Solar Probe",
+    "fr": "Sonde solaire Parker",
+    "es": "Sonda Solar Parker",
+    "pt-BR": "Sonda Solar Parker"
+  },
+  "description": {
+    "en": "Launched in 2018, repeatedly diving closer to the Sun than any spacecraft before it.",
+    "fr": "Lancée en 2018, elle plonge à répétition plus près du Soleil qu’aucune sonde avant elle.",
+    "es": "Lanzada en 2018, se zambulle repetidamente más cerca del Sol que cualquier sonda anterior.",
+    "pt-BR": "Lançada em 2018, mergulha repetidamente mais perto do Sol que qualquer sonda anterior."
+  },
+  "launchDate": "2018-08-12",
+  "color": "0xff5555",
+  "identifiers": {
+    "naif": -96
+  },
+  "facts": {
+    "launchDate": {
+      "source": "nssdca-master-catalog",
+      "method": "measured",
+      "citation": "NSSDCA/COSPAR 2018-065A"
+    },
+    "launchVehicle": {
+      "value": "Delta IV",
+      "source": "nssdca-master-catalog",
+      "method": "measured",
+      "citation": "NSSDCA/COSPAR 2018-065A"
+    },
+    "launchSite": {
+      "value": "Cape Canaveral, United States",
+      "source": "nssdca-master-catalog",
+      "method": "measured",
+      "citation": "NSSDCA/COSPAR 2018-065A"
+    },
+    "massKg": {
+      "value": 685,
+      "source": "nssdca-master-catalog",
+      "method": "measured",
+      "detail": "nssdcaFactsInBrief",
+      "citation": "NSSDCA/COSPAR 2018-065A"
+    }
+  },
+  "coverage": {
+    "temporal": {
+      "interval": [
+        [
+          "2018-08-13T00:00:00Z",
+          "2029-12-31T00:00:00Z"
+        ]
+      ]
+    }
+  }
+}

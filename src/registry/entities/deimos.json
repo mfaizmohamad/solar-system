@@ -1,0 +1,154 @@
+{
+  "$schema": "../schema/entity.schema.json",
+  "id": "deimos",
+  "targetClass": "satellite",
+  "source": "catalogue",
+  "config": {
+    "kind": "moon",
+    "displayName": {
+      "en": "Deimos",
+      "fr": "Déimos",
+      "es": "Deimos",
+      "pt-BR": "Deimos"
+    },
+    "radius": 0.06,
+    "rotationSpeed": {
+      "$rotationHours": {
+        "$days": 1.2624407921255993
+      }
+    },
+    "orbitalColor": "0xc1aa91",
+    "fallbackColor": "0x927d68",
+    "frame": "parentRelative",
+    "rotationBody": "Mars",
+    "relativeEphemeris": {
+      "kind": "horizonsParentRelative"
+    },
+    "relativeOrbitalElements": {
+      "semiMajorAxisAU": 0.0001568163438,
+      "eccentricity": 0.000312172,
+      "inclinationRad": {
+        "$deg": 24.1734
+      },
+      "ascendingNodeRad": {
+        "$deg": 81.2256
+      },
+      "argPerihelionRad": {
+        "$deg": 32.0428
+      },
+      "meanAnomalyAtEpochRad": {
+        "$deg": 22.0077
+      },
+      "epoch": {
+        "$date": "2025-12-31T00:00:00.000Z"
+      }
+    },
+    "model": {
+      "resolutions": [
+        "1k"
+      ],
+      "extentRatio": 1.42,
+      "credit": {
+        "en": "Viking Orbiter images, shape model by P. C. Thomas, NASA PDS Small Body Optical Shape Models (EAR-A-5-DDR-SHAPE-MODELS-V2.1), decimated for the web.",
+        "fr": "Images de Viking Orbiter, modèle de forme de P. C. Thomas, NASA PDS Small Body Optical Shape Models (EAR-A-5-DDR-SHAPE-MODELS-V2.1), décimé pour le web.",
+        "es": "Imágenes de Viking Orbiter, modelo de forma de P. C. Thomas, NASA PDS Small Body Optical Shape Models (EAR-A-5-DDR-SHAPE-MODELS-V2.1), diezmado para la web.",
+        "pt-BR": "Imagens da Viking Orbiter, modelo de forma de P. C. Thomas, NASA PDS Small Body Optical Shape Models (EAR-A-5-DDR-SHAPE-MODELS-V2.1), decimado para a web."
+      }
+    },
+    "textureResolutions": {
+      "surface": [
+        "1k"
+      ]
+    },
+    "realData": {
+      "orbitalInclination": {
+        "$deg": 1.8
+      },
+      "ascendingNode": {
+        "$deg": 54.3
+      },
+      "description": {
+        "en": "Mars' smaller outer moon, a dark irregular body with a slow synchronous orbit.",
+        "fr": "La plus petite lune extérieure de Mars, un corps sombre et irrégulier en orbite synchrone lente.",
+        "es": "La más pequeña y externa de las lunas de Marte, un cuerpo oscuro e irregular en órbita sincrónica lenta.",
+        "pt-BR": "A menor e mais externa das luas de Marte, um corpo escuro e irregular em órbita sincronizada lenta."
+      },
+      "wiki": {
+        "en": "https://en.wikipedia.org/wiki/Deimos_(moon)",
+        "fr": "https://fr.wikipedia.org/wiki/D%C3%A9imos_(lune)",
+        "es": "https://es.wikipedia.org/wiki/Deimos_(sat%C3%A9lite)",
+        "pt-BR": "https://pt.wikipedia.org/wiki/Deimos_(sat%C3%A9lite)"
+      }
+    },
+    "cameraDistance": {
+      "educ": 0.3,
+      "explo": {
+        "$cameraFromRadiusKm": 6.2
+      }
+    },
+    "loadPriority": 11
+  },
+  "facts": {
+    "radiusKm": {
+      "value": 6.2,
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "measured",
+      "uncertainty": 0.24
+    },
+    "massKg": {
+      "value": {
+        "$gm": 0.0000962
+      },
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "derived",
+      "uncertainty": {
+        "$gm": 0.0000028
+      },
+      "detail": "massFromGM"
+    },
+    "gravity": {
+      "value": {
+        "$gm": 0.0000962,
+        "$radiusKm": 6.2
+      },
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "derived",
+      "detail": "gravityFromGM"
+    },
+    "meanTempC": {
+      "published": false,
+      "reason": {
+        "en": "No temperature is published where its other figures come from: neither NASA's satellite fact sheets nor JPL's satellite tables carry one.",
+        "fr": "Aucune température n'est publiée là où viennent ses autres chiffres : ni les fiches des satellites de la NASA, ni les tables des satellites de JPL n'en portent.",
+        "es": "No se publica ninguna temperatura allí donde se obtienen sus demás cifras: ni las hojas de datos de satélites de la NASA ni las tablas de satélites del JPL la incluyen.",
+        "pt-BR": "Nenhuma temperatura é publicada onde vêm os seus outros números: nem as fichas dos satélites da NASA nem as tabelas de satélites do JPL a trazem."
+      }
+    },
+    "axialTilt": {
+      "value": {
+        "$deg": 0
+      },
+      "source": "naif-pck",
+      "method": "derived",
+      "detail": "obliquityFromPole",
+      "citation": "pck00011.tpc, BODY402"
+    },
+    "distanceAU": {
+      "value": {
+        "$km": 23459
+      },
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "orbitPeriodDays": {
+      "value": 1.2624407921255993,
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "rotationPeriod": {
+      "source": "nssdca-fact-sheets",
+      "method": "derived",
+      "detail": "synchronousRotation"
+    }
+  }
+}

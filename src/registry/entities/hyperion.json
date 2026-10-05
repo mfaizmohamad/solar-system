@@ -1,0 +1,162 @@
+{
+  "$schema": "../schema/entity.schema.json",
+  "id": "hyperion",
+  "targetClass": "satellite",
+  "source": "catalogue",
+  "config": {
+    "kind": "moon",
+    "displayName": {
+      "en": "Hyperion",
+      "fr": "Hypérion",
+      "es": "Hiperión",
+      "pt-BR": "Hipérion"
+    },
+    "radius": 0.08,
+    "rotationSpeed": {
+      "$rotationHours": {
+        "$days": 13
+      }
+    },
+    "orbitalColor": "0xa08670",
+    "fallbackColor": "0x8a7060",
+    "frame": "parentRelative",
+    "rotationBody": "Saturn",
+    "relativeEphemeris": {
+      "kind": "horizonsParentRelative"
+    },
+    "relativeOrbitalElements": {
+      "semiMajorAxisAU": 0.009868051277,
+      "eccentricity": 0.0947541,
+      "inclinationRad": {
+        "$deg": 27.0526
+      },
+      "ascendingNodeRad": {
+        "$deg": 169.4913
+      },
+      "argPerihelionRad": {
+        "$deg": 81.9189
+      },
+      "meanAnomalyAtEpochRad": {
+        "$deg": 276.1022
+      },
+      "epoch": {
+        "$date": "2025-12-31T00:00:00.000Z"
+      }
+    },
+    "model": {
+      "resolutions": [
+        "2k",
+        "1k"
+      ],
+      "extentRatio": 1.36,
+      "credit": {
+        "en": "Cassini ISS images, shape model by P. Thomas, J. Joseph and T. Ansty, NASA PDS Saturn Small Moon Shape Models V1.0 (doi:10.26033/ewy3-jy61), decimated for the web.",
+        "fr": "Images Cassini ISS, modèle de forme de P. Thomas, J. Joseph et T. Ansty, NASA PDS Saturn Small Moon Shape Models V1.0 (doi:10.26033/ewy3-jy61), décimé pour le web.",
+        "es": "Imágenes Cassini ISS, modelo de forma de P. Thomas, J. Joseph y T. Ansty, NASA PDS Saturn Small Moon Shape Models V1.0 (doi:10.26033/ewy3-jy61), diezmado para la web.",
+        "pt-BR": "Imagens Cassini ISS, modelo de forma de P. Thomas, J. Joseph e T. Ansty, NASA PDS Saturn Small Moon Shape Models V1.0 (doi:10.26033/ewy3-jy61), decimado para a web."
+      }
+    },
+    "textureResolutions": {
+      "surface": [
+        "2k",
+        "1k"
+      ]
+    },
+    "realData": {
+      "orbitalInclination": {
+        "$deg": 27.20902903280515
+      },
+      "ascendingNode": {
+        "$deg": 168.305013991762
+      },
+      "description": {
+        "en": "A spongy, porous outer moon tumbling chaotically through space: its rotation never settles into a fixed period.",
+        "fr": "Une lune extérieure spongieuse et poreuse, qui bascule de façon chaotique dans l’espace : sa rotation ne se stabilise jamais sur une période fixe.",
+        "es": "Una luna externa esponjosa y porosa, que bascula de forma caótica en el espacio: su rotación no se estabiliza nunca en un periodo fijo.",
+        "pt-BR": "Uma lua externa esponjosa e porosa, que oscila de forma caótica no espaço: a sua rotação nunca se estabiliza em um período fixo."
+      },
+      "wiki": {
+        "en": "https://en.wikipedia.org/wiki/Hyperion_(moon)",
+        "fr": "https://fr.wikipedia.org/wiki/Hyp%C3%A9rion_(lune)",
+        "es": "https://es.wikipedia.org/wiki/Hiperi%C3%B3n_(sat%C3%A9lite)",
+        "pt-BR": "https://pt.wikipedia.org/wiki/Hip%C3%A9rion_(sat%C3%A9lite)"
+      }
+    },
+    "cameraDistance": {
+      "educ": 0.6,
+      "explo": {
+        "$cameraFromRadiusKm": 135
+      }
+    },
+    "loadPriority": 23
+  },
+  "facts": {
+    "radiusKm": {
+      "value": 135,
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "measured",
+      "uncertainty": 4
+    },
+    "massKg": {
+      "value": {
+        "$gm": 0.37049
+      },
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "derived",
+      "uncertainty": {
+        "$gm": 0.00005
+      },
+      "detail": "massFromGM"
+    },
+    "gravity": {
+      "value": {
+        "$gm": 0.37049,
+        "$radiusKm": 135
+      },
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "derived",
+      "detail": "gravityFromGM"
+    },
+    "meanTempC": {
+      "value": -180,
+      "source": "nasa-science-bodies",
+      "method": "measured",
+      "citation": "https://science.nasa.gov/saturn/moons/hyperion/"
+    },
+    "axialTilt": {
+      "value": 0,
+      "published": false,
+      "reason": {
+        "en": "The IAU report on rotational elements, which gives the spin axis of most moons shown here, publishes no pole for this body, so a tilt relative to its orbit cannot be derived.",
+        "fr": "Le rapport de l'UAI sur les éléments de rotation, qui donne l'axe de la plupart des lunes affichées ici, ne publie aucun pôle pour ce corps : son inclinaison sur son orbite ne peut donc pas en être dérivée.",
+        "es": "El informe de la UAI sobre elementos de rotación, que da el eje de la mayoría de las lunas mostradas aquí, no publica ningún polo para este cuerpo, así que su inclinación respecto a su órbita no puede derivarse.",
+        "pt-BR": "O relatório da UAI sobre elementos de rotação, que dá o eixo da maioria das luas mostradas aqui, não publica nenhum polo para este corpo, portanto a sua inclinação em relação à órbita não pode ser derivada."
+      }
+    },
+    "distanceAU": {
+      "value": {
+        "$km": 1500930
+      },
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "orbitPeriodDays": {
+      "value": 21.27677790839671,
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "rotationPeriod": {
+      "published": false,
+      "reason": {
+        "en": "NASA NSSDCA lists Hyperion’s rotation as chaotic: it tumbles without a fixed period.",
+        "fr": "La NASA (NSSDCA) classe la rotation d’Hypérion comme chaotique : elle bascule sans période fixe.",
+        "es": "La NASA (NSSDCA) clasifica la rotación de Hiperión como caótica: bascula sin periodo fijo.",
+        "pt-BR": "A NASA (NSSDCA) classifica a rotação de Hipérion como caótica: ele oscila sem período fixo."
+      }
+    }
+  },
+  "notes": {
+    "rotationSpeed": "Rotation CHAOTIQUE, pas synchrone (résonance orbitale 4:3 avec Titan + forme très irrégulière) — contrairement à toutes les autres lunes de ce fichier, il n'y a pas de \"vraie\" période de rotation fixe. Valeur approximative (période moyenne observée), documentée comme telle plutôt que présentée comme une synchronisation réelle.",
+    "textureResolutions": "Aucune mosaïque globale : Hyperion est trop irrégulier (éponge poreuse ~180×133×103 km) pour qu'une \"carte globale\" ait vraiment un sens — vérifié en direct (2026-08-26, voir registry/products/textures). Texture procédurale générée, paramétrée sur son aspect \"éponge\" réel (cratères denses, sans bourrelet d'éjecta)."
+  }
+}

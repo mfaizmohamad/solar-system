@@ -1,0 +1,683 @@
+/**
+ * Point d'entrée de l'application — racine de composition de la couche UI.
+ *
+ * Démarre `SolarSystemApp` puis câble chaque module d'interface (`ui/`) sur la `PublicAPI`.
+ * Chaque module possède ses propres références DOM ; ce fichier ne fait qu'orchestrer :
+ *   - `ui/loader`       — progression et écran d'erreur ;
+ *   - `ui/fullscreen`   — bouton plein écran ;
+ *   - `ui/planetNav`    — boutons de navigation entre corps ;
+ *   - `ui/playback`     — lecture/pause et vitesse ;
+ *   - `ui/timePanel`    — panneau date-heure (voyage temporel) ;
+ *   - `ui/modeSwitcher` — bascule Éducatif ↔ Exploration.
+ */
+import Logger from '@/utils/Logger';
+import { SolarSystemApp } from './SolarSystemApp';
+import { LabelSpace } from '@/core/labelSpace';
+import { initLocale, onLocaleLoading, t } from './i18n';
+import { bodyDisplayName } from './i18n/bodyText';
+import { initStaticI18n } from './i18n/dom';
+import { updateProgress, hideLoader, showError } from './ui/loader';
+import { setupFullscreen } from './ui/fullscreen';
+import { setupTextureLoadState } from './ui/textureLoadState';
+import { setupShare } from './ui/share';
+import { setupCapture } from './ui/capture';
+import { setupWebXR } from './ui/webxr';
+import { setupHelp } from './ui/help';
+import { setupGuidedTour } from './ui/guidedTour';
+import { setupTourPlayer } from './ui/tourPlayer';
+import { TOUR_SCRIPTS } from './config/tourScripts';
+import { setupLangSwitch } from './ui/langSwitch';
+import { setupPlanetControls } from './ui/planetNav';
+import { setupBodyInfo } from './ui/bodyInfo';
+import { setupPositionProvenance } from './ui/positionProvenance';
+import { setupDocumentTitle } from './ui/documentTitle';
+import { setupDocumentChrome } from './ui/documentChrome';
+import { getAnnouncer } from './ui/announcer';
+import { setupPlayback } from './ui/playback';
+import { MAX_SIMULATION_SCALE } from './ui/speedSlider';
+import { setupQualitySection } from './ui/qualitySection';
+import { setupTimePanel } from './ui/timePanel';
+import { setupModeSwitcher } from './ui/modeSwitcher';
+import { setupExploTourNudge } from './ui/exploTourNudge';
+import { setupExploScaleBadge } from './ui/exploScaleBadge';
+import { setupPermalinks } from './ui/permalink';
+import { requestedSceneDate } from './core/permalink';
+import { LANDING_PAGE_BODIES } from './config/navigable';
+import { setupAstronomicalEvents } from './ui/astronomicalEvents';
+import { setupOpticalZoom } from './ui/opticalZoom';
+import { ExploHud } from './ui/exploHud';
+import { SmallBodyOverlay } from './ui/smallBodyOverlay';
+import { InterstellarOverlay } from './ui/interstellarOverlay';
+import { setupSmallBodyFilters } from './ui/smallBodyFilters';
+import { EarthEventsOverlay } from './ui/earthEventsOverlay';
+import { GazetteerOverlay } from './ui/gazetteerOverlay';
+import { setupGazetteerToggle } from './ui/gazetteerToggle';
+import gazetteerIndex from './config/gazetteerIndex.json';
+import { setupEarthEvents } from './ui/earthEvents';
+import { earthquakeLayer, naturalEventLayer } from './core/earthEventLayers';
+import { SpacecraftOverlay } from './ui/spacecraftOverlay';
+import { createNavigableAnchors } from './ui/navigableAnchors';
+import { spacecraftPlacer } from './core/instrumentPlacement';
+import { NAVIGABLE_TARGETS } from './config/navigable';
+import { SPACECRAFT_MISSIONS } from './config/spacecraft';
+import { setupBodyPicker } from './ui/bodyPicker';
+import { setupOrbitOptions } from './ui/orbitOptions';
+import { setupRenderExposure } from './ui/renderExposure';
+import { setupColorblindToggle } from './ui/colorblindToggle';
+import { setupSurfacePanel } from './ui/surfacePanel';
+import { setupUnitsToggle } from './ui/unitsToggle';
+import { setupOfflineData } from './ui/offlineData';
+import { setupRealtimeClouds } from './ui/realtimeClouds';
+import { setupCloudModelLayer } from './ui/cloudModelLayer';
+import { setupPrecipLayer } from './ui/precipLayer';
+import { setupPrecipModelLayer } from './ui/precipModelLayer';
+import { setupWindLayer } from './ui/windLayer';
+import { setupThermalLayer } from './ui/thermalLayer';
+import { setupThermalModelLayer } from './ui/thermalModelLayer';
+import { setupPressureModelLayer } from './ui/pressureModelLayer';
+import { setupHumidityModelLayer } from './ui/humidityModelLayer';
+import { setupWeatherLayers } from './ui/weatherLayers';
+import type { WeatherLayerHandle } from './ui/earthLayer';
+import {
+  setupOverlayCoordinator,
+  type SecondaryOverlayId,
+} from './ui/overlayCoordinator';
+import { setupContextRecovery } from './ui/contextRecovery';
+import { setupEphemerisNotice } from './ui/ephemerisNotice';
+import {
+  bytesPerSimulatedDay,
+  sustainableTimeScale,
+} from '@/core/playbackBudget';
+import { setupSolarDebug } from './ui/solarDebug';
+import { setupGeoDebug } from './ui/geoDebug';
+import { setupTerminatorProbe } from './ui/terminatorProbe';
+import { setupEarthDebug } from './ui/earthDebug';
+import { setupSurfaceProbe } from './ui/surfaceProbe';
+import { setupMeteoDebug } from './ui/meteoDebug';
+import { loadSmallBodies } from './core/sbdb';
+import { CELESTIAL_CONFIG } from './config/bodies';
+import { hydrateCatalogueText } from './config/catalogueText';
+import { flattenBodies } from './config/catalog';
+import { clearRetiredStorage } from './config/storageKeys';
+
+const CONTEXTUAL_SURFACE_ANCHORS: Partial<
+  Record<SecondaryOverlayId, { trigger: string; panel: string }>
+> = {
+  'body-info': { trigger: '#info-trigger', panel: '#body-info' },
+  'orbit-options': { trigger: '#settings-trigger', panel: '#orbit-options' },
+  'weather-layers': { trigger: '#weather-trigger', panel: '#weather-layers' },
+  'earth-events': {
+    trigger: '#earth-events-trigger',
+    panel: '#earth-events',
+  },
+  events: { trigger: '#events-trigger', panel: '#astronomical-events' },
+  help: { trigger: '#help-btn', panel: '#help-popover' },
+};
+
+function positionContextualSurface(id: SecondaryOverlayId): void {
+  const anchor = CONTEXTUAL_SURFACE_ANCHORS[id];
+  if (!anchor) return;
+
+  const trigger = document.querySelector<HTMLElement>(anchor.trigger);
+  const panel = document.querySelector<HTMLElement>(anchor.panel);
+  if (!trigger || !panel) return;
+
+  const triggerRect = trigger.getBoundingClientRect();
+  const gap = 8;
+  panel.style.setProperty(
+    '--surface-anchor-top',
+    `${Math.round(triggerRect.top)}px`
+  );
+  panel.style.setProperty(
+    '--surface-anchor-right',
+    `${Math.max(8, Math.round(window.innerWidth - triggerRect.left + gap))}px`
+  );
+  // Hauteur réellement disponible entre le haut de la surface et le dock du bas. Sur un
+  // téléphone étroit, l'aide (ancrée bas dans la colonne) descendait jusqu'au sélecteur
+  // Éduc/Explo. Le haut reprend la borne de la feuille de style (sous la rangée « Vue globale /
+  // recherche », à l'écart de la colonne d'outils) : 4 px, soit `--sp-1`.
+  const topRow = document.querySelector<HTMLElement>('.dock--top-left');
+  const bottomDock = document.querySelector<HTMLElement>('.dock--bottom');
+  const top = Math.max(
+    triggerRect.top,
+    topRow ? topRow.getBoundingClientRect().bottom + 4 : 0
+  );
+  let floor = bottomDock
+    ? bottomDock.getBoundingClientRect().top - gap
+    : window.innerHeight - gap;
+  // La fiche décrit le corps SUIVI, que la caméra centre à l'écran : elle ne descend pas sous
+  // le milieu, sinon elle cache ce qu'elle décrit et prend pour elle les gestes du centre de
+  // la scène (défaut attrapé par `touch.spec.ts` et `surfaceImagery.spec.ts`).
+  if (id === 'body-info')
+    floor = Math.min(floor, Math.round(window.innerHeight / 2) - gap);
+  panel.style.setProperty(
+    '--surface-anchor-max-height',
+    `${Math.max(160, Math.round(floor - top))}px`
+  );
+}
+
+/**
+ * LE CHROME DE L'INTERFACE : tout ce qui s'affiche avant que la scène existe, donc tout ce qui
+ * porte du TEXTE au démarrage.
+ *
+ * Regroupé dans une fonction, et non laissé au corps du module, pour une raison mesurée au lot
+ * 20 : le dictionnaire de la langue active arrive désormais par le réseau, et il doit être là
+ * avant le premier libellé. Attendre au corps du module demanderait un `await` de premier
+ * niveau, que la cible de build de ce projet REFUSE (« Top-level await is not available in the
+ * configured target environment ("chrome87", "edge88", "es2020", "firefox78", "safari14") »).
+ * Relever cette cible reviendrait à cesser de servir des navigateurs de 2020 — un iPad d'école
+ * sous Safari 14 — pour une commodité d'écriture : c'est exactement l'échange que ce dépôt
+ * refuse. L'attente vit donc dans `loadApp`, qui est asynchrone depuis toujours.
+ */
+function wireChrome(): {
+  overlayCoordinator: ReturnType<typeof setupOverlayCoordinator>;
+  guidedTour: ReturnType<typeof setupGuidedTour>;
+} {
+  // Traduit les chaînes statiques du HTML avant tout et synchronise <html lang> ; les modules
+  // dynamiques (loader, bodyInfo…) se retraduisent ensuite via leurs propres abonnements.
+  initStaticI18n();
+  setupLangSwitch();
+  clearRetiredStorage();
+  setupFullscreen();
+  const overlayCoordinator = setupOverlayCoordinator();
+  setupHelp(overlayCoordinator);
+  const guidedTour = setupGuidedTour();
+  // Fermeture au clic extérieur d'une surface contextuelle.
+  //   - Mobile : le scrim est une couche tactile plein écran (tap hors feuille = fermer).
+  //   - Desktop : le scrim est volontairement transparent aux évènements (il ne doit pas
+  //     bloquer la molette/rotation sur la scène) ; on capte donc le clic extérieur au niveau
+  //     du document, en ignorant les clics dans une surface ou sur un déclencheur du dock.
+  const surfaceScrim = document.getElementById('surface-scrim');
+  if (surfaceScrim) {
+    let activeSurfaceId: SecondaryOverlayId | null = null;
+    overlayCoordinator.onOpen((id) => {
+      activeSurfaceId = id;
+      if (id) positionContextualSurface(id);
+      surfaceScrim.hidden = id === null;
+    });
+    window.addEventListener('resize', () => {
+      if (activeSurfaceId) positionContextualSurface(activeSurfaceId);
+    });
+    // Couche tactile mobile.
+    surfaceScrim.addEventListener('click', () => overlayCoordinator.closeAll());
+
+    // Clic extérieur desktop : seul un clic DANS LA SCÈNE (canvas WebGL) ferme la surface
+    // ouverte. Les autres docks (modes, temps, plein écran) laissent la surface en place —
+    // basculer de mode ou lire l'heure ne doit pas refermer la fiche ou les réglages. Les
+    // déclencheurs gèrent eux-mêmes leur bascule. `pointerdown` pour devancer le focus.
+    document.addEventListener('pointerdown', (event) => {
+      if (surfaceScrim.hidden) return; // aucune surface ouverte
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'CANVAS') overlayCoordinator.closeAll();
+    });
+  }
+
+  return { overlayCoordinator, guidedTour };
+}
+
+(async function loadApp(): Promise<void> {
+  try {
+    // LE DICTIONNAIRE DE LA LANGUE DÉTECTÉE, AVANT TOUT LE RESTE (lot 20). Le premier texte
+    // qu'un visiteur voit est celui du chargeur, et le chargeur ne se retraduit pas : il
+    // disparaît. Traduire après coup laisserait donc un démarrage anglais chez un
+    // hispanophone, définitivement. Mesuré par `e2e/i18n-locales.spec.ts`, qui relève la
+    // séquence complète des libellés du chargeur.
+    // Le texte du catalogue suit la langue, et il est chargé AVEC son dictionnaire (lot 20) :
+    // le bundle ne porte que l'anglais des fiches, les trois autres langues sont dérivées au
+    // build. Enregistré ici, avant l'attente, parce que c'est la racine de composition qui a le
+    // droit de connaître à la fois `i18n` et `config`.
+    onLocaleLoading(async (locale) => {
+      await hydrateCatalogueText(locale);
+    });
+    await initLocale();
+    const { overlayCoordinator, guidedTour } = wireChrome();
+
+    updateProgress(0, t('loader.init'));
+
+    const app = new SolarSystemApp();
+    // La date que l'adresse demande est connue AVANT le démarrage, et elle décide quelle
+    // fenêtre d'éphéméride charger (lot 17C). Démarrer à aujourd'hui pour sauter ensuite en
+    // chargeait deux, la seconde pendant la première image : 8,4 s mesurées sur une page
+    // d'éclipse avant correction.
+    const api = await app.init(
+      updateProgress,
+      requestedSceneDate(window.location.pathname, window.location.search)
+    );
+    const {
+      cameraSystem,
+      animationSystem,
+      sceneSystem,
+      orbitalMechanics,
+      horizonsEphemeris,
+      textureSystem,
+    } = api;
+    setupTextureLoadState(cameraSystem.renderer.domElement, textureSystem);
+    setupSolarDebug(api);
+    setupGeoDebug(api);
+    setupEarthDebug(api);
+    setupTerminatorProbe(api);
+    setupSurfaceProbe(api);
+    setupContextRecovery(sceneSystem);
+    // Dit à l’écran, sans ouvrir de fiche, quand des éphémérides ne sont pas arrivées, et
+    // depuis la phase 17D quand la date ATTEND ses octets, ce qui n'est pas la même chose.
+    const ephemerisNotice = setupEphemerisNotice(api);
+
+    // Registre des COUCHES MÉTÉO de la Terre. Chaque `setup*` monte sa couche (données
+    // GIBS/Open-Meteo synchronisées sur la date de simulation, repli statique hors-ligne)
+    // et renvoie un `WeatherLayerHandle` uniforme. On les collecte dans l'ordre d'affichage :
+    // - nuages réels (NASA GIBS), affichés par défaut ;
+    // - pluie mondiale (NASA IMERG), affichée par défaut ;
+    // - vent (particules Open-Meteo) : null si désactivé (WIND_SETTINGS) ou Terre absente ;
+    // - température de surface (MERRA-2) : chargée en fond, masquée par défaut.
+    // Le panneau météo construit ses toggles par simple itération sur ce tableau.
+    const weatherLayers = [
+      setupRealtimeClouds(api),
+      setupCloudModelLayer(api),
+      setupPrecipLayer(api),
+      setupPrecipModelLayer(api),
+      setupWindLayer(api),
+      setupThermalLayer(api),
+      setupThermalModelLayer(api),
+      setupPressureModelLayer(api),
+      setupHumidityModelLayer(api),
+    ].filter((layer): layer is WeatherLayerHandle => layer !== null);
+
+    // Chaque couche satellite/GIBS et son équivalent MODÈLE sont mutuellement exclusifs (ils
+    // partagent le même mesh Terre) : nuages, pluie. Les couches modèle COLORÉES (température,
+    // pression, humidité) partagent TOUTES le mesh `thermal` → un seul groupe les rend exclusives
+    // entre elles ET avec la couche satellite température (activer l'une masque les autres).
+    setupWeatherLayers(
+      api,
+      {
+        layers: weatherLayers,
+        exclusiveGroups: [
+          ['clouds', 'clouds-model'],
+          ['precip', 'precip-model'],
+          ['thermal', 'thermal-model', 'pressure-model', 'humidity-model'],
+        ],
+      },
+      overlayCoordinator
+    );
+
+    setupMeteoDebug(api, weatherLayers);
+
+    // Fiche d'info par corps : s'ouvre pour toute sélection (barre, clic 3D, label Explo),
+    // se ferme sur retour Vue Globale. Toutes les sources passent par planetNav.selectBody.
+    let syncPermalink = (): void => undefined;
+    const bodyInfo = setupBodyInfo(overlayCoordinator);
+    setupPositionProvenance(api, bodyInfo);
+    // Les blocs Découverte, Missions, Instruments et Formations observées (lots 40 à 44), en un
+    // morceau chargé à la PREMIÈRE ouverture d'une fiche : aucun n'agit avant, et le budget du
+    // démarrage n'avait plus la marge de les payer (cf. ui/cardBlocks). Un échec de chargement se
+    // retente, espacé : une panne réseau passagère ne doit pas éteindre ces blocs pour la visite.
+    let cardBlocks: 'idle' | 'loading' | 'ready' = 'idle';
+    let cardBlocksRetryAt = 0;
+    api.animationSystem.onFrame(() => {
+      if (cardBlocks !== 'idle' || !bodyInfo.currentBody()) return;
+      if (performance.now() < cardBlocksRetryAt) return;
+      cardBlocks = 'loading';
+      void import('./ui/cardBlocks')
+        .then((module) => {
+          module.setupCardBlocks(api, bodyInfo);
+          cardBlocks = 'ready';
+        })
+        .catch((error: unknown) => {
+          Logger.warn(`[Fiche] blocs indisponibles : ${String(error)}`);
+          cardBlocks = 'idle';
+          cardBlocksRetryAt = performance.now() + 5000;
+        });
+    });
+    const exploScaleBadge = setupExploScaleBadge();
+    // Le titre de l'onglet suit la sélection, comme le chemin de l'URL : depuis que celui-ci
+    // change sans rechargement, un titre figé ferait dire deux choses différentes à l'adresse
+    // et à l'onglet (cf. ui/documentTitle).
+    const documentTitle = setupDocumentTitle();
+    // Le titre de niveau 1 traduit et le repère principal de la page (lot 19, D2 et D3).
+    setupDocumentChrome();
+    // Ce que l'application DIT quand elle change d'état (lot 19, D4, D6 et D11).
+    const announcer = getAnnouncer();
+    const planetNav = setupPlanetControls(
+      cameraSystem,
+      (name) => {
+        if (name === 'overview') bodyInfo.hide();
+        else bodyInfo.show(name);
+        exploScaleBadge.setHasTarget(name !== 'overview');
+        documentTitle.setBody(name);
+        syncPermalink();
+        // Choisir un corps ouvre sa fiche, change l'onglet et change l'adresse, et jusqu'au
+        // lot 19 tout cela se faisait EN SILENCE : la passe NVDA a mesuré 2 500 ms sans un mot
+        // après la sélection (défaut D4). La fiche prend le focus de son côté ; ici on dit ce
+        // qui vient de se passer, ce que le seul déplacement du focus ne suffirait pas à
+        // expliquer.
+        if (name !== 'overview') {
+          announcer.announce(
+            t('a11y.bodySelected', { name: bodyDisplayName(name) })
+          );
+        }
+      },
+      overlayCoordinator
+    );
+    /**
+     * Ce que la connexion soutient comme vitesse de lecture (§ 9b du plan du lot 17, option (c)
+     * tranchée le 2026-09-24). La composition est le seul endroit qui connaisse À LA FOIS le
+     * service d'éphémérides et le curseur : le calcul, lui, est pur (`core/playbackBudget`).
+     *
+     * Appelée à chaque image, donc gardée : la somme sur les corps couverts ne se refait que si
+     * le débit mesuré ou le JOUR affiché a changé. Le débit ne bouge qu'à la fin d'une requête.
+     */
+    let lastRate: number | null = null;
+    let lastDay = Number.NaN;
+    let lastCeiling: number | null = null;
+    const playbackCeiling = (): number | null => {
+      const rate = horizonsEphemeris.observedBytesPerSecond;
+      const date = orbitalMechanics.simulationDate;
+      const day = Math.floor(date.getTime() / 86_400_000);
+      if (rate === lastRate && day === lastDay) return lastCeiling;
+      lastRate = rate;
+      lastDay = day;
+      const grids = horizonsEphemeris.budgetGrids(date);
+      lastCeiling = sustainableTimeScale({
+        bytesPerSecond: rate,
+        perSimulatedDay: bytesPerSimulatedDay(grids),
+        bodyCount: grids.length,
+        maxTimeScale: MAX_SIMULATION_SCALE,
+      });
+      return lastCeiling;
+    };
+    const playback = setupPlayback(
+      animationSystem,
+      orbitalMechanics,
+      playbackCeiling
+    );
+    setupTimePanel(
+      orbitalMechanics,
+      playback,
+      () => {
+        syncPermalink();
+      },
+      overlayCoordinator
+    );
+
+    // Clic 3D : sélectionner un corps en cliquant son mesh (surtout en Éducatif), via la
+    // même commande de navigation partagée que la barre et les labels.
+    const bodyNames = new Set(
+      [...flattenBodies(CELESTIAL_CONFIG).entries()]
+        .filter(([, cfg]) => cfg.kind !== 'skybox')
+        .map(([name]) => name)
+    );
+    // Le clic 3D est câblé plus bas, après les couches instrument : le picker consulte leurs
+    // marqueurs avant de lancer un rayon (cf. `ui/bodyPicker.ts`).
+
+    // HUD de labels projetés — actif en Éducatif ET Exploration.
+    // En Éducatif : labels texte au-dessus de chaque corps avec mesh.
+    // En Exploration : point + texte pour tous les corps (corps invisible à l'œil nu).
+    const exploHud = new ExploHud(planetNav, cameraSystem.renderer.domElement);
+    exploHud.mount();
+    // Filtre éduc : corps avec mesh uniquement (planètes, naines texturées — pas astéroïdes/comètes).
+    exploHud.setEducFilter(
+      new Set(
+        [...flattenBodies(CELESTIAL_CONFIG).entries()]
+          .filter(([, cfg]) => cfg.kind !== 'skybox')
+          .map(([name]) => name)
+      )
+    );
+    exploHud.setMode('educ');
+    exploHud.setActive(true);
+    setupRenderExposure(sceneSystem, cameraSystem);
+    setupColorblindToggle(sceneSystem);
+    setupUnitsToggle();
+    setupQualitySection(sceneSystem);
+    // « Préparer le hors-ligne » (lot 17E) : depuis 17C les fenêtres sont servies en 206, que
+    // ni le cache du navigateur ni le service worker ne gardent. Cette section rend le
+    // hors-ligne, à la DEMANDE, et dit ce que l'appareil tient déjà.
+    setupOfflineData(api.horizonsEphemeris);
+
+    // Champ de masse des petits corps — couche instrument 2D, chargée en tâche de fond depuis
+    // l'INSTANTANÉ livré (`/assets/small-bodies/dataset.json`, relevé au build). L'application
+    // ne contacte plus JPL : son API répond sans en-tête CORS, et la couche était donc vide en
+    // production (cf. `core/sbdb.ts`). Dégradation propre : si le chargement échoue, l'overlay
+    // reste vide et le panneau n'annonce aucune date.
+    const smallBodyOverlay = new SmallBodyOverlay();
+    smallBodyOverlay.mount();
+    const smallBodyFilters = setupSmallBodyFilters(smallBodyOverlay);
+    void loadSmallBodies().then((dataset) => {
+      smallBodyOverlay.setBodies(dataset.bodies);
+      smallBodyFilters.setDataset(dataset.retrieved, dataset.bodies.length);
+    });
+
+    // Événements terrestres (séismes USGS, événements rapportés NASA EONET) — couche
+    // instrument 2D posée sur la surface RENDUE de la Terre, donc derrière sa phase de
+    // rotation. Les deux couches sont éteintes au départ et ne demandent RIEN tant qu'on ne
+    // les allume pas : le socle daté n'est créé qu'à l'activation (cf. `ui/earthEvents.ts`).
+    const earthEventLayers = [earthquakeLayer(), naturalEventLayer()];
+    const earthEventsOverlay = new EarthEventsOverlay(earthEventLayers);
+    earthEventsOverlay.mount();
+
+    /**
+     * Les corps qui portent des formations nommées, et leur rayon publié.
+     *
+     * Le manifeste DIT lesquels ; le catalogue donne le rayon. Un corps présent dans l'un et
+     * pas dans l'autre ne s'affiche simplement pas, ce que `config/gazetteer.test.ts` interdit
+     * par ailleurs — on ne fabrique pas ici une seconde liste qui pourrait diverger.
+     */
+    const gazetteerRadii = new Map<string, number>();
+    const named = new Set(Object.keys(gazetteerIndex.bodies));
+    for (const [name, cfg] of flattenBodies(CELESTIAL_CONFIG)) {
+      const km = cfg.realData?.radiusKm;
+      if (km && named.has(name)) gazetteerRadii.set(name, km);
+    }
+    const gazetteerOverlay = new GazetteerOverlay(gazetteerRadii);
+    gazetteerOverlay.mount();
+    setupGazetteerToggle(gazetteerOverlay);
+    setupEarthEvents(
+      api,
+      earthEventLayers,
+      earthEventsOverlay,
+      overlayCoordinator
+    );
+
+    // Couche instrument 2D des sondes spatiales — positions réelles Horizons (mêmes binaires
+    // que planètes/lunes), jamais avant leur lancement (getHeliocentricAU renvoie null hors
+    // couverture, cf. spacecraftOverlay.ts).
+    const spacecraftOverlay = new SpacecraftOverlay(SPACECRAFT_MISSIONS);
+    spacecraftOverlay.mount();
+    // Actives dans les DEUX modes depuis que les sondes sont ciblables : sélectionner une sonde
+    // en Éducatif ouvrait sinon une vue sur un point que rien ne dessinait. Les objets
+    // interstellaires suivaient déjà cette règle, pour une raison voisine.
+    spacecraftOverlay.setActive(true);
+
+    // Objets interstellaires — couche instrument 2D active dans les DEUX modes : leur
+    // trajectoire ouverte se lit justement dans la vue compressée (cf. interstellarOverlay.ts).
+    const interstellarOverlay = new InterstellarOverlay();
+    interstellarOverlay.mount();
+    interstellarOverlay.setActive(true);
+
+    // Imagerie de surface streamée (lot 9, phase 9C) : une bascule de réglage, un bandeau de
+    // provenance, et un `import()` dynamique du moteur à l'approche. Rien n'est demandé au
+    // démarrage, ni tant qu'aucun corps n'est approché de près.
+    setupSurfacePanel(api);
+
+    // Ancres invisibles des sondes et des interstellaires : ce qui les rend CIBLABLES par la
+    // commande de navigation partagée, sans leur donner le moindre pixel (cf.
+    // `ui/navigableAnchors.ts`). Elles se placent par la même fonction que les marqueurs.
+    // Une sonde en orbite autour d'un corps s'y pose comme une lune en Éducatif ; la position du
+    // corps vient de la règle même qui le dessine (cf. `core/instrumentPlacement.ts`).
+    const placeInstrument = spacecraftPlacer(
+      SPACECRAFT_MISSIONS,
+      CELESTIAL_CONFIG.bodies,
+      (name, date) => orbitalMechanics.heliocentricAU(name, date)
+    );
+    const navigableAnchors = createNavigableAnchors(
+      sceneSystem.scene,
+      horizonsEphemeris,
+      placeInstrument
+    );
+    cameraSystem.registerTargets(navigableAnchors.targets);
+    // Une sonde n'existe pas à toute date. La palette grise ce qui n'a pas de position à la
+    // date courante plutôt que d'emmener la caméra sur la dernière position connue.
+    const instrumentNames = [...NAVIGABLE_TARGETS.keys()];
+    navigableAnchors.onAvailabilityChange((available) =>
+      planetNav.setUnavailable(
+        new Set(instrumentNames.filter((name) => !available.has(name)))
+      )
+    );
+
+    setupBodyPicker(
+      sceneSystem.scene,
+      cameraSystem.camera,
+      cameraSystem.renderer.domElement,
+      planetNav,
+      bodyNames,
+      [
+        (x, y) => spacecraftOverlay.markerAt(x, y),
+        (x, y) => interstellarOverlay.markerAt(x, y),
+      ]
+    );
+
+    // Réglages : appelé ICI, après les couches instrument, parce que son tableau pilote
+    // désormais leurs marqueurs et leurs noms autant que les corps de la scène.
+    setupOrbitOptions(
+      sceneSystem,
+      exploHud,
+      [spacecraftOverlay, interstellarOverlay],
+      overlayCoordinator
+    );
+
+    // Le bloc live de la fiche (distance réelle + temps-lumière) n'a de sens qu'en Explo,
+    // pour la cible suivie ; en Éducatif ou en vue libre on passe `null` → bloc masqué.
+    let currentMode: 'educ' | 'explo' = 'educ';
+    // Les couches d'instrument Explo suivent le MORPH, pas le mode : elles apparaissent dès que
+    // la transition démarre et glissent avec les corps jusqu'à leur position finale. Pilotées
+    // par le mode seul, leurs marqueurs sautaient à l'échelle Explo pendant que les planètes
+    // bougeaient encore, et disparaissaient d'un coup au retour vers l'Éducatif.
+    let exploOverlaysVisible = false;
+    // Place occupée COMMUNE à toutes les couches de libellés, remise à zéro à chaque image :
+    // les libellés DOM du HUD et ceux dessinés au canvas s'ignoraient et se recouvraient.
+    const labelSpace = new LabelSpace();
+    exploHud.setLabelSpace(labelSpace);
+    animationSystem.onFrame(() => {
+      const morph = orbitalMechanics.scaleMorph;
+      // Phase 17D : le curseur se plafonne à ce que le lien soutient, et la date qui attend le
+      // DIT. Les deux sont relus par image mais ne recalculent que sur changement.
+      playback.syncCeiling();
+      ephemerisNotice.setWaiting(orbitalMechanics.waitingForDataSeconds);
+      labelSpace.reset();
+      const wantOverlays = morph > 0;
+      if (wantOverlays !== exploOverlaysVisible) {
+        exploOverlaysVisible = wantOverlays;
+        smallBodyOverlay.setActive(wantOverlays);
+      }
+      // AVANT les couches 2D et la caméra : les ancres et les marqueurs doivent décrire la
+      // même position à la même frame.
+      navigableAnchors.update(orbitalMechanics.simulationDate, morph);
+      exploHud.update(cameraSystem.camera, cameraSystem, sceneSystem);
+      // L'objet sélectionné est toujours peint et nommé, même quand le tableau le masque
+      // (cf. `ui/defaultDisplay.ts`) : le HUD applique déjà cette exception aux corps.
+      spacecraftOverlay.setTarget(cameraSystem.targetName);
+      interstellarOverlay.setTarget(cameraSystem.targetName);
+      smallBodyOverlay.update(
+        cameraSystem.camera,
+        orbitalMechanics.simulationDate,
+        morph
+      );
+      spacecraftOverlay.update(
+        cameraSystem.camera,
+        orbitalMechanics.simulationDate,
+        horizonsEphemeris,
+        placeInstrument,
+        morph,
+        labelSpace
+      );
+      interstellarOverlay.update(
+        cameraSystem.camera,
+        orbitalMechanics.simulationDate,
+        morph,
+        labelSpace
+      );
+      // APRÈS les couches globales : leurs libellés sont prioritaires dans la place commune,
+      // et les événements terrestres ne se peignent de toute façon qu'une fois la Terre assez
+      // grande à l'écran (zoom sémantique, cf. `EarthEventLayer.minEarthRadiusPx`).
+      earthEventsOverlay.update(
+        cameraSystem.camera,
+        sceneSystem.getBody('earth') ?? null,
+        labelSpace
+      );
+      // EN DERNIER : les noms de surface sont l'information la moins urgente de l'écran, donc
+      // ils prennent la place qui RESTE. Un nom de cratère ne doit jamais chasser le libellé
+      // d'un corps ni celui d'une sonde.
+      gazetteerOverlay.draw(
+        cameraSystem.camera,
+        cameraSystem.targetName
+          ? (sceneSystem.getBody(cameraSystem.targetName) ?? undefined)
+          : undefined,
+        cameraSystem.targetName,
+        labelSpace
+      );
+      bodyInfo.updateLive(
+        currentMode === 'explo'
+          ? cameraSystem.getDistanceToTargetSceneUnits()
+          : null
+      );
+    });
+    const opticalZoom = setupOpticalZoom(cameraSystem);
+    const webxr = setupWebXR(
+      cameraSystem,
+      sceneSystem,
+      animationSystem,
+      planetNav,
+      bodyNames
+    );
+    const exploTourNudge = setupExploTourNudge();
+    const modeSwitcher = setupModeSwitcher(
+      orbitalMechanics,
+      cameraSystem,
+      (mode) => {
+        currentMode = mode;
+        opticalZoom.setMode(mode);
+        exploHud.setMode(mode); // change le style des labels (éduc ↔ explo), reste actif
+        // La VISIBILITÉ des couches d'instrument suit le morph (voir la boucle de frame).
+        webxr.setMode(mode);
+        exploScaleBadge.setMode(mode);
+        if (mode === 'explo') exploTourNudge.notifyExploEntered();
+        syncPermalink();
+      }
+    );
+
+    const permalink = setupPermalinks(
+      orbitalMechanics,
+      planetNav,
+      modeSwitcher,
+      // Depuis le 2026-10-03 tout ce qui se sélectionne a sa page, sondes et interstellaires
+      // compris : la liste des adresses gardées et celle des cibles sélectionnables sont la même.
+      LANDING_PAGE_BODIES,
+      cameraSystem,
+      {
+        playback,
+        onEclipseAddress: (event) => documentTitle.setEclipse(event),
+      },
+      LANDING_PAGE_BODIES
+    );
+    syncPermalink = permalink.sync;
+    permalink.applyInitialState();
+    setupShare(cameraSystem, permalink);
+    setupCapture(cameraSystem, orbitalMechanics, planetNav);
+    setupAstronomicalEvents(orbitalMechanics, {
+      onDateChange: () => syncPermalink(),
+      coordinator: overlayCoordinator,
+      navigation: planetNav,
+      playback,
+    });
+    setupTourPlayer(
+      cameraSystem,
+      orbitalMechanics,
+      planetNav,
+      TOUR_SCRIPTS,
+      permalink,
+      modeSwitcher
+    );
+    hideLoader();
+    guidedTour.startIfFirstVisit();
+  } catch (err) {
+    showError(err instanceof Error ? err : new Error(String(err)));
+  }
+})();

@@ -1,0 +1,86 @@
+/**
+ * ROUTAGE DU SERVICE WORKER POUR LES PAGES D'ATTERRISSAGE — build uniquement, lu par la
+ * configuration VitePWA de `vite.config.ts`.
+ *
+ * Deux règles, et chacune a déjà été fausse une fois pour la même raison : écrite pour la
+ * forme `/jupiter/` (UN segment), elle ne voyait pas `/eclipse/2026-08-12/` (DEUX). Rien ne
+ * cassait — ni test, ni e2e, ni build — et l'effet ne se voit que chez un visiteur revenu :
+ *
+ *   - `LANDING_PAGE_GLOB_IGNORES` : ces pages sont des quasi-copies d'`index.html`. Les
+ *     précacher gonflait l'installation hors ligne de 1,1 à 3,1 Mio (mesuré : 27 → 80
+ *     entrées) pour un contenu que l'app shell couvre déjà.
+ *   - `NAVIGATE_FALLBACK_DENYLIST` : ce sont de VRAIS fichiers. Sans exclusion, un visiteur
+ *     qui a déjà le service worker reçoit l'`index.html` en cache, donc les balises de tête
+ *     de l'accueil, au lieu de la page demandée. L'application ouvre quand même la bonne
+ *     vue (le chemin suffit), mais le document servi est le mauvais.
+ *
+ * `pwaRouting.test.ts` confronte les deux listes à TOUTES les pages que le build produit.
+ * Pas d'import ici : `vite.config.ts` le charge avant que l'alias `@/` n'existe.
+ */
+
+/** Segment des pages d'éclipse — le même que `core/eclipsePages.ts::ECLIPSE_PATH_SEGMENT`. */
+const ECLIPSE_SEGMENT = 'eclipse';
+
+/**
+ * Segment des pages de mission (`/missions/voyager/`), le même que
+ * `documentPage.ts::MISSIONS_SLUG`. Deux segments, comme les éclipses : la forme exacte qui a
+ * déjà échappé une fois à ces deux listes.
+ */
+const MISSIONS_SEGMENT = 'missions';
+
+/** Les rubriques dont les pages vivent DEUX segments sous la racine, ou sous la langue. */
+const NESTED_SEGMENTS = [ECLIPSE_SEGMENT, MISSIONS_SEGMENT];
+
+/**
+ * Préfixes des pages documentaires NON anglaises (`/fr/methodology/`, `/es/…`, `/pt-br/…`).
+ *
+ * Écrits ici en dur, et c'est délibéré : ce module est chargé par `vite.config.ts` AVANT que
+ * l'alias `@/` existe, donc il ne peut pas lire `i18n/locales`. `pwaRouting.test.ts` confronte
+ * cette liste aux pages que le build produit VRAIMENT, et rougit si une langue y manque — c'est
+ * exactement le mode de panne que ce module documente en tête : rien ne casse, et seul un
+ * visiteur revenu reçoit l'app shell au lieu de la page demandée.
+ */
+const LOCALISED_SEGMENTS = ['fr', 'es', 'pt-br'];
+
+/**
+ * Morceau du résumé de validation Horizons (`config/horizons-validation-summary.json`), chargé
+ * à la demande par la fiche : 11 Kio compressés que personne ne doit payer à l'installation
+ * pour ouvrir une fiche qu'il n'ouvrira peut-être jamais. Conséquence assumée : hors ligne et
+ * avant tout chargement, la fiche masque son bloc « Position à cette date » plutôt que
+ * d'inventer un écart.
+ */
+const VALIDATION_SUMMARY_GLOB = 'assets/horizons-validation-summary-*.js';
+
+/** Fichiers générés à NE PAS précacher (motifs glob, relatifs à `dist/`). */
+export const LANDING_PAGE_GLOB_IGNORES: string[] = [
+  '*/index.html',
+  ...NESTED_SEGMENTS.map((nested) => `${nested}/*/index.html`),
+  ...LOCALISED_SEGMENTS.map((segment) => `${segment}/*/index.html`),
+  // Les éclipses et les missions traduites ont TROIS segments : `es/eclipse/2026-08-12/index.html`.
+  ...LOCALISED_SEGMENTS.flatMap((segment) =>
+    NESTED_SEGMENTS.map((nested) => `${segment}/${nested}/*/index.html`)
+  ),
+  VALIDATION_SUMMARY_GLOB,
+];
+
+/** Navigations à NE PAS remplacer par l'app shell en cache. */
+export const NAVIGATE_FALLBACK_DENYLIST: RegExp[] = [
+  /^\/privacy\.html$/,
+  // Un segment unique sans point : les pages de corps, sans toucher `/`, `/assets/…` ni les
+  // fichiers.
+  /^\/[^/.]+\/?$/,
+  ...NESTED_SEGMENTS.map((nested) => new RegExp(`^\\/${nested}\\/[^/.]+\\/?$`)),
+  // Les pages documentaires anglaises (`/methodology/`) tombent déjà sous la règle à un segment.
+  ...LOCALISED_SEGMENTS.map(
+    (segment) => new RegExp(`^\\/${segment}\\/[^/.]+\\/?$`)
+  ),
+  // Les pages d'éclipse et de mission traduites ont TROIS segments (`/es/eclipse/2026-08-12/`) :
+  // c'est exactement le motif qui avait déjà été manqué une fois, décrit en tête de ce module.
+  ...LOCALISED_SEGMENTS.flatMap((segment) =>
+    NESTED_SEGMENTS.map(
+      (nested) => new RegExp(`^\\/${segment}\\/${nested}\\/[^/.]+\\/?$`)
+    )
+  ),
+];
+
+export const ECLIPSE_SEGMENT_FOR_TESTS = ECLIPSE_SEGMENT;

@@ -1,0 +1,47 @@
+import { expect, test, type Page } from '@playwright/test';
+import { blockExternalNetwork } from './netBlock';
+
+// La visite guidée du premier lancement est neutralisée (son backdrop plein écran
+// intercepterait sinon les clics sur les overlays testés ici).
+test.beforeEach(async ({ page }) => {
+  await blockExternalNetwork(page);
+  await page.addInitScript(() => {
+    localStorage.setItem('ssv-guided-tour-v1', '1');
+    localStorage.setItem('ssv-explo-tour-nudge-v1', '1');
+  });
+});
+
+async function boot(page: Page): Promise<void> {
+  await page.goto('/');
+  await expect(page.locator('#loader')).toBeHidden({ timeout: 30_000 });
+}
+
+test('interactive overlays expose state and close with Escape', async ({
+  page,
+}) => {
+  await boot(page);
+
+  await expect(page.locator('.mode-btn[data-mode="educ"]')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+  await page.locator('.mode-btn[data-mode="explo"]').click();
+  await expect(page.locator('.mode-btn[data-mode="explo"]')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
+
+  const eventsToggle = page.locator('#events-trigger');
+  await eventsToggle.click();
+  const eventsPanel = page.locator('#astronomical-events');
+  await expect(eventsPanel).toBeVisible();
+  await expect(eventsPanel).toHaveAttribute(
+    'aria-labelledby',
+    'astronomical-events-title'
+  );
+  await expect(page.locator('.events-close')).toBeFocused();
+
+  await page.keyboard.press('Escape');
+  await expect(eventsPanel).toBeHidden();
+  await expect(eventsToggle).toBeFocused();
+});

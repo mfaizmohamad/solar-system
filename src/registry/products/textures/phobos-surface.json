@@ -1,0 +1,36 @@
+{
+  "$schema": "../../schema/product.schema.json",
+  "id": "phobos-surface",
+  "type": "texture",
+  "body": "phobos",
+  "layer": "surface",
+  "shipped": true,
+  "license": "other",
+  "rights": "public-domain",
+  "links": [
+    {
+      "rel": "license",
+      "href": "https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits"
+    }
+  ],
+  "providers": [
+    {
+      "name": "USGS Astrogeology / NASA Viking Orbiter (DLR control)",
+      "roles": [
+        "producer"
+      ]
+    }
+  ],
+  "tier": "free",
+  "review": {
+    "status": "ready",
+    "processing": "direct-jpeg-sample",
+    "downloadUrl": "https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/Phobos_Viking_Mosaic_40ppd_DLRcontrol.tif",
+    "sourcePage": "https://astrogeology.usgs.gov/search/map/phobos-mars-express-global-products",
+    "sourceResolution": "4.84 m/pixel global Viking mosaic, DLR control network",
+    "sourcePixelWidth": 14400,
+    "projection": "simple cylindrical",
+    "qualityClass": "native-candidate",
+    "note": "Largeur lue a l'etiquette PDS3 du produit (LINE_SAMPLES = 14400). La fiche citait jusqu'au lot 16 l'apercu 1024 px de la mosaique SRC 16 ppd (5760 px), d'ou le constat d'audit du lot 13 « 8k agrandi 1,42 fois » : c'etait la MAUVAISE source. Reimporter la mosaique Viking 40 ppd reproduit les quatre paliers livres octet pour octet, donc le 8k n'est pas un agrandissement."
+  }
+}

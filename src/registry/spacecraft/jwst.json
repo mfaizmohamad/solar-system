@@ -1,0 +1,65 @@
+{
+  "$schema": "../schema/spacecraft.schema.json",
+  "id": "jwst",
+  "targetClass": "spacecraft",
+  "displayName": {
+    "en": "James Webb Space Telescope",
+    "fr": "Télescope spatial James Webb",
+    "es": "Telescopio Espacial James Webb",
+    "pt-BR": "Telescópio Espacial James Webb"
+  },
+  "description": {
+    "en": "Launched in 2021, orbiting the Sun-Earth L2 point about 1.5 million km from Earth.",
+    "fr": "Lancé en 2021, en orbite autour du point de Lagrange L2, à environ 1,5 million de km de la Terre.",
+    "es": "Lanzado en 2021, en órbita alrededor del punto L2 del sistema Sol-Tierra, a unos 1,5 millones de km de la Tierra.",
+    "pt-BR": "Lançado em 2021, em órbita em torno do ponto L2 do sistema Sol-Terra, a cerca de 1,5 milhão de km da Terra."
+  },
+  "launchDate": "2021-12-25",
+  "color": "0x88ddff",
+  "identifiers": {
+    "naif": -170
+  },
+  "facts": {
+    "launchDate": {
+      "source": "nssdca-master-catalog",
+      "method": "measured",
+      "citation": "NSSDCA/COSPAR 2021-130A"
+    },
+    "launchVehicle": {
+      "value": "Ariane 5",
+      "source": "nssdca-master-catalog",
+      "method": "measured",
+      "citation": "NSSDCA/COSPAR 2021-130A"
+    },
+    "launchSite": {
+      "value": "Kourou, French Guiana",
+      "source": "nssdca-master-catalog",
+      "method": "measured",
+      "citation": "NSSDCA/COSPAR 2021-130A"
+    },
+    "massKg": {
+      "value": 6500,
+      "source": "nssdca-master-catalog",
+      "method": "measured",
+      "detail": "nssdcaFactsInBrief",
+      "citation": "NSSDCA/COSPAR 2021-130A"
+    }
+  },
+  "satelliteOf": [
+    {
+      "body": "earth",
+      "from": "2021-12-27T00:00:00Z",
+      "to": "2031-08-22T00:00:00Z"
+    }
+  ],
+  "coverage": {
+    "temporal": {
+      "interval": [
+        [
+          "2021-12-26T00:00:00Z",
+          "2031-08-23T00:00:00Z"
+        ]
+      ]
+    }
+  }
+}

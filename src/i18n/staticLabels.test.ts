@@ -1,0 +1,192 @@
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+import { message } from './allDictionaries';
+import { LOCALES } from './locales';
+
+/**
+ * LIBELLÉS STATIQUES DE `index.html` — traduits, et jamais périmés.
+ *
+ * Deux défauts que ce fichier attrape, tous deux réellement présents avant lui.
+ *
+ * 1. **Un libellé anglais figé.** Quatre éléments portaient un `aria-label` en dur SANS
+ *    `data-i18n-aria` : le dock (« Tools »), le curseur de vitesse (« Simulation speed »), le
+ *    panneau de réglages (« Display settings ») et le champ de recherche (« Search a body »).
+ *    Un utilisateur francophone se les entendait annoncer en anglais. Deux d'entre eux avaient
+ *    même déjà leur clé de traduction, inutilisée, à quelques lignes de là. Rien ne le
+ *    signalait : la page s'affiche, axe-core est content (le nom existe), et le test d'arbre
+ *    d'accessibilité aussi (il vérifie qu'un nom existe, pas qu'il est traduit).
+ *
+ * 2. **Un repli périmé.** Le HTML porte à la fois le texte anglais et la clé i18n : le texte
+ *    sert avant que `applyStaticI18n` ne passe, et si l'i18n échoue. C'est légitime — mais il
+ *    devient un mensonge dès que la valeur du dictionnaire change sans que le HTML suive. On
+ *    exige donc l'ÉGALITÉ avec la valeur anglaise, ce qui transforme une redondance en
+ *    garantie.
+ *
+ * Vérification purement STATIQUE : ni navigateur ni rendu, donc elle tourne dans `pnpm verify`
+ * en quelques millisecondes plutôt qu'en vingt minutes d'e2e.
+ */
+
+const html = readFileSync(
+  new URL('../../index.html', import.meta.url),
+  'utf-8'
+);
+
+/** Chaque balise ouvrante du document, avec ses attributs. */
+const TAGS = html.match(/<[a-z][a-z0-9]*\s[^>]*>/gi) ?? [];
+
+const attribute = (tag: string, name: string): string | null =>
+  tag.match(new RegExp(String.raw`\s` + name + '="([^"]*)"'))?.[1] ?? null;
+
+/** De quoi situer l'élément fautif dans le fichier sans faire lire le HTML entier. */
+const identify = (tag: string): string =>
+  attribute(tag, 'id') ?? attribute(tag, 'class') ?? tag.slice(0, 40);
+
+/** Les deux paires attribut visible → attribut de liaison i18n. */
+const BOUND: { label: string; binding: string }[] = [
+  { label: 'aria-label', binding: 'data-i18n-aria' },
+  { label: 'title', binding: 'data-i18n-title' },
+];
+
+/** Liaisons dont on ne vérifie que le repli : un `href` sans clé est la norme, pas un oubli. */
+const FALLBACK_ONLY: { label: string; binding: string }[] = [
+  { label: 'href', binding: 'data-i18n-href' },
+];
+
+describe('libellés statiques de index.html', () => {
+  it('couvre bien le document', () => {
+    // Si le HTML est réorganisé au point que ce test ne voit plus rien, il doit le dire au
+    // lieu de passer sur un ensemble vide.
+    expect(TAGS.length).toBeGreaterThan(100);
+    const labelled = TAGS.filter((tag) =>
+      BOUND.some(({ label }) => attribute(tag, label) !== null)
+    );
+    expect(labelled.length).toBeGreaterThan(20);
+  });
+
+  for (const { label, binding } of FALLBACK_ONLY)
+    it(`garde chaque ${label} lié identique à sa valeur anglaise`, () => {
+      const bound = TAGS.filter((tag) => attribute(tag, binding) !== null);
+      expect(bound.length).toBeGreaterThan(0);
+      for (const tag of bound)
+        expect(attribute(tag, label), identify(tag)).toBe(
+          message('en', attribute(tag, binding)!)
+        );
+    });
+
+  for (const { label, binding } of BOUND) {
+    it(`lie chaque ${label} à une clé de traduction`, () => {
+      const unbound = TAGS.filter(
+        (tag) =>
+          attribute(tag, label) !== null && attribute(tag, binding) === null
+      ).map((tag) => `${identify(tag)} → ${label}="${attribute(tag, label)}"`);
+
+      expect(
+        unbound,
+        `${label} figé en anglais : ajouter ${binding}="<clé>" (ou la clé existante si elle ` +
+          `existe déjà — deux de ces quatre cas l'avaient sous la main)`
+      ).toEqual([]);
+    });
+
+    it(`garde chaque ${label} identique à sa valeur anglaise`, () => {
+      const stale: string[] = [];
+      for (const tag of TAGS) {
+        const key = attribute(tag, binding);
+        const value = attribute(tag, label);
+        if (key === null || value === null) continue;
+        const english = message('en', key);
+        if (english === undefined) {
+          stale.push(`${identify(tag)} → clé inconnue "${key}"`);
+        } else if (english !== value) {
+          stale.push(
+            `${identify(tag)} → "${value}" ≠ en["${key}"] = "${english}"`
+          );
+        }
+      }
+      expect(
+        stale,
+        'le texte en dur sert de repli avant/sans i18n : périmé, il ment'
+      ).toEqual([]);
+    });
+  }
+
+  /**
+   * Même règle pour le TEXTE des éléments `data-i18n`, que les deux tests ci-dessus ne lisent
+   * pas (ils ne regardent que des attributs). C'est par ce trou qu'est passé
+   * `en['loader.stage.scene'] = 'Scène'` : le HTML disait « Scene », le dictionnaire anglais
+   * portait l'accent français, et un visiteur anglophone le lisait à chaque chargement.
+   */
+  it('garde le texte de chaque élément data-i18n identique à sa valeur anglaise', () => {
+    const decode = (text: string): string =>
+      text
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&hellip;/g, '…')
+        .replace(/&amp;/g, '&')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const elements = [
+      ...html.matchAll(
+        /<[a-z][a-z0-9]*\s[^>]*?\sdata-i18n="([^"]+)"[^>]*>([^<]*)</gi
+      ),
+    ];
+    // Un ensemble vide passerait en silence : on exige de voir les libellés du chargeur.
+    expect(elements.length).toBeGreaterThan(10);
+
+    const stale: string[] = [];
+    for (const [, key, raw] of elements) {
+      const text = decode(raw);
+      // Élément dont le texte vit dans des enfants : rien à comparer ici.
+      if (text === '') continue;
+      const english = message('en', key);
+      if (english === undefined) stale.push(`clé inconnue "${key}"`);
+      else if (english !== text)
+        stale.push(`"${text}" ≠ en["${key}"] = "${english}"`);
+    }
+    expect(stale).toEqual([]);
+  });
+
+  /**
+   * Sécurité des liens sortants, pas de l'i18n — mais c'est le seul endroit du dépôt qui lit
+   * `index.html` en statique, et un lien externe sans `rel` est une vraie faille : la page
+   * ouverte reçoit `window.opener` et peut remplacer l'onglet d'origine par une imitation
+   * (reverse tabnabbing). Deux liens sortants existent (Ko-fi, retour utilisateur) et rien ne
+   * vérifiait la règle.
+   */
+  it('protège chaque lien sortant contre le reverse tabnabbing', () => {
+    const external = TAGS.filter(
+      (tag) => /^<a\s/i.test(tag) && /\shref="https?:\/\//.test(tag)
+    );
+    // Si le document n'a plus de lien sortant, ce test doit le dire au lieu de passer à vide.
+    expect(external.length).toBeGreaterThan(0);
+
+    const unsafe = external
+      .filter((tag) => {
+        const rel = attribute(tag, 'rel') ?? '';
+        const tokens = rel.split(/[ ]+/);
+        return !tokens.includes('noopener') || !tokens.includes('noreferrer');
+      })
+      .map((tag) => `${identify(tag)} → rel="${attribute(tag, 'rel') ?? ''}"`);
+    expect(unsafe, 'ajouter rel="noopener noreferrer"').toEqual([]);
+
+    // Et ils s'ouvrent dans un nouvel onglet : quitter la scène 3D pour un lien externe ferait
+    // perdre l'état de la vue (corps, date, mode) sans avertissement.
+    const sameTab = external
+      .filter((tag) => attribute(tag, 'target') !== '_blank')
+      .map((tag) => identify(tag));
+    expect(sameTab, 'ajouter target="_blank"').toEqual([]);
+  });
+
+  // Toutes les langues livrées, et plus seulement le français : au lot 20 ce test ne regardait
+  // que `fr`, si bien qu'une clé du HTML absente de l'espagnol aurait été servie en anglais sans
+  // que rien ne le dise.
+  for (const locale of LOCALES.filter((candidate) => candidate !== 'en'))
+    it(`traduit en ${locale} chaque clé référencée par le HTML`, () => {
+      const missing = new Set<string>();
+      for (const tag of TAGS)
+        for (const { binding } of BOUND) {
+          const key = attribute(tag, binding);
+          if (key !== null && message(locale, key) === undefined)
+            missing.add(key);
+        }
+      expect([...missing]).toEqual([]);
+    });
+});

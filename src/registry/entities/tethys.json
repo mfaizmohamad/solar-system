@@ -1,0 +1,142 @@
+{
+  "$schema": "../schema/entity.schema.json",
+  "id": "tethys",
+  "targetClass": "satellite",
+  "source": "catalogue",
+  "config": {
+    "kind": "moon",
+    "displayName": {
+      "en": "Tethys",
+      "fr": "Téthys",
+      "es": "Tetis",
+      "pt-BR": "Tétis"
+    },
+    "radius": 0.16,
+    "rotationSpeed": {
+      "$rotationHours": {
+        "$days": 1.8878020501022104
+      }
+    },
+    "orbitalColor": "0xe3e0d6",
+    "fallbackColor": "0xd8d5cc",
+    "frame": "parentRelative",
+    "rotationBody": "Saturn",
+    "relativeEphemeris": {
+      "kind": "horizonsParentRelative"
+    },
+    "relativeOrbitalElements": {
+      "semiMajorAxisAU": 0.00197185976,
+      "eccentricity": 0.000999015,
+      "inclinationRad": {
+        "$deg": 27.2076
+      },
+      "ascendingNodeRad": {
+        "$deg": 171.0212
+      },
+      "argPerihelionRad": {
+        "$deg": 116.0616
+      },
+      "meanAnomalyAtEpochRad": {
+        "$deg": 5.1256
+      },
+      "epoch": {
+        "$date": "2025-12-31T00:00:00.000Z"
+      }
+    },
+    "textureResolutions": {
+      "surface": [
+        "8k",
+        "4k",
+        "2k",
+        "1k"
+      ]
+    },
+    "realData": {
+      "orbitalInclination": {
+        "$deg": 27.22072909012297
+      },
+      "ascendingNode": {
+        "$deg": 167.9977256763769
+      },
+      "description": {
+        "en": "An icy moon almost as bright as fresh snow, scarred by the vast Ithaca Chasma canyon and the Odysseus impact basin.",
+        "fr": "Une lune glacée presque aussi brillante que de la neige fraîche, marquée par le vaste canyon Ithaca Chasma et le bassin d’impact Odysseus.",
+        "es": "Una luna helada casi tan brillante como la nieve fresca, marcada por el vasto cañón Ithaca Chasma y la cuenca de impacto Odysseus.",
+        "pt-BR": "Uma lua gelada quase tão brilhante quanto neve fresca, marcada pelo vasto cânion Ithaca Chasma e pela bacia de impacto Odysseus."
+      },
+      "wiki": {
+        "en": "https://en.wikipedia.org/wiki/Tethys_(moon)",
+        "fr": "https://fr.wikipedia.org/wiki/T%C3%A9thys_(lune)",
+        "es": "https://es.wikipedia.org/wiki/Tetis_(sat%C3%A9lite)",
+        "pt-BR": "https://pt.wikipedia.org/wiki/T%C3%A9tis_(sat%C3%A9lite)"
+      }
+    },
+    "cameraDistance": {
+      "educ": 1,
+      "explo": {
+        "$cameraFromRadiusKm": 531.1
+      }
+    },
+    "loadPriority": 21
+  },
+  "facts": {
+    "radiusKm": {
+      "value": 531.1,
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "measured",
+      "uncertainty": 0.6
+    },
+    "massKg": {
+      "value": {
+        "$gm": 41.21353
+      },
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "derived",
+      "uncertainty": {
+        "$gm": 0.00031
+      },
+      "detail": "massFromGM"
+    },
+    "gravity": {
+      "value": {
+        "$gm": 41.21353,
+        "$radiusKm": 531.1
+      },
+      "source": "jpl-ssd-satellite-physical-parameters",
+      "method": "derived",
+      "detail": "gravityFromGM"
+    },
+    "meanTempC": {
+      "value": -187,
+      "source": "nasa-science-bodies",
+      "method": "measured",
+      "citation": "https://science.nasa.gov/saturn/moons/tethys/"
+    },
+    "axialTilt": {
+      "value": {
+        "$deg": 0.65
+      },
+      "source": "naif-pck",
+      "method": "derived",
+      "detail": "obliquityFromPole",
+      "citation": "pck00011.tpc, BODY603"
+    },
+    "distanceAU": {
+      "value": {
+        "$km": 294660
+      },
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "orbitPeriodDays": {
+      "value": 1.8878020501022104,
+      "source": "nssdca-fact-sheets",
+      "method": "measured"
+    },
+    "rotationPeriod": {
+      "source": "nssdca-fact-sheets",
+      "method": "derived",
+      "detail": "synchronousRotation"
+    }
+  }
+}

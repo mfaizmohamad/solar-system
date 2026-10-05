@@ -1,0 +1,58 @@
+{
+  "$schema": "../schema/spacecraft.schema.json",
+  "id": "voyager2",
+  "targetClass": "spacecraft",
+  "displayName": {
+    "en": "Voyager 2",
+    "fr": "Voyager 2",
+    "es": "Voyager 2",
+    "pt-BR": "Voyager 2"
+  },
+  "description": {
+    "en": "Launched in 1977, the only spacecraft to have visited Uranus and Neptune.",
+    "fr": "Lancée en 1977, la seule sonde à avoir visité Uranus et Neptune.",
+    "es": "Lanzada en 1977, la única sonda que ha visitado Urano y Neptuno.",
+    "pt-BR": "Lançada em 1977, a única sonda que visitou Urano e Netuno."
+  },
+  "launchDate": "1977-08-20",
+  "color": "0xffaa44",
+  "identifiers": {
+    "naif": -32
+  },
+  "facts": {
+    "launchDate": {
+      "source": "nssdca-master-catalog",
+      "method": "measured",
+      "citation": "NSSDCA/COSPAR 1977-076A"
+    },
+    "launchVehicle": {
+      "value": "Titan IIIE-Centaur",
+      "source": "nssdca-master-catalog",
+      "method": "measured",
+      "citation": "NSSDCA/COSPAR 1977-076A"
+    },
+    "launchSite": {
+      "value": "Cape Canaveral, United States",
+      "source": "nssdca-master-catalog",
+      "method": "measured",
+      "citation": "NSSDCA/COSPAR 1977-076A"
+    },
+    "massKg": {
+      "value": 721.9,
+      "source": "nssdca-master-catalog",
+      "method": "measured",
+      "detail": "nssdcaFactsInBrief",
+      "citation": "NSSDCA/COSPAR 1977-076A"
+    }
+  },
+  "coverage": {
+    "temporal": {
+      "interval": [
+        [
+          "1977-08-21T00:00:00Z",
+          "2099-12-31T00:00:00Z"
+        ]
+      ]
+    }
+  }
+}
