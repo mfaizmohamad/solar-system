@@ -1,0 +1,760 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Confidentialité · Privacy · Galaxy</title>
+    <meta
+      name="description"
+      content="Politique de confidentialité : aucune donnée personnelle collectée, aucun cookie, aucun traceur. Privacy policy: no personal data collected, no cookies, no trackers."
+    />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/privacy.css" />
+    <script src="/privacy.js" defer></script>
+  </head>
+  <body>
+    <!-- Topbar : branding · sélecteur de langue (même toggle que l'app) · retour. -->
+    <header class="page-header" id="top">
+      <a class="brand" href="/">
+        <img src="/icon.svg" alt="" width="32" height="32" />
+        <span class="app-name">Galaxy</span>
+      </a>
+      <div class="topbar-actions">
+        <div
+          class="lang-switch"
+          role="group"
+          aria-label="Language / Langue"
+        >
+          <button class="lang-btn" type="button" data-locale="fr">FR</button>
+          <button class="lang-btn" type="button" data-locale="en">EN</button>
+          <button class="lang-btn" type="button" data-locale="es">ES</button>
+          <button class="lang-btn" type="button" data-locale="pt-BR">PT</button>
+        </div>
+        <a class="back" href="/">
+          <span data-lang="fr">← Retour à l'app</span>
+          <span data-lang="en" hidden>← Back to the app</span>
+          <span data-lang="es" hidden>← Volver a la app</span>
+          <span data-lang="pt-BR" hidden>← Voltar ao app</span>
+        </a>
+      </div>
+    </header>
+
+    <main>
+      <!-- ─────────────── FRANÇAIS ─────────────── -->
+      <div data-lang="fr">
+        <h1>Politique de confidentialité</h1>
+        <p class="updated">Dernière mise à jour : 1 septembre 2026</p>
+
+        <section>
+          <p>
+            <strong>Galaxy</strong> est un visualiseur pédagogique du
+            système solaire, gratuit et sans publicité. Le respect de votre vie
+            privée est intégré dès la conception :
+          </p>
+          <p class="tags">
+            <span class="tag">Aucune donnée personnelle</span>
+            <span class="tag">Aucun cookie</span>
+            <span class="tag">Aucun traceur</span>
+            <span class="tag">Aucune publicité</span>
+            <span class="tag">Aucun compte</span>
+          </p>
+        </section>
+
+        <h2>Données que nous ne collectons pas</h2>
+        <section>
+          <p>
+            Nous ne collectons, ne stockons ni ne transmettons
+            <strong>aucune donnée personnelle</strong>. Concrètement :
+          </p>
+          <ul>
+            <li>Aucun cookie n'est déposé.</li>
+            <li>
+              Aucune régie publicitaire, aucun traceur qui vous suivrait d'un
+              site à l'autre.
+            </li>
+            <li>Aucun compte, aucune inscription, aucune adresse e-mail.</li>
+            <li>
+              Votre position géographique n'est jamais demandée ni utilisée.
+            </li>
+          </ul>
+        </section>
+
+        <h2>Mesure d'audience</h2>
+        <section>
+          <p>
+            Nous utilisons <strong>Cloudflare Web Analytics</strong> pour
+            compter les visites en agrégé (pages vues, provenance
+            approximative, appareil) et comprendre comment l'application est
+            utilisée. Cet outil est conçu pour respecter la vie privée :
+          </p>
+          <ul>
+            <li>aucun cookie, aucun identifiant persistant ;</li>
+            <li>
+              aucune empreinte numérique (<em>fingerprinting</em>) : impossible
+              de vous suivre individuellement ou d'un site à l'autre ;
+            </li>
+            <li>
+              seules des statistiques agrégées et anonymes sont visibles, pas
+              de profil par visiteur.
+            </li>
+          </ul>
+          <p class="note">
+            Cloudflare (Cloudflare, Inc., cloudflareinsights.com) reçoit les
+            informations techniques
+            inhérentes à toute requête web (par ex. votre adresse IP) pour
+            produire ces statistiques, selon sa propre politique de
+            confidentialité.
+          </p>
+        </section>
+
+        <h2>Préférences enregistrées sur votre appareil</h2>
+        <section>
+          <p>
+            Pour que l'application se souvienne de vos réglages, quelques
+            préférences <strong>techniques</strong> sont enregistrées localement
+            dans votre navigateur (via <em>localStorage</em>). Elles ne quittent
+            jamais votre appareil et ne sont accessibles par personne d'autre :
+          </p>
+          <ul>
+            <li>la langue choisie (français, anglais, espagnol, portugais du Brésil) ;</li>
+            <li>le fait que la visite guidée a déjà été affichée ;</li>
+            <li>
+              le fait que la suggestion de visite du mode Exploration a déjà été
+              affichée ;
+            </li>
+            <li>le niveau de qualité graphique sélectionné ;</li>
+            <li>le réglage de luminosité ;</li>
+            <li>la palette d'orbites adaptée au daltonisme, si activée ;</li>
+            <li>le système d'unités (métrique ou impérial) ;</li>
+            <li>
+              le streaming de l'imagerie de surface haute résolution, s'il est
+              désactivé ;
+            </li>
+            <li>
+              les noms des formations de surface (UAI), s'ils sont désactivés.
+            </li>
+          </ul>
+          <p class="note">
+            Vous pouvez les effacer à tout moment en vidant les données de site
+            de votre navigateur.
+          </p>
+        </section>
+
+        <h2>Fichiers gardés sur votre appareil</h2>
+        <section>
+          <p>
+            Pour ne pas retélécharger les mêmes données à chaque visite,
+            l'application garde sur votre appareil une copie des fichiers
+            qu'elle a déjà reçus : les pages et le code du site, les textures,
+            et les tranches d'éphémérides qu'elle a lues. Ce sont les fichiers
+            publics du site, rien d'autre : aucune donnée vous concernant n'y
+            est écrite, et rien n'en repart vers nous.
+          </p>
+          <p>
+            Le réglage <strong>« Utilisation hors ligne »</strong> vous propose
+            de télécharger en une fois tous les fichiers d'éphémérides (51,2 Mo
+            au 2026-10-04), pour que l'application fonctionne sans réseau à n'importe
+            quelle date. <strong>Rien n'est téléchargé tant que vous ne le
+            demandez pas</strong>, le même réglage indique ce que votre appareil
+            tient réellement, et un bouton libère la place.
+          </p>
+        </section>
+
+        <h2>Services scientifiques externes</h2>
+        <section>
+          <p>
+            Pour afficher des données réelles (positions, imagerie, météo),
+            l'application interroge des services scientifiques publics. Ces
+            requêtes transmettent uniquement les informations techniques
+            inhérentes à toute connexion web (par ex. votre adresse IP, gérée par
+            ces services selon leurs propres règles), jamais d'identifiant que
+            nous créerions :
+          </p>
+          <ul>
+            <li>
+              <strong>NASA GIBS</strong> (gibs.earthdata.nasa.gov) : imagerie
+              satellite (nuages).
+            </li>
+            <li>
+              <strong>Open-Meteo</strong> (open-meteo.com) : données
+              météorologiques.
+            </li>
+            <li>
+              <strong>USGS</strong> (earthquake.usgs.gov) : catalogue des
+              séismes, interrogé seulement si vous activez cette couche.
+            </li>
+            <li>
+              <strong>NASA EONET</strong> (eonet.gsfc.nasa.gov) : événements
+              naturels rapportés, interrogé seulement si vous activez cette
+              couche.
+            </li>
+            <li>
+              <strong>NASA Trek</strong> (trek.nasa.gov) : tuiles d'imagerie de
+              surface, demandées seulement quand vous approchez de près un corps
+              qui en dispose, et pas du tout si vous désactivez ce réglage.
+            </li>
+          </ul>
+          <p class="note">
+            Les liens vers Wikipédia sont de simples liens : ils ne sont suivis
+            que si vous cliquez dessus.
+          </p>
+        </section>
+
+        <h2>Hébergement</h2>
+        <section>
+          <p>
+            Le site est hébergé par <strong>Firebase Hosting</strong> (Google
+            LLC), qui peut conserver des journaux techniques de connexion à des
+            fins de sécurité et de fonctionnement du service.
+          </p>
+        </section>
+
+        <h2>Vos droits &amp; contact</h2>
+        <section>
+          <p>
+            Aucune donnée personnelle n'étant collectée, il n'y a rien à
+            consulter, rectifier ou supprimer de notre côté. Pour toute question
+            relative à cette politique, vous pouvez contacter l'auteur, Adrian
+            Guichard, via <a href="https://ko-fi.com/adrian34">Ko-fi</a>.
+          </p>
+        </section>
+      </div>
+
+      <!-- ─────────────── ENGLISH ─────────────── -->
+      <div data-lang="en" hidden>
+        <h1>Privacy Policy</h1>
+        <p class="updated">Last updated: 1 September 2026</p>
+
+        <section>
+          <p>
+            <strong>Galaxy</strong> is a free, ad-free educational solar
+            system visualizer. Privacy is built in by design:
+          </p>
+          <p class="tags">
+            <span class="tag">No personal data</span>
+            <span class="tag">No cookies</span>
+            <span class="tag">No trackers</span>
+            <span class="tag">No ads</span>
+            <span class="tag">No account</span>
+          </p>
+        </section>
+
+        <h2>Data we do not collect</h2>
+        <section>
+          <p>
+            We do not collect, store or transmit
+            <strong>any personal data</strong>. Specifically:
+          </p>
+          <ul>
+            <li>No cookies are set.</li>
+            <li>No ad networks, no trackers that follow you across sites.</li>
+            <li>No account, no sign-up, no email address.</li>
+            <li>Your location is never requested or used.</li>
+          </ul>
+        </section>
+
+        <h2>Audience measurement</h2>
+        <section>
+          <p>
+            We use <strong>Cloudflare Web Analytics</strong> to count visits
+            in aggregate (page views, approximate origin, device) and
+            understand how the app is used. This tool is built to respect
+            privacy:
+          </p>
+          <ul>
+            <li>no cookies, no persistent identifier;</li>
+            <li>
+              no fingerprinting: it cannot follow you individually or across
+              sites;
+            </li>
+            <li>
+              only aggregate, anonymous statistics are visible, never a
+              per-visitor profile.
+            </li>
+          </ul>
+          <p class="note">
+            Cloudflare (Cloudflare, Inc., cloudflareinsights.com) receives the
+            technical information
+            inherent to any web request (e.g. your IP address) to produce
+            these statistics, under its own privacy policy.
+          </p>
+        </section>
+
+        <h2>Preferences stored on your device</h2>
+        <section>
+          <p>
+            So the app can remember your settings, a few
+            <strong>technical</strong> preferences are stored locally in your
+            browser (via <em>localStorage</em>). They never leave your device and
+            are not accessible to anyone else:
+          </p>
+          <ul>
+            <li>your chosen language (French, English, Spanish, Brazilian Portuguese);</li>
+            <li>whether the guided tour has already been shown;</li>
+            <li>whether the Exploration tour suggestion has already been shown;</li>
+            <li>the selected graphics quality level;</li>
+            <li>the brightness setting;</li>
+            <li>the colour-blind friendly orbit palette, if enabled;</li>
+            <li>the unit system (metric or imperial);</li>
+            <li>whether high-resolution surface imagery streaming is off;</li>
+            <li>whether surface feature names (IAU) are off.</li>
+          </ul>
+          <p class="note">
+            You can clear them at any time by clearing your browser's site data.
+          </p>
+        </section>
+
+        <h2>Files kept on your device</h2>
+        <section>
+          <p>
+            So that the same data is not downloaded on every visit, the app
+            keeps a copy of the files it has already received on your device:
+            the site's pages and code, the textures, and the slices of ephemeris
+            data it has read. These are the site's public files and nothing
+            else: no information about you is written there, and nothing goes
+            back to us.
+          </p>
+          <p>
+            The <strong>"Offline use"</strong> setting offers to download every
+            ephemeris file in one go (51.2 MB as of 2026-10-04), so that the app works at any
+            date without a network. <strong>Nothing is downloaded until you ask
+            for it</strong>, the same setting states what your device actually
+            holds, and a button frees the space again.
+          </p>
+        </section>
+
+        <h2>External scientific services</h2>
+        <section>
+          <p>
+            To display real data (positions, imagery, weather), the app queries
+            public scientific services. These requests only transmit the
+            technical information inherent to any web connection (e.g. your IP
+            address, handled by those services under their own rules), never an
+            identifier we would create:
+          </p>
+          <ul>
+            <li>
+              <strong>NASA GIBS</strong> (gibs.earthdata.nasa.gov): satellite
+              imagery (clouds).
+            </li>
+            <li>
+              <strong>Open-Meteo</strong> (open-meteo.com): weather data.
+            </li>
+            <li>
+              <strong>USGS</strong> (earthquake.usgs.gov): earthquake catalogue,
+              queried only if you switch that layer on.
+            </li>
+            <li>
+              <strong>NASA EONET</strong> (eonet.gsfc.nasa.gov): reported
+              natural events, queried only if you switch that layer on.
+            </li>
+            <li>
+              <strong>NASA Trek</strong> (trek.nasa.gov): surface imagery tiles,
+              requested only when you come close to a body that has them, and
+              not at all if you switch that setting off.
+            </li>
+          </ul>
+          <p class="note">
+            Links to Wikipedia are plain links: they are only followed if you
+            click them.
+          </p>
+        </section>
+
+        <h2>Hosting</h2>
+        <section>
+          <p>
+            The site is hosted by <strong>Firebase Hosting</strong> (Google LLC),
+            which may keep technical connection logs for security and service
+            operation purposes.
+          </p>
+        </section>
+
+        <h2>Your rights &amp; contact</h2>
+        <section>
+          <p>
+            Since no personal data is collected, there is nothing on our side to
+            access, correct or delete. For any question about this policy, you can
+            contact the author, Adrian Guichard, via
+            <a href="https://ko-fi.com/adrian34">Ko-fi</a>.
+          </p>
+        </section>
+      </div>
+
+      <!-- ─────────────── ESPAÑOL ─────────────── -->
+      <div data-lang="es" hidden>
+        <h1>Política de privacidad</h1>
+        <p class="updated">Última actualización: 1 de septiembre de 2026</p>
+
+        <section>
+          <p>
+            <strong>Galaxy</strong> es un visualizador educativo del sistema
+            solar, gratuito y sin publicidad. La privacidad forma parte de su
+            diseño:
+          </p>
+          <p class="tags">
+            <span class="tag">Sin datos personales</span>
+            <span class="tag">Sin cookies</span>
+            <span class="tag">Sin rastreadores</span>
+            <span class="tag">Sin publicidad</span>
+            <span class="tag">Sin cuenta</span>
+          </p>
+        </section>
+
+        <h2>Datos que no recogemos</h2>
+        <section>
+          <p>
+            No recogemos, almacenamos ni transmitimos
+            <strong>ningún dato personal</strong>. En concreto:
+          </p>
+          <ul>
+            <li>No se instala ninguna cookie.</li>
+            <li>
+              Sin redes publicitarias, sin rastreadores que le sigan de un sitio
+              a otro.
+            </li>
+            <li>Sin cuenta, sin registro, sin dirección de correo.</li>
+            <li>Nunca se solicita ni se usa su ubicación.</li>
+          </ul>
+        </section>
+
+        <h2>Medición de audiencia</h2>
+        <section>
+          <p>
+            Usamos <strong>Cloudflare Web Analytics</strong> para contar las
+            visitas de forma agregada (páginas vistas, origen aproximado,
+            dispositivo) y entender cómo se utiliza la aplicación. Esta
+            herramienta está diseñada para respetar la privacidad:
+          </p>
+          <ul>
+            <li>sin cookies, sin identificador persistente;</li>
+            <li>
+              sin <em>fingerprinting</em>: no puede seguirle individualmente ni
+              de un sitio a otro;
+            </li>
+            <li>
+              solo son visibles estadísticas agregadas y anónimas, nunca un
+              perfil por visitante.
+            </li>
+          </ul>
+          <p class="note">
+            Cloudflare (Cloudflare, Inc., cloudflareinsights.com) recibe la
+            información técnica inherente a cualquier petición web (por
+            ejemplo, su dirección IP) para elaborar esas estadísticas, según su
+            propia política de privacidad.
+          </p>
+        </section>
+
+        <h2>Preferencias guardadas en su dispositivo</h2>
+        <section>
+          <p>
+            Para que la aplicación recuerde sus ajustes, algunas preferencias
+            <strong>técnicas</strong> se guardan localmente en su navegador
+            (mediante <em>localStorage</em>). Nunca salen de su dispositivo y
+            nadie más puede acceder a ellas:
+          </p>
+          <ul>
+            <li>
+              el idioma elegido (francés, inglés, español, portugués de
+              Brasil);
+            </li>
+            <li>si ya se ha mostrado la visita guiada;</li>
+            <li>
+              si ya se ha mostrado la sugerencia de visita del modo
+              Exploración;
+            </li>
+            <li>el nivel de calidad gráfica seleccionado;</li>
+            <li>el ajuste de brillo;</li>
+            <li>
+              la paleta de órbitas adaptada al daltonismo, si está activada;
+            </li>
+            <li>el sistema de unidades (métrico o imperial);</li>
+            <li>
+              si la transmisión de imágenes de superficie en alta resolución
+              está desactivada;
+            </li>
+            <li>
+              si los nombres de las formaciones de superficie (UAI) están
+              desactivados.
+            </li>
+          </ul>
+          <p class="note">
+            Puede borrarlas en cualquier momento eliminando los datos de sitio
+            de su navegador.
+          </p>
+        </section>
+
+        <h2>Archivos conservados en su dispositivo</h2>
+        <section>
+          <p>
+            Para no descargar los mismos datos en cada visita, la aplicación
+            conserva en su dispositivo una copia de los archivos que ya ha
+            recibido: las páginas y el código del sitio, las texturas y los
+            fragmentos de efemérides que ha leído. Son los archivos públicos
+            del sitio y nada más: allí no se escribe ninguna información sobre
+            usted, y nada vuelve hacia nosotros.
+          </p>
+          <p>
+            El ajuste <strong>«Uso sin conexión»</strong> propone descargar de
+            una vez todos los archivos de efemérides (51,2 MB a fecha de
+            2026-10-04), para que la aplicación funcione en cualquier fecha sin
+            red. <strong>No se descarga nada hasta que usted lo pide</strong>, el
+            mismo ajuste indica lo que su dispositivo contiene realmente, y un
+            botón vuelve a liberar el espacio.
+          </p>
+        </section>
+
+        <h2>Servicios científicos externos</h2>
+        <section>
+          <p>
+            Para mostrar datos reales (posiciones, imágenes, meteorología), la
+            aplicación consulta servicios científicos públicos. Esas peticiones
+            solo transmiten la información técnica inherente a cualquier
+            conexión web (por ejemplo, su dirección IP, tratada por esos
+            servicios según sus propias normas), nunca un identificador creado
+            por nosotros:
+          </p>
+          <ul>
+            <li>
+              <strong>NASA GIBS</strong> (gibs.earthdata.nasa.gov): imágenes de
+              satélite (nubes).
+            </li>
+            <li>
+              <strong>Open-Meteo</strong> (open-meteo.com): datos
+              meteorológicos.
+            </li>
+            <li>
+              <strong>USGS</strong> (earthquake.usgs.gov): catálogo de
+              terremotos, consultado solo si activa esa capa.
+            </li>
+            <li>
+              <strong>NASA EONET</strong> (eonet.gsfc.nasa.gov): eventos
+              naturales notificados, consultado solo si activa esa capa.
+            </li>
+            <li>
+              <strong>NASA Trek</strong> (trek.nasa.gov): teselas de imágenes de
+              superficie, solicitadas únicamente cuando se acerca a un cuerpo
+              que las tiene, y en absoluto si desactiva ese ajuste.
+            </li>
+          </ul>
+          <p class="note">
+            Los enlaces a Wikipedia son enlaces normales: solo se siguen si usted
+            hace clic en ellos.
+          </p>
+        </section>
+
+        <h2>Alojamiento</h2>
+        <section>
+          <p>
+            El sitio está alojado por <strong>Firebase Hosting</strong> (Google
+            LLC), que puede conservar registros técnicos de conexión con fines
+            de seguridad y de funcionamiento del servicio.
+          </p>
+        </section>
+
+        <h2>Sus derechos y contacto</h2>
+        <section>
+          <p>
+            Como no se recoge ningún dato personal, no hay nada por nuestra
+            parte a lo que acceder, que corregir o que suprimir. Para cualquier
+            pregunta sobre esta política, puede ponerse en contacto con el
+            autor, Adrian Guichard, a través de
+            <a href="https://ko-fi.com/adrian34">Ko-fi</a>.
+          </p>
+        </section>
+      </div>
+
+      <!-- ─────────────── PORTUGUÊS (BRASIL) ─────────────── -->
+      <div data-lang="pt-BR" hidden>
+        <h1>Política de privacidade</h1>
+        <p class="updated">Última atualização: 1º de setembro de 2026</p>
+
+        <section>
+          <p>
+            O <strong>Galaxy</strong> é um visualizador educativo do sistema
+            solar, gratuito e sem publicidade. A privacidade faz parte do seu
+            projeto:
+          </p>
+          <p class="tags">
+            <span class="tag">Sem dados pessoais</span>
+            <span class="tag">Sem cookies</span>
+            <span class="tag">Sem rastreadores</span>
+            <span class="tag">Sem publicidade</span>
+            <span class="tag">Sem conta</span>
+          </p>
+        </section>
+
+        <h2>Dados que não coletamos</h2>
+        <section>
+          <p>
+            Não coletamos, armazenamos nem transmitimos
+            <strong>nenhum dado pessoal</strong>. Especificamente:
+          </p>
+          <ul>
+            <li>Nenhum cookie é gravado.</li>
+            <li>
+              Sem redes de publicidade, sem rastreadores que sigam você de um
+              site a outro.
+            </li>
+            <li>Sem conta, sem cadastro, sem endereço de e-mail.</li>
+            <li>Sua localização nunca é solicitada nem utilizada.</li>
+          </ul>
+        </section>
+
+        <h2>Medição de audiência</h2>
+        <section>
+          <p>
+            Usamos o <strong>Cloudflare Web Analytics</strong> para contar as
+            visitas de forma agregada (páginas vistas, origem aproximada,
+            dispositivo) e entender como o aplicativo é usado. Essa ferramenta
+            foi feita para respeitar a privacidade:
+          </p>
+          <ul>
+            <li>sem cookies, sem identificador persistente;</li>
+            <li>
+              sem <em>fingerprinting</em>: ela não consegue seguir você
+              individualmente nem de um site a outro;
+            </li>
+            <li>
+              apenas estatísticas agregadas e anônimas ficam visíveis, nunca um
+              perfil por visitante.
+            </li>
+          </ul>
+          <p class="note">
+            A Cloudflare (Cloudflare, Inc., cloudflareinsights.com) recebe as
+            informações técnicas inerentes a qualquer requisição web (por
+            exemplo, seu endereço IP) para produzir essas estatísticas, sob sua
+            própria política de privacidade.
+          </p>
+        </section>
+
+        <h2>Preferências guardadas no seu dispositivo</h2>
+        <section>
+          <p>
+            Para que o aplicativo lembre os seus ajustes, algumas preferências
+            <strong>técnicas</strong> ficam guardadas localmente no seu
+            navegador (via <em>localStorage</em>). Elas nunca saem do seu
+            dispositivo e ninguém mais tem acesso a elas:
+          </p>
+          <ul>
+            <li>
+              o idioma escolhido (francês, inglês, espanhol, português do
+              Brasil);
+            </li>
+            <li>se a visita guiada já foi exibida;</li>
+            <li>
+              se a sugestão de visita do modo Exploração já foi exibida;
+            </li>
+            <li>o nível de qualidade gráfica selecionado;</li>
+            <li>o ajuste de brilho;</li>
+            <li>
+              a paleta de órbitas adaptada ao daltonismo, se estiver ativada;
+            </li>
+            <li>o sistema de unidades (métrico ou imperial);</li>
+            <li>
+              se a transmissão de imagens de superfície em alta resolução está
+              desativada;
+            </li>
+            <li>
+              se os nomes das formações de superfície (UAI) estão desativados.
+            </li>
+          </ul>
+          <p class="note">
+            Você pode apagá-las a qualquer momento limpando os dados de site do
+            seu navegador.
+          </p>
+        </section>
+
+        <h2>Arquivos mantidos no seu dispositivo</h2>
+        <section>
+          <p>
+            Para não baixar os mesmos dados a cada visita, o aplicativo mantém
+            no seu dispositivo uma cópia dos arquivos que já recebeu: as
+            páginas e o código do site, as texturas e os trechos de efémerides
+            que leu. São os arquivos públicos do site e nada mais: nenhuma
+            informação sobre você é escrita ali, e nada retorna para nós.
+          </p>
+          <p>
+            O ajuste <strong>“Uso off-line”</strong> oferece baixar de uma só
+            vez todos os arquivos de efémerides (51,2 MB em 2026-10-04), para
+            que o aplicativo funcione em qualquer data sem rede.
+            <strong>Nada é baixado até que você peça</strong>, o mesmo ajuste
+            informa o que o seu dispositivo realmente contém, e um botão libera
+            o espaço novamente.
+          </p>
+        </section>
+
+        <h2>Serviços científicos externos</h2>
+        <section>
+          <p>
+            Para exibir dados reais (posições, imagens, meteorologia), o
+            aplicativo consulta serviços científicos públicos. Essas
+            requisições transmitem apenas as informações técnicas inerentes a
+            qualquer conexão web (por exemplo, seu endereço IP, tratado por
+            esses serviços sob suas próprias regras), nunca um identificador
+            criado por nós:
+          </p>
+          <ul>
+            <li>
+              <strong>NASA GIBS</strong> (gibs.earthdata.nasa.gov): imagens de
+              satélite (nuvens).
+            </li>
+            <li>
+              <strong>Open-Meteo</strong> (open-meteo.com): dados
+              meteorológicos.
+            </li>
+            <li>
+              <strong>USGS</strong> (earthquake.usgs.gov): catálogo de
+              terremotos, consultado apenas se você ativar essa camada.
+            </li>
+            <li>
+              <strong>NASA EONET</strong> (eonet.gsfc.nasa.gov): eventos naturais
+              relatados, consultado apenas se você ativar essa camada.
+            </li>
+            <li>
+              <strong>NASA Trek</strong> (trek.nasa.gov): ladrilhos de imagens de
+              superfície, solicitados somente quando você se aproxima de um
+              corpo que os tem, e de modo algum se você desativar esse ajuste.
+            </li>
+          </ul>
+          <p class="note">
+            Os links para a Wikipédia são links comuns: só são seguidos se
+            você clicar neles.
+          </p>
+        </section>
+
+        <h2>Hospedagem</h2>
+        <section>
+          <p>
+            O site é hospedado pelo <strong>Firebase Hosting</strong> (Google
+            LLC), que pode manter registros técnicos de conexão para fins de
+            segurança e de operação do serviço.
+          </p>
+        </section>
+
+        <h2>Seus direitos e contato</h2>
+        <section>
+          <p>
+            Como nenhum dado pessoal é coletado, não há nada do nosso lado a
+            que acessar, corrigir ou excluir. Para qualquer dúvida sobre esta
+            política, você pode entrar em contato com o autor, Adrian Guichard,
+            pelo <a href="https://ko-fi.com/adrian34">Ko-fi</a>.
+          </p>
+        </section>
+      </div>
+
+      <footer>
+        © 2026 Adrian Guichard ·
+        <a
+          href="https://polyformproject.org/licenses/noncommercial/1.0.0"
+          target="_blank"
+          rel="noopener noreferrer"
+          >PolyForm NC 1.0.0</a
+        >
+        · <a href="/">Retour / Back / Volver / Voltar</a>
+      </footer>
+    </main>
+  </body>
+</html>

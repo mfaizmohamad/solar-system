@@ -1,0 +1,5 @@
+# Galaxy — https://galaxy.adrianguichard.dev
+User-agent: *
+Allow: /
+
+Sitemap: https://galaxy.adrianguichard.dev/sitemap.xml

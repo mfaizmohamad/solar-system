@@ -1,0 +1,71 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+*.tmp
+*.temp
+*.bak
+*.orig
+*.pid
+*.seed
+*.tsbuildinfo
+coverage/
+.vite/
+.cache/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+*.trace.zip
+playwright/.cache
+
+playwright/.cache
+
+# Notes de travail privées
+docs/private/
+
+# Docs internes / outillage IA — jamais dans le depot public
+CLAUDE.md
+AGENTS.md
+.claude/
+
+.npmrc.local
+# Secrets and local credentials
+.env
+.env.*
+!.env.example
+firebase-debug.log
+*-service-account*.json
+*.pem
+*.key
+# Firebase deploy cache
+.firebase/
+
+# Local reports and generated test artifacts
+reports/
+tmp/
+temp/
+
+# SAT441 is a deployment-only large binary; verify and publish it outside Git.
+public/assets/kernels/*.bsp

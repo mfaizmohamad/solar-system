@@ -1,0 +1,1462 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Terra em 3D: posição e órbita ao vivo</title>
+    <meta
+      name="description"
+      content="O único planeta conhecido que abriga vida. A água líquida cobre 71% da sua superfície, e a… Veja Terra em 3D, na sua posição real neste momento."
+    />
+    <meta
+      name="keywords"
+      content="solar system 3D, interactive planets, space visualizer, ephemeris, orbits, WebGL, astronomy, planets, moons, Three.js"
+    />
+    <meta name="author" content="Adrian Guichard" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="dark" />
+
+    
+    <meta
+      name="google-site-verification"
+      content="EAqL2Yfi1ecoZZ_sUC3BZvDY5bfM34acLx605_-07tQ"
+    />
+
+    
+    <link rel="canonical" href="https://galaxy.adrianguichard.dev/pt-br/earth/" />
+    <link rel="alternate" hreflang="en" href="https://galaxy.adrianguichard.dev/earth/" />
+    <link rel="alternate" hreflang="fr" href="https://galaxy.adrianguichard.dev/fr/earth/" />
+    <link rel="alternate" hreflang="es" href="https://galaxy.adrianguichard.dev/es/earth/" />
+    <link rel="alternate" hreflang="pt-BR" href="https://galaxy.adrianguichard.dev/pt-br/earth/" />
+    <link rel="alternate" hreflang="x-default" href="https://galaxy.adrianguichard.dev/earth/" />
+
+    
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Galaxy" />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:locale:alternate" content="fr_FR" />
+    <meta
+      property="og:title"
+      content="Terra em 3D: posição e órbita ao vivo"
+    />
+    <meta
+      property="og:description"
+      content="O único planeta conhecido que abriga vida. A água líquida cobre 71% da sua superfície, e a… Veja Terra em 3D, na sua posição real neste momento."
+    />
+    <meta property="og:url" content="https://galaxy.adrianguichard.dev/pt-br/earth/" />
+    <meta
+      property="og:image"
+      content="https://galaxy.adrianguichard.dev/social/earth.jpg"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Terra renderizado como uma esfera 3D pela Galaxy"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Terra em 3D: posição e órbita ao vivo"
+    />
+    <meta
+      name="twitter:description"
+      content="O único planeta conhecido que abriga vida. A água líquida cobre 71% da sua superfície, e a… Veja Terra em 3D, na sua posição real neste momento."
+    />
+    <meta
+      name="twitter:image"
+      content="https://galaxy.adrianguichard.dev/social/earth.jpg"
+    />
+
+    <link rel="icon" href="/solar-system/favicon.ico" type="image/x-icon" />
+    <link rel="icon" href="/solar-system/icon.svg" type="image/svg+xml" />
+    
+    <link rel="apple-touch-icon" href="/solar-system/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="Galaxy" />
+
+    
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"Terra em 3D: posição e órbita ao vivo","description":"O único planeta conhecido que abriga vida. A água líquida cobre 71% da sua superfície, e a… Veja Terra em 3D, na sua posição real neste momento.","url":"https://galaxy.adrianguichard.dev/pt-br/earth/","inLanguage":"pt-BR","isPartOf":{"@type":"WebApplication","name":"Galaxy","url":"https://galaxy.adrianguichard.dev/","applicationCategory":"EducationalApplication"},"about":{"@type":"Thing","name":"Terra"}}</script>
+
+    
+    <script
+      type="module"
+      src="https://static.cloudflareinsights.com/beacon.min.js"
+      data-cf-beacon='{"token": "0e30fd8b340b406889644940b0fdfceb"}'
+    ></script>
+    <script type="module" crossorigin src="/solar-system/assets/SolarSystemApp-CmL6U6m4.js"></script>
+    <link rel="modulepreload" crossorigin href="/solar-system/assets/three-B1lhCMq6.js">
+    <link rel="modulepreload" crossorigin href="/solar-system/assets/tween-Cs9c6a_y.js">
+    <link rel="modulepreload" crossorigin href="/solar-system/assets/astronomy-CluaFNti.js">
+    <link rel="stylesheet" crossorigin href="/solar-system/assets/SolarSystemApp-Cgy0tONX.css">
+  <link rel="manifest" href="/solar-system/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/solar-system/registerSW.js"></script></head>
+  <body>
+    
+    <h1 class="sr-only">Terra em 3D: posição e órbita ao vivo</h1>
+    
+    <noscript><p>O único planeta conhecido que abriga vida. A água líquida cobre 71% da sua superfície, e a atmosfera o protege da radiação solar.</p><p>Terra é mostrado na sua posição real, calculada a partir das efemérides NASA/JPL. A vista se abre sobre Terra; você pode viajar no tempo, alternar entre a visão geral educativa e a viagem em escala real, e compará-lo com todos os outros corpos do Sistema Solar.</p><dl><dt>Raio</dt><dd>6 371 km<sup><a href="#source-1">1</a></sup></dd><dt>Massa</dt><dd>5,97 × 10²⁴ kg<sup><a href="#source-1">1</a></sup></dd><dt>Gravidade na superfície</dt><dd>9,82 m/s²<sup><a href="#source-1">1</a></sup></dd><dt>Temperatura média</dt><dd>15 °C<sup><a href="#source-1">1</a></sup></dd><dt>Distância média ao Sol</dt><dd>1,000 UA<sup><a href="#source-1">1</a></sup></dd><dt>Período orbital</dt><dd>365 dias<sup><a href="#source-1">1</a></sup></dd><dt>Rotação sideral</dt><dd>23,93 horas<sup><a href="#source-1">1</a></sup></dd><dt>Inclinação axial</dt><dd>23,4°<sup><a href="#source-1">1</a></sup></dd><dt>Luas conhecidas</dt><dd>1 (em novembro de 2024)<sup><a href="#source-1">1</a></sup></dd></dl><h2>Missões</h2><ul><li><a href="/pt-br/missions/voyager/">Voyager</a></li><li><a href="/pt-br/missions/galileo/">Galileo</a></li><li><a href="/pt-br/missions/international-rosetta-mission/">International Rosetta Mission</a></li><li><a href="/pt-br/missions/near-earth-asteroid-rendezvous/">Near Earth Asteroid Rendezvous Mission</a></li><li><a href="/pt-br/missions/cassini-huygens/">Cassini-Huygens</a></li><li><a href="/pt-br/missions/messenger/">MErcury Surface, Space ENvironment, GEochemistry, and Ranging</a></li><li><a href="/pt-br/missions/new-horizons/">New Horizons</a></li><li><a href="/pt-br/missions/epoxi/">EPOXI</a></li><li><a href="/pt-br/missions/juno/">Juno</a></li><li><a href="/pt-br/missions/dscovr/">Deep Space Climate Observatory (DSCOVR)</a></li><li><a href="/pt-br/missions/bc/">BepiColombo</a></li><li><a href="/pt-br/missions/kplo/">Korea Pathfinder Lunar Orbiter</a></li><li><a href="/pt-br/missions/juice/">JUICE</a></li><li><a href="/pt-br/missions/artemis2/">Artemis 2 Mission</a></li></ul><h2>Fontes</h2><ol><li id="source-1" value="1">NASA NSSDCA, Planetary and Satellite Fact Sheets. consultada em 2026-09-17. <a href="https://nssdc.gsfc.nasa.gov/planetary/planetfact.html" rel="noopener noreferrer">https://nssdc.gsfc.nasa.gov/planetary/planetfact.html</a></li></ol></noscript><section class="sr-only"><p>O único planeta conhecido que abriga vida. A água líquida cobre 71% da sua superfície, e a atmosfera o protege da radiação solar.</p><p>Terra é mostrado na sua posição real, calculada a partir das efemérides NASA/JPL. A vista se abre sobre Terra; você pode viajar no tempo, alternar entre a visão geral educativa e a viagem em escala real, e compará-lo com todos os outros corpos do Sistema Solar.</p><dl><dt>Raio</dt><dd>6 371 km<sup><a href="#source-1">1</a></sup></dd><dt>Massa</dt><dd>5,97 × 10²⁴ kg<sup><a href="#source-1">1</a></sup></dd><dt>Gravidade na superfície</dt><dd>9,82 m/s²<sup><a href="#source-1">1</a></sup></dd><dt>Temperatura média</dt><dd>15 °C<sup><a href="#source-1">1</a></sup></dd><dt>Distância média ao Sol</dt><dd>1,000 UA<sup><a href="#source-1">1</a></sup></dd><dt>Período orbital</dt><dd>365 dias<sup><a href="#source-1">1</a></sup></dd><dt>Rotação sideral</dt><dd>23,93 horas<sup><a href="#source-1">1</a></sup></dd><dt>Inclinação axial</dt><dd>23,4°<sup><a href="#source-1">1</a></sup></dd><dt>Luas conhecidas</dt><dd>1 (em novembro de 2024)<sup><a href="#source-1">1</a></sup></dd></dl><h2>Missões</h2><ul><li><a href="/pt-br/missions/voyager/">Voyager</a></li><li><a href="/pt-br/missions/galileo/">Galileo</a></li><li><a href="/pt-br/missions/international-rosetta-mission/">International Rosetta Mission</a></li><li><a href="/pt-br/missions/near-earth-asteroid-rendezvous/">Near Earth Asteroid Rendezvous Mission</a></li><li><a href="/pt-br/missions/cassini-huygens/">Cassini-Huygens</a></li><li><a href="/pt-br/missions/messenger/">MErcury Surface, Space ENvironment, GEochemistry, and Ranging</a></li><li><a href="/pt-br/missions/new-horizons/">New Horizons</a></li><li><a href="/pt-br/missions/epoxi/">EPOXI</a></li><li><a href="/pt-br/missions/juno/">Juno</a></li><li><a href="/pt-br/missions/dscovr/">Deep Space Climate Observatory (DSCOVR)</a></li><li><a href="/pt-br/missions/bc/">BepiColombo</a></li><li><a href="/pt-br/missions/kplo/">Korea Pathfinder Lunar Orbiter</a></li><li><a href="/pt-br/missions/juice/">JUICE</a></li><li><a href="/pt-br/missions/artemis2/">Artemis 2 Mission</a></li></ul><h2>Fontes</h2><ol><li id="source-1" value="1">NASA NSSDCA, Planetary and Satellite Fact Sheets. consultada em 2026-09-17. <a href="https://nssdc.gsfc.nasa.gov/planetary/planetfact.html" rel="noopener noreferrer">https://nssdc.gsfc.nasa.gov/planetary/planetfact.html</a></li></ol></section>
+    
+    <div id="loader">
+      <div class="loader-content">
+        <div class="loader-orbit" aria-hidden="true">
+          <span class="loader-sun"></span>
+          <span class="loader-path loader-path--inner">
+            <span class="loader-planet loader-planet--inner"></span>
+          </span>
+          <span class="loader-path loader-path--outer">
+            <span class="loader-planet loader-planet--outer"></span>
+          </span>
+        </div>
+        <p class="loader-kicker">3D Solar System</p>
+
+        <h2 class="loader-title">Galaxy</h2>
+        <div class="load-meta">
+          <span id="load-percent">0%</span>
+        </div>
+        
+        <div
+          class="loader-bar"
+          role="progressbar"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="0"
+          aria-label="Loading progress"
+          data-i18n-aria="a11y.loadingProgress"
+        >
+          <span id="load-progress-fill"></span>
+        </div>
+        
+        <div class="loader-stages" aria-hidden="true">
+          <span
+            class="loader-stage"
+            data-loader-stage="core"
+            data-i18n="loader.stage.core"
+            >Core</span
+          >
+          <span
+            class="loader-stage"
+            data-loader-stage="data"
+            data-i18n="loader.stage.data"
+            >Data</span
+          >
+          <span
+            class="loader-stage"
+            data-loader-stage="scene"
+            data-i18n="loader.stage.scene"
+            >Scene</span
+          >
+          <span
+            class="loader-stage"
+            data-loader-stage="bodies"
+            data-i18n="loader.stage.bodies"
+            >Bodies</span
+          >
+          <span
+            class="loader-stage"
+            data-loader-stage="orbit"
+            data-i18n="loader.stage.orbit"
+            >Orbits</span
+          >
+          <span
+            class="loader-stage"
+            data-loader-stage="ready"
+            data-i18n="loader.stage.ready"
+            >Ready</span
+          >
+        </div>
+        <div class="loader-readout">
+          <span id="load-step">01 / 06</span>
+          <span id="load-status" data-i18n="loader.init">Initializing...</span>
+        </div>
+      </div>
+    </div>
+
+    
+
+    
+    
+    <div
+      class="dock dock--top-left"
+      role="toolbar"
+      aria-label="Body navigation"
+      data-i18n-aria="a11y.navigation"
+    >
+      <button
+        id="orbit-overview"
+        class="chip chip--overview is-active"
+        type="button"
+        aria-label="Overview"
+        data-i18n-aria="nav.overview"
+      >
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+          <circle cx="8" cy="8" r="2.1" fill="currentColor" />
+          <ellipse
+            cx="8"
+            cy="8"
+            rx="6.2"
+            ry="2.6"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.1"
+          />
+        </svg>
+        <span class="chip-label" data-i18n="nav.overview">Overview</span>
+      </button>
+      <button
+        id="body-search-trigger"
+        class="chip chip--search"
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded="false"
+        aria-controls="body-palette"
+        aria-label="Search a body"
+        data-i18n-aria="nav.search"
+        data-i18n-title="nav.search"
+      >
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+          <circle
+            cx="7"
+            cy="7"
+            r="4.4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+          />
+          <path
+            d="M10.4 10.4L14 14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+            stroke-linecap="round"
+          />
+        </svg>
+        <span
+          class="chip-label chip-label--current"
+          data-i18n="nav.bodies"
+          data-body-current
+          >Bodies</span
+        >
+      </button>
+    </div>
+
+    
+    <div
+      class="dock dock--top-right"
+      role="toolbar"
+      aria-label="Tools"
+      data-i18n-aria="dock.tools.aria"
+    >
+      <button
+        id="info-trigger"
+        class="tool"
+        type="button"
+        title="Body information"
+        aria-label="Body information"
+        aria-expanded="false"
+        aria-controls="body-info"
+        data-i18n-title="bi.trigger.aria"
+        data-i18n-aria="bi.trigger.aria"
+        hidden
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <circle
+            cx="8"
+            cy="8"
+            r="6.25"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+          />
+          <path
+            d="M8 7.2v4M8 4.7h.01"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+      
+      <button
+        id="settings-trigger"
+        class="tool"
+        type="button"
+        title="Display settings"
+        aria-label="Display settings"
+        aria-expanded="false"
+        aria-controls="orbit-options"
+        data-i18n-title="settings.trigger.aria"
+        data-i18n-aria="settings.trigger.aria"
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <path
+            d="M3 4.5h10M3 8h10M3 11.5h10"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+            stroke-linecap="round"
+          />
+          <circle cx="6" cy="4.5" r="1.5" fill="currentColor" />
+          <circle cx="10.5" cy="8" r="1.5" fill="currentColor" />
+          <circle cx="7.5" cy="11.5" r="1.5" fill="currentColor" />
+        </svg>
+      </button>
+      <button
+        id="weather-trigger"
+        class="tool"
+        type="button"
+        title="Weather layers"
+        aria-label="Weather layers"
+        aria-expanded="false"
+        aria-controls="weather-layers"
+        data-i18n-title="weather.trigger.aria"
+        data-i18n-aria="weather.trigger.aria"
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <path
+            d="M4.5 10.5a2.5 2.5 0 0 1 .2-4.98A3.2 3.2 0 0 1 11 5.6a2.2 2.2 0 0 1 .3 4.9z"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M6 12.5l-.6 1.4M8.2 12.5l-.6 1.4M10.4 12.5l-.6 1.4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+      <button
+        id="earth-events-trigger"
+        class="tool"
+        type="button"
+        title="Earth events"
+        aria-label="Earth events"
+        aria-expanded="false"
+        aria-controls="earth-events"
+        data-i18n-title="earthEvents.trigger.aria"
+        data-i18n-aria="earthEvents.trigger.aria"
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <circle
+            cx="8"
+            cy="8"
+            r="6.25"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+          />
+          <path
+            d="M1.9 6.3h12.2M1.9 9.7h12.2"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.1"
+          />
+          <path
+            d="M3.4 12.1l2.2-2.6 1.8 1.5 2.4-3.4 2.8 3.6"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </button>
+      <button
+        id="events-trigger"
+        class="tool"
+        type="button"
+        title="Astronomical events"
+        aria-label="Astronomical events"
+        aria-expanded="false"
+        aria-controls="astronomical-events"
+        data-i18n-title="events.open"
+        data-i18n-aria="events.open"
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <circle
+            cx="8"
+            cy="8"
+            r="6.25"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+          />
+          <circle cx="12.2" cy="4.4" r="1.7" fill="currentColor" />
+        </svg>
+      </button>
+      <button
+        id="share-btn"
+        class="tool"
+        type="button"
+        title="Share this view"
+        aria-label="Share this view"
+        data-i18n-title="share.btn.title"
+        data-i18n-aria="share.btn.aria"
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <circle
+            cx="4"
+            cy="8"
+            r="1.9"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+          />
+          <circle
+            cx="11.5"
+            cy="3.6"
+            r="1.9"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+          />
+          <circle
+            cx="11.5"
+            cy="12.4"
+            r="1.9"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+          />
+          <path
+            d="M5.7 7.1l4.1-2.4M5.7 8.9l4.1 2.4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+      <button
+        id="capture-btn"
+        class="tool"
+        type="button"
+        title="Capture this view"
+        aria-label="Capture this view"
+        data-i18n-title="capture.btn.title"
+        data-i18n-aria="capture.btn.aria"
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <path
+            d="M2.5 5.5h2l1-1.5h5l1 1.5h2a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1z"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linejoin="round"
+          />
+          <circle
+            cx="8"
+            cy="9"
+            r="2.3"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+          />
+        </svg>
+      </button>
+      <button
+        id="webxr-btn"
+        class="tool"
+        type="button"
+        title="Enter VR"
+        aria-label="Enter virtual reality"
+        data-i18n-title="webxr.btn.enter.title"
+        data-i18n-aria="webxr.btn.enter.aria"
+        hidden
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          
+          <path
+            d="M2.2 5.2h11.6a1 1 0 0 1 1 1v3.6a1 1 0 0 1-1 1h-2.3a1 1 0 0 1-.9-.55l-.4-.8a1.15 1.15 0 0 0-2 0l-.4.8a1 1 0 0 1-.9.55H2.2a1 1 0 0 1-1-1V6.2a1 1 0 0 1 1-1z"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linejoin="round"
+          />
+          <circle cx="5.1" cy="7.4" r="1.05" fill="currentColor" />
+          <circle cx="10.9" cy="7.4" r="1.05" fill="currentColor" />
+        </svg>
+      </button>
+      <button
+        id="help-btn"
+        class="tool"
+        type="button"
+        title="Help, tips & credits"
+        aria-label="Help, tips and credits"
+        data-i18n-title="help.btn.title"
+        data-i18n-aria="help.btn.aria"
+        aria-haspopup="dialog"
+        aria-expanded="false"
+        aria-controls="help-popover"
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <circle
+            cx="8"
+            cy="8"
+            r="6.25"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+          />
+          <path
+            d="M6.2 6.1a1.9 1.9 0 1 1 2.4 2.2c-.5.2-.9.6-.9 1.2v.4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+            stroke-linecap="round"
+          />
+          <circle cx="7.7" cy="11.6" r="0.85" fill="currentColor" />
+        </svg>
+      </button>
+      
+      <a
+        id="feedback-btn"
+        class="tool"
+        href="https://feedback.adrianguichard.dev"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Suggestions and bug reports"
+        aria-label="Suggestions and bug reports"
+        data-i18n-title="feedback.btn.title"
+        data-i18n-aria="feedback.btn.aria"
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <path
+            d="M13.2 9.4a1.6 1.6 0 0 1-1.6 1.6H6.2L3.4 13.2V4.2a1.6 1.6 0 0 1 1.6-1.6h6.6a1.6 1.6 0 0 1 1.6 1.6z"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M6.3 5.9h4.3M6.3 7.9h2.6"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linecap="round"
+          />
+        </svg>
+      </a>
+      
+      <a
+        id="kofi-btn"
+        class="tool tool--kofi"
+        href="https://ko-fi.com/adrian34"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Buy me a coffee"
+        aria-label="Support this project on Ko-fi"
+        data-i18n-title="kofi.btn.title"
+        data-i18n-aria="kofi.btn.aria"
+      >
+        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+          <path
+            d="M3 4.5h8v5.2a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V4.5z"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M11 5.6h.9a1.9 1.9 0 0 1 0 3.8H11"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+          />
+          <path
+            d="M5.4 2.3c-.4.5-.4.9 0 1.4M7.6 2.3c-.4.5-.4.9 0 1.4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.1"
+            stroke-linecap="round"
+          />
+        </svg>
+      </a>
+    </div>
+
+    
+    <div class="dock dock--bottom">
+      
+      <div class="dock-actions dock-actions--start">
+        <div
+          id="mode-controls"
+          class="mode-seg"
+          role="group"
+          aria-label="View mode"
+          data-i18n-aria="mode.group"
+        >
+          <button
+            class="mode-btn is-active"
+            type="button"
+            data-mode="educ"
+            data-i18n="mode.educ"
+            data-i18n-title="mode.educ.title"
+            title="Educational view, circular orbits"
+          >
+            Educ.
+          </button>
+          <button
+            class="mode-btn"
+            type="button"
+            data-mode="explo"
+            data-i18n="mode.explo"
+            data-i18n-title="mode.explo.title"
+            title="Exploration mode, true scale"
+          >
+            Explo.
+          </button>
+        </div>
+      </div>
+      
+      <section
+        id="time-panel"
+        class="time-bar"
+        aria-label="Time controls"
+        data-i18n-aria="time.group"
+      >
+        <div class="time-bar-primary">
+          <button
+            id="play-pause-btn"
+            class="tb-play"
+            type="button"
+            data-i18n-title="playback.playpause"
+            title="Play / Pause"
+          >
+            <svg width="11" height="13" viewBox="0 0 11 13" fill="currentColor">
+              <rect x="0" y="0" width="3.8" height="13" rx="1.4" />
+              <rect x="7.2" y="0" width="3.8" height="13" rx="1.4" />
+            </svg>
+          </button>
+
+          <button
+            id="time-readout"
+            class="tb-readout"
+            type="button"
+            aria-expanded="false"
+            aria-controls="time-advanced"
+            data-i18n-title="time.expand"
+            title="Time settings"
+          >
+            <span class="tb-clock-line">
+              <span class="tb-live-dot" id="live-dot" aria-hidden="true"></span>
+              <span class="tb-clock" id="clock-display">00:00:00</span>
+              <span class="tb-utc">UTC</span>
+            </span>
+            <span class="tb-speed" id="speed-value">1:1 · Real time</span>
+          </button>
+
+          <button
+            id="time-today"
+            class="tb-now"
+            type="button"
+            data-i18n-title="time.today"
+            title="Back to now"
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <path
+                d="M13 8a5 5 0 1 1-1.5-3.6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
+              <path
+                d="M13 3v2.4h-2.4"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
+
+        
+        <div id="time-advanced" class="time-bar-advanced">
+          <div class="tb-advanced-inner">
+            <div class="tb-speed-control">
+              <input
+                id="speed-range"
+                class="tb-speed-range is-bidirectional"
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value="50"
+                aria-label="Simulation speed"
+                data-i18n-aria="speed.aria"
+              />
+              <div class="tb-speed-ticks" aria-hidden="true">
+                <span>◀ y</span>
+                <span>d</span>
+                <span>1:1</span>
+                <span>d</span>
+                <span>y ▶</span>
+              </div>
+            </div>
+            <div class="tb-datetime">
+              <input
+                type="time"
+                id="time-input"
+                class="tb-input tb-input--time"
+                step="1"
+                data-i18n-title="time.wheelTime"
+                title="Wheel: ±1 h  ·  Click: pick the time"
+              />
+              <span class="tb-datetime-sep" aria-hidden="true">·</span>
+              <input
+                type="date"
+                id="date-input"
+                class="tb-input tb-input--date"
+                data-i18n-title="time.wheelDate"
+                title="Wheel: ±1 day  ·  Click: pick the date"
+              />
+              
+              <span
+                id="historic-date"
+                class="tb-historic"
+                role="group"
+                aria-label="Date in the Julian calendar"
+                data-i18n-aria="time.historicGroup"
+                hidden
+              >
+                <input
+                  type="number"
+                  id="hist-day"
+                  class="tb-input tb-input--hist tb-input--hist-day"
+                  min="1"
+                  max="31"
+                  aria-label="Day"
+                  data-i18n-aria="time.histDay"
+                />
+                <select
+                  id="hist-month"
+                  class="tb-input tb-input--hist"
+                  aria-label="Month"
+                  data-i18n-aria="time.histMonth"
+                ></select>
+                <input
+                  type="number"
+                  id="hist-year"
+                  class="tb-input tb-input--hist tb-input--hist-year"
+                  min="1"
+                  aria-label="Year"
+                  data-i18n-aria="time.histYear"
+                />
+                <select
+                  id="hist-era"
+                  class="tb-input tb-input--hist"
+                  aria-label="Era"
+                  data-i18n-aria="time.histEra"
+                >
+                  <option value="ad">AD</option>
+                  <option value="bc">BC</option>
+                </select>
+                <span class="tb-calendar" data-i18n="time.julianCalendar"
+                  >Julian calendar</span
+                >
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      
+      <div class="dock-actions dock-actions--end">
+        <button
+          id="fullscreen-btn"
+          class="tool tool--dock"
+          type="button"
+          title="Fullscreen"
+          aria-label="Fullscreen"
+          data-i18n-title="fullscreen.title"
+          data-i18n-aria="fullscreen.title"
+        >
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+            <path
+              d="M2 5.5V2.5h3M14 5.5V2.5h-3M2 10.5v3h3M14 10.5v3h-3"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    
+
+    
+    <aside
+      id="body-palette"
+      class="surface surface--palette"
+      role="dialog"
+      aria-label="Search and select a body"
+      data-i18n-aria="nav.paletteAria"
+      hidden
+    >
+      <div class="palette-search">
+        <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+          <circle
+            cx="7"
+            cy="7"
+            r="4.4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+          />
+          <path
+            d="M10.4 10.4L14 14"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.4"
+            stroke-linecap="round"
+          />
+        </svg>
+        <input
+          id="palette-input"
+          class="palette-input"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          data-i18n-placeholder="nav.searchPlaceholder"
+          placeholder="Search a body…"
+          aria-label="Search a body"
+          data-i18n-aria="nav.search"
+          role="combobox"
+          aria-expanded="false"
+          aria-autocomplete="list"
+          aria-controls="palette-results"
+        />
+      </div>
+      
+      <div
+          id="palette-results"
+          class="palette-results"
+          role="listbox"
+          aria-label="Search results"
+          data-i18n-aria="a11y.paletteResults"
+        ></div>
+    </aside>
+
+    
+    <aside
+      id="body-info"
+      class="surface surface--info"
+      role="dialog"
+      aria-labelledby="bi-name"
+      hidden
+    >
+      <header class="bi-header">
+        <span class="bi-dot" aria-hidden="true"></span>
+        <div class="bi-heading">
+          <h2 class="bi-name" id="bi-name"></h2>
+          <p class="bi-subtitle"></p>
+          <span
+            class="bi-fictional-badge"
+            data-i18n="bi.fictional"
+            data-i18n-title="bi.fictional.hint"
+            hidden
+            >Illustrative surface</span
+          >
+        </div>
+        <button
+          class="bi-close surface-close"
+          type="button"
+          aria-label="Close"
+          data-i18n-aria="surface.close"
+        >
+          <svg viewBox="0 0 14 14" width="13" height="13" aria-hidden="true">
+            <path
+              d="M3.5 3.5l7 7M10.5 3.5l-7 7"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+      </header>
+      <div class="bi-body">
+        
+        <div class="bi-live" hidden>
+          <span class="bi-live-label" data-i18n="bi.live.label"
+            >Distance from you</span
+          >
+          <span class="bi-live-dist"></span>
+          <span class="bi-live-lt"></span>
+        </div>
+        <dl class="bi-stats"></dl>
+        
+        <div class="bi-position" hidden>
+          <span class="bi-position-label" data-i18n="bi.position.label"
+            >Position at this date</span
+          >
+          <span class="bi-position-source"></span>
+          <span class="bi-position-error"></span>
+          <span class="bi-position-offset" hidden></span>
+        </div>
+        
+        <div class="bi-discovery" hidden>
+          <span class="bi-discovery-label" data-i18n="bi.discovery.label"
+            >Discovery</span
+          >
+          <ul class="bi-discovery-claims"></ul>
+          <p class="bi-discovery-standing" hidden></p>
+          <p class="bi-discovery-refuted" hidden></p>
+          <p class="bi-discovery-moons" hidden></p>
+          <p class="bi-discovery-next" hidden></p>
+          <p class="bi-discovery-note" hidden></p>
+          <p class="bi-discovery-names" hidden></p>
+          <p class="bi-discovery-lettered" hidden></p>
+          <p class="bi-discovery-names-next" hidden></p>
+          <p class="bi-discovery-names-note" hidden></p>
+        </div>
+        
+        <details class="bi-missions" hidden>
+          <summary>
+            <span data-i18n="bi.missions.label">Missions</span>
+            <span class="bi-missions-count"></span>
+          </summary>
+          <ul></ul>
+          <p class="bi-missions-note"></p>
+        </details>
+        
+        <details class="bi-instruments" hidden>
+          <summary>
+            <span data-i18n="bi.instruments.label">Instruments</span>
+            <span class="bi-instruments-count"></span>
+          </summary>
+          <div class="bi-instruments-body"></div>
+          <p class="bi-instruments-note"></p>
+        </details>
+        
+        <details class="bi-places" hidden>
+          <summary>
+            <span data-i18n="bi.places.label">Observed formations</span>
+            <span class="bi-places-count"></span>
+          </summary>
+          <p class="bi-places-intro"></p>
+          <form class="bi-places-form" role="search">
+            <input
+              class="bi-places-input"
+              type="search"
+              list="bi-places-names"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <datalist id="bi-places-names" class="bi-places-names"></datalist>
+          </form>
+          <div class="bi-places-result"></div>
+          <p class="bi-places-note"></p>
+        </details>
+        
+        <details class="bi-sources" hidden>
+          <summary data-i18n="bi.sources">Sources</summary>
+          <ol></ol>
+        </details>
+        <p class="bi-desc"></p>
+        
+        <p class="bi-credit" hidden></p>
+        <a class="bi-more" target="_blank" rel="noopener noreferrer" hidden></a>
+      </div>
+    </aside>
+
+    
+    <aside
+      id="orbit-options"
+      class="surface surface--settings"
+      role="dialog"
+      aria-label="Display settings"
+      data-i18n-aria="settings.trigger.aria"
+      hidden
+    >
+      <header class="surface-header">
+        <h3 class="surface-title" data-i18n="settings.title">Display settings</h3>
+        <button
+          class="surface-close"
+          type="button"
+          aria-label="Close"
+          data-i18n-aria="surface.close"
+        >
+          <svg viewBox="0 0 14 14" width="13" height="13" aria-hidden="true">
+            <path
+              d="M3.5 3.5l7 7M10.5 3.5l-7 7"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+      </header>
+      <div class="surface-body">
+        
+        <section
+          class="settings-section"
+          aria-labelledby="settings-section-scene-title"
+        >
+          <h4
+            id="settings-section-scene-title"
+            class="settings-section-title"
+            data-i18n="settings.section.scene"
+          >
+            In the scene
+          </h4>
+          
+          <p class="oo-table-hint" data-i18n="settings.tableHint">
+            A column header sets the whole column, a group row its group, a
+            row one object. Spacecraft and interstellar objects start hidden.
+          </p>
+          <table class="oo-table" id="settings-table">
+            <caption class="sr-only" data-i18n="settings.tableCaption">
+              What the scene shows, object by object
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col" class="oo-th oo-th-name">
+                  <span class="sr-only" data-i18n="settings.col.bodyName"
+                    >Object</span
+                  >
+                </th>
+                <th scope="col" class="oo-th oo-th-toggle">
+                  <label>
+                    <input
+                      id="labels-visible"
+                      class="oo-checkbox"
+                      type="checkbox"
+                      checked
+                      aria-label="Show every label"
+                      data-i18n-aria="settings.labelsToggle"
+                    />
+                    <span data-i18n="settings.col.names">Label</span>
+                  </label>
+                </th>
+                <th scope="col" class="oo-th oo-th-toggle">
+                  <label>
+                    <input
+                      id="bodies-visible"
+                      class="oo-checkbox"
+                      type="checkbox"
+                      checked
+                      aria-label="Show every object"
+                      data-i18n-aria="settings.bodiesToggle"
+                    />
+                    <span data-i18n="settings.col.bodies">Object</span>
+                  </label>
+                </th>
+                <th scope="col" class="oo-th oo-th-toggle">
+                  <label>
+                    <input
+                      id="orbits-visible"
+                      class="oo-checkbox"
+                      type="checkbox"
+                      checked
+                      aria-label="Show every orbit and trajectory"
+                      data-i18n-aria="settings.orbitsToggle"
+                    />
+                    <span data-i18n="settings.col.orbits">Orbit</span>
+                  </label>
+                </th>
+              </tr>
+            </thead>
+            
+          </table>
+        </section>
+        <section
+          id="smallbody-filters"
+          class="settings-section"
+          aria-labelledby="settings-section-field-title"
+        >
+          <h4
+            id="settings-section-field-title"
+            class="settings-section-title"
+            data-i18n="smallBodies.title"
+          >
+            Asteroid and comet field
+          </h4>
+          <p class="oo-table-hint" data-i18n="smallBodies.exploOnly">
+            Drawn in Exploration mode, one dot per known orbit.
+          </p>
+          <div class="oo-body">
+            
+          </div>
+          
+          <p class="sb-source" hidden></p>
+        </section>
+        <section
+          id="settings-section-rendering"
+          class="settings-section"
+          aria-labelledby="settings-section-rendering-title"
+        >
+          <h4
+            id="settings-section-rendering-title"
+            class="settings-section-title"
+            data-i18n="settings.section.rendering"
+          >
+            Rendering
+          </h4>
+        </section>
+        <section
+          id="settings-section-reading"
+          class="settings-section"
+          aria-labelledby="settings-section-reading-title"
+        >
+          <h4
+            id="settings-section-reading-title"
+            class="settings-section-title"
+            data-i18n="settings.section.reading"
+          >
+            Accessibility and units
+          </h4>
+        </section>
+        <section
+          id="settings-section-view"
+          class="settings-section"
+          aria-labelledby="settings-section-view-title"
+          hidden
+        >
+          <h4
+            id="settings-section-view-title"
+            class="settings-section-title"
+            data-i18n="settings.section.view"
+          >
+            View
+          </h4>
+        </section>
+        
+        <section
+          id="settings-section-offline"
+          class="settings-section"
+          aria-labelledby="settings-section-offline-title"
+        >
+          <h4
+            id="settings-section-offline-title"
+            class="settings-section-title"
+            data-i18n="settings.section.offline"
+          >
+            Offline use
+          </h4>
+          <p class="oo-table-hint" data-i18n="offline.hint">
+            Download every ephemeris file so the app can place the bodies at
+            any date without a network. Nothing is downloaded until you ask.
+          </p>
+        </section>
+      </div>
+    </aside>
+
+    
+    <aside
+      id="weather-layers"
+      class="surface surface--settings"
+      role="dialog"
+      aria-label="Weather layers"
+      data-i18n-aria="weather.dialog.aria"
+      hidden
+    >
+      <header class="surface-header">
+        <h3 class="surface-title" data-i18n="weather.title">Weather layers</h3>
+        <button
+          class="surface-close"
+          type="button"
+          aria-label="Close"
+          data-i18n-aria="surface.close"
+        >
+          <svg viewBox="0 0 14 14" width="13" height="13" aria-hidden="true">
+            <path
+              d="M3.5 3.5l7 7M10.5 3.5l-7 7"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+      </header>
+      <div class="surface-body">
+        <div class="wl-body">
+          
+        </div>
+        
+        <p class="wl-note wl-attribution">
+          <span data-i18n="weather.attribution.prefix">Weather data:</span>
+          NASA GIBS (EOSDIS) ·
+          <a
+            href="https://open-meteo.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Open-Meteo.com</a
+          >
+          (<a
+            href="https://creativecommons.org/licenses/by/4.0/"
+            target="_blank"
+            rel="noopener noreferrer"
+            >CC BY 4.0</a
+          >,
+          <span data-i18n="weather.attribution.modified"
+            >resampled into map textures</span
+          >) · ERA5, Copernicus Climate Change Service (ECMWF).
+        </p>
+      </div>
+    </aside>
+
+    
+    <aside
+      id="earth-events"
+      class="surface surface--settings"
+      role="dialog"
+      aria-label="Earth events"
+      data-i18n-aria="earthEvents.dialog.aria"
+      hidden
+    >
+      <header class="surface-header">
+        <h3 class="surface-title" data-i18n="earthEvents.title">
+          Earth events
+        </h3>
+        <button
+          class="surface-close"
+          type="button"
+          aria-label="Close"
+          data-i18n-aria="surface.close"
+        >
+          <svg viewBox="0 0 14 14" width="13" height="13" aria-hidden="true">
+            <path
+              d="M3.5 3.5l7 7M10.5 3.5l-7 7"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+      </header>
+      <div class="surface-body">
+        <div class="ee-body">
+          
+        </div>
+        
+        <p class="ee-note ee-attribution">
+          <span data-i18n="earthEvents.attribution.prefix">Event data:</span>
+          <a
+            href="https://earthquake.usgs.gov/fdsnws/event/1/"
+            target="_blank"
+            rel="noopener noreferrer"
+            >U.S. Geological Survey</a
+          >
+          ·
+          <a
+            href="https://eonet.gsfc.nasa.gov/"
+            target="_blank"
+            rel="noopener noreferrer"
+            >NASA Earth Observatory (EONET)</a
+          >
+        </p>
+      </div>
+    </aside>
+
+    
+    <aside
+      id="help-popover"
+      class="surface surface--help"
+      role="dialog"
+      aria-label="Help and credits"
+      data-i18n-aria="help.dialog.aria"
+      hidden
+    >
+      <header class="surface-header">
+        <h3 class="surface-title" data-i18n="help.title">Navigation</h3>
+        <button
+          class="surface-close"
+          type="button"
+          aria-label="Close"
+          data-i18n-aria="surface.close"
+        >
+          <svg viewBox="0 0 14 14" width="13" height="13" aria-hidden="true">
+            <path
+              d="M3.5 3.5l7 7M10.5 3.5l-7 7"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+            />
+          </svg>
+        </button>
+      </header>
+      <div class="surface-body">
+        <ul class="help-tips">
+          <li>
+            <span class="help-key" data-i18n="help.tip.drag.key">Drag</span>
+            <span data-i18n="help.tip.drag.text">orbit the view</span>
+          </li>
+          <li>
+            <span class="help-key" data-i18n="help.tip.zoom.key"
+              >Scroll · pinch</span
+            >
+            <span data-i18n="help.tip.zoom.text">zoom in / out</span>
+          </li>
+          <li>
+            <span class="help-key" data-i18n="help.tip.click.key"
+              >Click a body</span
+            >
+            <span data-i18n="help.tip.click.text"
+              >or its label to travel to it</span
+            >
+          </li>
+          <li>
+            <span class="help-key" data-i18n="help.tip.mode.key"
+              >Educ · Explo</span
+            >
+            <span data-i18n="help.tip.mode.text"
+              >compressed overview vs true-scale voyage</span
+            >
+          </li>
+          <li>
+            <span class="help-key" data-i18n="help.tip.time.key"
+              >Clock · date</span
+            >
+            <span data-i18n="help.tip.time.text"
+              >scroll to time-travel, tap to pick</span
+            >
+          </li>
+        </ul>
+        <div class="help-credits">
+          <div
+            id="lang-switch"
+            role="group"
+            aria-label="Language"
+            data-i18n-aria="lang.label"
+          >
+            
+            <button
+              class="lang-btn"
+              type="button"
+              data-locale="en"
+              lang="en"
+              aria-pressed="false"
+            >
+              EN
+            </button>
+            <button
+              class="lang-btn"
+              type="button"
+              data-locale="fr"
+              lang="fr"
+              aria-pressed="false"
+            >
+              FR
+            </button>
+            <button
+              class="lang-btn"
+              type="button"
+              data-locale="es"
+              lang="es"
+              aria-pressed="false"
+            >
+              ES
+            </button>
+            <button
+              class="lang-btn"
+              type="button"
+              data-locale="pt-BR"
+              lang="pt-BR"
+              aria-pressed="false"
+            >
+              PT
+            </button>
+          </div>
+          <p class="credits-copy">
+            © 2026 Adrian34 ·
+            <a
+              href="https://polyformproject.org/licenses/noncommercial/1.0.0"
+              target="_blank"
+              rel="noopener noreferrer"
+              >PolyForm NC 1.0.0</a
+            >
+            ·
+            <a href="/privacy.html" data-i18n="credits.privacy">Privacy</a>
+            ·
+            <a
+              href="/methodology/"
+              data-i18n="credits.methodology"
+              data-i18n-href="credits.methodology.href"
+              >Methodology</a
+            >
+            ·
+            <a
+              href="/sources/"
+              data-i18n="credits.sources"
+              data-i18n-href="credits.sources.href"
+              >Sources</a
+            >
+          </p>
+          <dl class="credits-list">
+            <dt data-i18n="credits.textures">Textures</dt>
+            <dd>
+              USGS Astrogeology / NASA-JPL (public domain) · Solar System Scope
+              (CC BY 4.0) · NOAA ETOPO 2022 · Halley, Itokawa, Gaspra, Ida: Philip
+              Stooke / NASA PDS.
+            </dd>
+            <dt data-i18n="credits.fictional">Illustrative surfaces</dt>
+            <dd data-i18n="credits.fictional.list">
+              Bodies never mapped globally have an illustrative texture, not a
+              scientific map; the body card says so, and Sources lists them.
+            </dd>
+            <dt data-i18n="credits.models">3D shape models</dt>
+            <dd>
+              NASA PDS: NEAR (Eros), Hayabusa (Itokawa), Galileo (Ida, Gaspra) ·
+              ISAS/JAXA: Hayabusa2 (Ryugu) · NASA/Goddard SVS: OSIRIS-REx
+              (Bennu)
+            </dd>
+            <dt data-i18n="credits.data">Data</dt>
+            <dd>
+              Astronomy Engine · NASA/JPL Horizons · JPL SBDB · NASA GIBS ·
+              <a
+                href="https://pds.nasa.gov/"
+                target="_blank"
+                rel="noopener noreferrer"
+                >NASA Planetary Data System</a
+              >
+              (mission context products) ·
+              <a
+                href="https://planetarynames.wr.usgs.gov/"
+                target="_blank"
+                rel="noopener noreferrer"
+                >IAU Gazetteer of Planetary Nomenclature</a
+              >
+              ·
+              <a
+                href="https://open-meteo.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                >Open-Meteo.com</a
+              >
+              (<a
+                href="https://creativecommons.org/licenses/by/4.0/"
+                target="_blank"
+                rel="noopener noreferrer"
+                >CC BY 4.0</a
+              >) · ERA5, Copernicus Climate Change Service (ECMWF)
+            </dd>
+          </dl>
+        </div>
+      </div>
+    </aside>
+
+    
+    <div id="surface-scrim" hidden></div>
+
+  </body>
+</html>
